@@ -679,23 +679,19 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
     /**
      * Gets the cache entry for a node.
      */
-    public LayoutOutput getCacheEntry(NodeId node, FloatSize knownDimensions,
-                                      TaffySize<AvailableSpace> availableSpace, RunMode runMode, RequestedAxis axis,
-                                      TaffySize<Boolean> knownDimensionsAreDefinite) {
+    public LayoutOutput getCacheEntry(NodeId node, LayoutInput input) {
         NodeData data = nodes.get(node.getId());
         if (data == null) return null;
-        return data.getCache().get(knownDimensions, availableSpace, runMode, axis, knownDimensionsAreDefinite);
+        return data.getCache().get(input);
     }
 
     /**
      * Stores a cache entry for a node.
      */
-    public void storeCacheEntry(NodeId node, FloatSize knownDimensions,
-                                TaffySize<AvailableSpace> availableSpace, RunMode runMode,
-                                RequestedAxis axis, TaffySize<Boolean> knownDimensionsAreDefinite, LayoutOutput output) {
+    public void storeCacheEntry(NodeId node, LayoutInput input, LayoutOutput output) {
         NodeData data = nodes.get(node.getId());
         if (data != null) {
-            data.getCache().store(knownDimensions, availableSpace, runMode, axis, knownDimensionsAreDefinite, output);
+            data.getCache().store(input, output);
         }
     }
 

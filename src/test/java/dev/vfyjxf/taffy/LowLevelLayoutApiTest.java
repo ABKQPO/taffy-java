@@ -143,25 +143,12 @@ public class LowLevelLayoutApiTest {
         }
 
         @Override
-        public LayoutOutput getCacheEntry(
-            NodeId node,
-            FloatSize knownDimensions,
-            TaffySize<AvailableSpace> availableSpace,
-            RunMode runMode,
-            RequestedAxis axis,
-            TaffySize<Boolean> knownDimensionsAreDefinite) {
+        public LayoutOutput getCacheEntry(NodeId node, LayoutInput input) {
             return null;
         }
 
         @Override
-        public void storeCacheEntry(
-            NodeId node,
-            FloatSize knownDimensions,
-            TaffySize<AvailableSpace> availableSpace,
-            RunMode runMode,
-            RequestedAxis axis,
-            TaffySize<Boolean> knownDimensionsAreDefinite,
-            LayoutOutput output) {
+        public void storeCacheEntry(NodeId node, LayoutInput input, LayoutOutput output) {
         }
 
         @Override

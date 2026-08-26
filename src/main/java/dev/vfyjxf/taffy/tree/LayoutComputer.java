@@ -196,14 +196,7 @@ public class LayoutComputer {
         }
 
         // Try cache first
-        LayoutOutput cached = tree.getCacheEntry(
-            node,
-            inputs.knownDimensions(),
-            inputs.availableSpace(),
-            inputs.runMode(),
-            inputs.axis(),
-            inputs.knownDimensionsAreDefinite()
-        );
+        LayoutOutput cached = tree.getCacheEntry(node, inputs);
         if (cached != null) {
             return cached;
         }
@@ -212,15 +205,7 @@ public class LayoutComputer {
         LayoutOutput output = computeLayoutUncached(node, inputs);
 
         // Store in cache
-        tree.storeCacheEntry(
-            node,
-            inputs.knownDimensions(),
-            inputs.availableSpace(),
-            inputs.runMode(),
-            inputs.axis(),
-            inputs.knownDimensionsAreDefinite(),
-            output
-        );
+        tree.storeCacheEntry(node, inputs, output);
 
         return output;
     }

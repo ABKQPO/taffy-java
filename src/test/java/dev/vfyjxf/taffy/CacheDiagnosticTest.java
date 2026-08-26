@@ -1,14 +1,17 @@
 package dev.vfyjxf.taffy;
 
 import dev.vfyjxf.taffy.geometry.FloatSize;
+import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.LayoutCache;
+import dev.vfyjxf.taffy.tree.LayoutInput;
 import dev.vfyjxf.taffy.tree.LayoutOutput;
 import dev.vfyjxf.taffy.tree.RequestedAxis;
 import dev.vfyjxf.taffy.tree.RunMode;
+import dev.vfyjxf.taffy.tree.SizingMode;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.Test;
@@ -33,38 +36,40 @@ public class CacheDiagnosticTest {
         LayoutOutput horizontalOutput = LayoutOutput.fromOuterSize(new FloatSize(100.0f, 0.0f));
 
         cache.store(
-            knownDimensions,
-            availableSpace,
-            RunMode.COMPUTE_SIZE,
-            RequestedAxis.HORIZONTAL,
-            knownDimensionsAreDefinite,
+            cacheInput(knownDimensions, availableSpace, RequestedAxis.HORIZONTAL, knownDimensionsAreDefinite),
             horizontalOutput
         );
 
-        assertNull(cache.get(
-            knownDimensions,
-            availableSpace,
-            RunMode.COMPUTE_SIZE,
-            RequestedAxis.VERTICAL,
-            knownDimensionsAreDefinite
-        ));
+        assertNull(cache.get(cacheInput(
+            knownDimensions, availableSpace, RequestedAxis.VERTICAL, knownDimensionsAreDefinite
+        )));
 
         cache.store(
-            knownDimensions,
-            availableSpace,
-            RunMode.COMPUTE_SIZE,
-            RequestedAxis.BOTH,
-            knownDimensionsAreDefinite,
+            cacheInput(knownDimensions, availableSpace, RequestedAxis.BOTH, knownDimensionsAreDefinite),
             LayoutOutput.fromOuterSize(new FloatSize(100.0f, 50.0f))
         );
 
-        assertNotNull(cache.get(
-            knownDimensions,
-            availableSpace,
+        assertNotNull(cache.get(cacheInput(
+            knownDimensions, availableSpace, RequestedAxis.VERTICAL, knownDimensionsAreDefinite
+        )));
+    }
+
+    private LayoutInput cacheInput(
+        FloatSize knownDimensions,
+        TaffySize<AvailableSpace> availableSpace,
+        RequestedAxis axis,
+        TaffySize<Boolean> knownDimensionsAreDefinite
+    ) {
+        return new LayoutInput(
             RunMode.COMPUTE_SIZE,
-            RequestedAxis.VERTICAL,
-            knownDimensionsAreDefinite
-        ));
+            SizingMode.INHERENT_SIZE,
+            axis,
+            knownDimensions,
+            knownDimensionsAreDefinite,
+            FloatSize.none(),
+            availableSpace,
+            TaffyLine.FALSE
+        );
     }
 
     @Test

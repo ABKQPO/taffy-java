@@ -1,8 +1,5 @@
 package dev.vfyjxf.taffy.tree;
 
-import dev.vfyjxf.taffy.geometry.FloatSize;
-import dev.vfyjxf.taffy.geometry.TaffySize;
-import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 
@@ -19,22 +16,9 @@ public interface LayoutPartialTree extends TraversePartialTree {
 
     MeasureFunc getMeasureFunc(NodeId node);
 
-    LayoutOutput getCacheEntry(
-        NodeId node,
-        FloatSize knownDimensions,
-        TaffySize<AvailableSpace> availableSpace,
-        RunMode runMode,
-        RequestedAxis axis,
-        TaffySize<Boolean> knownDimensionsAreDefinite);
+    LayoutOutput getCacheEntry(NodeId node, LayoutInput input);
 
-    void storeCacheEntry(
-        NodeId node,
-        FloatSize knownDimensions,
-        TaffySize<AvailableSpace> availableSpace,
-        RunMode runMode,
-        RequestedAxis axis,
-        TaffySize<Boolean> knownDimensionsAreDefinite,
-        LayoutOutput output);
+    void storeCacheEntry(NodeId node, LayoutInput input, LayoutOutput output);
 
     void clearCache(NodeId node);
 

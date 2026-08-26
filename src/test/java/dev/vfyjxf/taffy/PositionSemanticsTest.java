@@ -6,6 +6,7 @@ import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxSizing;
+import dev.vfyjxf.taffy.style.CalcExpression;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
@@ -318,6 +319,25 @@ public class PositionSemanticsTest {
 
         assertEquals(60f, tree.getLayout(absolute).size().width, 0.01f);
         assertEquals(60f, tree.getLayout(absolute).size().height, 0.01f);
+    }
+
+    @Test
+    void absoluteDescendantResolvesCalcSizeAgainstItsPositionedAncestor() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.size = new TaffySize<>(
+            TaffyDimension.calc(CalcExpression.percentPlusLength(0.5f, 10f)),
+            TaffyDimension.length(10f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(60f, tree.getLayout(absolute).size().width, 0.01f);
     }
 
     @Test

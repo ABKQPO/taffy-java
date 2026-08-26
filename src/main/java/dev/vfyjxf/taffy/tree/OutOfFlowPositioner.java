@@ -5,6 +5,7 @@ import dev.vfyjxf.taffy.geometry.FloatRect;
 import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDirection;
+import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.util.Resolve;
@@ -70,7 +71,8 @@ public class OutOfFlowPositioner {
             float paddingBorderHeight = padding.top + padding.bottom + border.top + border.bottom;
             boolean contentBox = style.getBoxSizing() == BoxSizing.CONTENT_BOX;
             if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)
-                && !style.getSize().width.isPercent() && !style.getSize().height.isPercent()) {
+                && !isContainingBlockResolvable(style.getSize().width)
+                && !isContainingBlockResolvable(style.getSize().height)) {
                 return;
             }
 
@@ -82,13 +84,13 @@ public class OutOfFlowPositioner {
             if (!Float.isNaN(left) && !Float.isNaN(right) && style.getSize().width.isAuto()) {
                 layout.size().width = Math.max(0f, width - left - right - marginLeft - marginRight);
                 widthDerivedFromInsets = true;
-            } else if (style.getSize().width.isPercent()) {
+            } else if (isContainingBlockResolvable(style.getSize().width)) {
                 layout.size().width = style.getSize().width.maybeResolve(width) + (contentBox ? paddingBorderWidth : 0f);
             }
             if (!Float.isNaN(top) && !Float.isNaN(bottom) && style.getSize().height.isAuto()) {
                 layout.size().height = Math.max(0f, height - top - bottom - marginTop - marginBottom);
                 heightDerivedFromInsets = true;
-            } else if (style.getSize().height.isPercent()) {
+            } else if (isContainingBlockResolvable(style.getSize().height)) {
                 layout.size().height = style.getSize().height.maybeResolve(height) + (contentBox ? paddingBorderHeight : 0f);
             }
             Float aspectRatio = style.getAspectRatio();
@@ -199,6 +201,10 @@ public class OutOfFlowPositioner {
 
     private float addBoxSizingAdjustment(float value, boolean contentBox, float paddingBorderSize) {
         return !Float.isNaN(value) && contentBox ? value + paddingBorderSize : value;
+    }
+
+    private boolean isContainingBlockResolvable(TaffyDimension dimension) {
+        return dimension.isPercent() || dimension.isCalc();
     }
 
     private float resolvedMargin(LengthPercentageAuto value, float context) {

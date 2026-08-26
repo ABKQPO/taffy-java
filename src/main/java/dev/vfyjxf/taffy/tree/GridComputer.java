@@ -2444,18 +2444,19 @@ public class GridComputer {
                     if (!Float.isNaN(maybeSize)) {
                         // Check if min is intrinsic (auto, min-content, max-content)
                         // For intrinsic min, we need to calculate the contribution first
-                        if (minF != null && (minF.isMinContent() || minF.isMaxContent())) {
-                            // Need to calculate content-based size later
-                            // For now, treat as auto and calculate content contribution
+                        if (minF == null || minF.isAuto() || minF.isMinContent() || minF.isMaxContent()) {
+                            // The intrinsic minimum determines the base size during content resolution.
                             sizes.add(NaN);
-                            // Set growth limit to max value to cap growth
                             growthLimits.set(i, maybeSize);
                         } else {
-                            // minF is auto or null - use max as base size
-                            sizes.add(maybeSize);
-                            usedSpace += maybeSize;
-                            // Set growth limit to same as base to prevent further growth
-                            growthLimits.set(i, maybeSize);
+                            float minSize = minF.getFixedValue().maybeResolve(nodeInnerSize.width);
+                            if (Float.isNaN(minSize)) {
+                                sizes.add(NaN);
+                            } else {
+                                sizes.add(minSize);
+                                usedSpace += minSize;
+                                growthLimits.set(i, Math.max(minSize, maybeSize));
+                            }
                         }
                     } else {
                         // max is not resolvable (e.g., percent with no parent size)
@@ -2864,21 +2865,16 @@ public class GridComputer {
                         maxLimit = maxFunc.getFixedValue().maybeResolve(nodeInnerSize.width);  // Keep as null if unresolvable
                     }
 
-                    // Per CSS Grid spec:
-                    // - If max is resolvable: size = max(minContribution, maxLimit)
-                    // - If max is NOT resolvable (e.g., percent in indefinite container):
-                    //   growth_limit = infinity, so track behaves like auto with no upper limit.
-                    //   Use max-content size for max-content sizing mode.
                     if (!Float.isNaN(maxLimit)) {
-                        size = Math.max(minContribution, maxLimit);
+                        if (minFunc != null && minFunc.isAuto() && maxFunc != null && maxFunc.isFixed()) {
+                            size = Math.min(minContribution, maxLimit);
+                            growthLimits.set(i, maxLimit);
+                        } else {
+                            size = Math.max(minContribution, maxLimit);
+                        }
                     } else {
-                        // Max is not resolvable - growth_limit = infinity
-                        // Per Rust: track behaves as auto with infinite growth limit
-                        // For max-content sizing: use max-content size (maxContentSize)
-                        // For min-content sizing: use min contribution
-                        // Since we're in max-content sizing mode (indefinite container), use max-content
                         size = maxContentSize;
-                        growthLimits.set(i, Float.MAX_VALUE);  // Explicitly set growth limit to infinity
+                        growthLimits.set(i, Float.MAX_VALUE);
                     }
                 } else {
                     // Auto track: base size is min-content
@@ -3740,6 +3736,7 @@ public class GridComputer {
         List<TrackSizingFunction> expandedRows) {
 
         FloatList sizes = new FloatArrayList();
+        FloatList growthLimits = new FloatArrayList();
 
         // Pre-compute item row indices ONCE (optimization)
         int numColumns = columnSizes.size();
@@ -3774,6 +3771,10 @@ public class GridComputer {
         float totalFr = 0f;
         float usedSpace = 0;
         int autoCount = 0;
+
+        for (int i = 0; i < numRows; i++) {
+            growthLimits.add(Float.MAX_VALUE);
+        }
 
         // Get auto rows for implicit tracks
         List<TrackSizingFunction> autoRows = style.getGridAutoRows();
@@ -3821,18 +3822,42 @@ public class GridComputer {
                 autoCount++;
                 sizes.add(NaN);
             } else if (track.isMinmax()) {
-                // For minmax, check if max is flexible
+                TrackSizingFunction minF = track.getMinFunc();
                 TrackSizingFunction maxF = track.getMaxFunc();
                 if (maxF != null && maxF.isFr()) {
                     totalFr += maxF.getFrValue();
                     sizes.add(NaN);
+                } else if (minF != null && minF.isFixed() && maxF != null && maxF.isFixed()) {
+                    float minSize = minF.getFixedValue().resolveOrZero(nodeInnerSize.height);
+                    float maxSize = maxF.getFixedValue().resolveOrZero(nodeInnerSize.height);
+                    sizes.add(minSize);
+                    usedSpace += minSize;
+                    growthLimits.set(i, Math.max(minSize, maxSize));
                 } else if (maxF != null && maxF.isFixed()) {
-                    // Use the max size as the track size for now (simplified)
-                    float size = maxF.getFixedValue().resolveOrZero(nodeInnerSize.height);
-                    sizes.add(size);
-                    usedSpace += size;
+                    float maxSize = maxF.getFixedValue().maybeResolve(nodeInnerSize.height);
+                    if (!Float.isNaN(maxSize)) {
+                        if (minF == null || minF.isAuto() || minF.isMinContent() || minF.isMaxContent()) {
+                            sizes.add(NaN);
+                            autoCount++;
+                            if (minF == null || minF.isAuto()) {
+                                growthLimits.set(i, maxSize);
+                            }
+                        } else {
+                            float minSize = minF.getFixedValue().maybeResolve(nodeInnerSize.height);
+                            if (Float.isNaN(minSize)) {
+                                sizes.add(NaN);
+                                autoCount++;
+                            } else {
+                                sizes.add(minSize);
+                                usedSpace += minSize;
+                                growthLimits.set(i, Math.max(minSize, maxSize));
+                            }
+                        }
+                    } else {
+                        sizes.add(NaN);
+                        autoCount++;
+                    }
                 } else {
-                    // Auto-like minmax - treat as auto
                     autoCount++;
                     sizes.add(NaN);
                 }
@@ -4063,6 +4088,18 @@ public class GridComputer {
                 if (Float.isNaN(sizes.getFloat(i))) {
                     float maxRowHeight = calculateAutoRowHeight(items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
                     sizes.set(i, maxRowHeight);
+                }
+            }
+        }
+
+        for (int i = 0; i < sizes.size(); i++) {
+            float size = sizes.getFloat(i);
+            float growthLimit = growthLimits.getFloat(i);
+            if (!Float.isNaN(size) && growthLimit != Float.MAX_VALUE) {
+                if (gridHeightSpace.isMaxContent()) {
+                    sizes.set(i, growthLimit);
+                } else {
+                    sizes.set(i, Math.min(size, growthLimit));
                 }
             }
         }

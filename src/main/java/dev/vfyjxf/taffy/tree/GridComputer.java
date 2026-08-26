@@ -78,8 +78,8 @@ public class GridComputer {
         FloatSize minSize;
         FloatSize maxSize;
         TaffySize<TaffyDimension> rawSize;      // Original unresolved size (for re-resolving with new grid area)
-        TaffySize<TaffyDimension> rawMinSize;   // Original unresolved min-size
-        TaffySize<TaffyDimension> rawMaxSize;   // Original unresolved max-size
+        TaffySize<LengthPercentageAuto> rawMinSize;   // Original unresolved min-size
+        TaffySize<LengthPercentageAuto> rawMaxSize;   // Original unresolved max-size
         BoxSizing boxSizing;          // Box sizing mode for padding/border adjustment
         TaffyPosition position;
         TaffyRect<LengthPercentageAuto> inset;
@@ -434,10 +434,17 @@ public class GridComputer {
         return capped;
     }
 
-    private static float resolveReplacedCapValueWidth(TaffySize<TaffyDimension> rawSize, BoxSizing boxSizing, float paddingBorderWidth) {
+    private static float resolveReplacedCapValueWidth(TaffySize<?> rawSize, BoxSizing boxSizing, float paddingBorderWidth) {
         if (rawSize == null || rawSize.width == null) return NaN;
         // Resolve against 0 so that indefinite percentages are treated as definite 0 for capping purposes.
-        float v = rawSize.width.maybeResolve(0f);
+        float v;
+        if (rawSize.width instanceof LengthPercentageAuto) {
+            v = ((LengthPercentageAuto) rawSize.width).maybeResolve(0f);
+        } else if (rawSize.width instanceof TaffyDimension) {
+            v = ((TaffyDimension) rawSize.width).maybeResolve(0f);
+        } else {
+            return NaN;
+        }
         if (Float.isNaN(v)) return NaN;
         // If size applies to content-box, convert to border-box by adding padding+border.
         if (boxSizing == BoxSizing.CONTENT_BOX) {

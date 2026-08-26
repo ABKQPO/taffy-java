@@ -85,12 +85,12 @@ public class TaffyStyle {
     /**
      * Controls the minimum size of the item
      */
-    public TaffySize<TaffyDimension> minSize = TaffySize.all(TaffyDimension.AUTO);
+    public TaffySize<?> minSize = TaffySize.all(LengthPercentageAuto.AUTO);
 
     /**
      * Controls the maximum size of the item
      */
-    public TaffySize<TaffyDimension> maxSize = TaffySize.all(TaffyDimension.AUTO);
+    public TaffySize<?> maxSize = TaffySize.all(LengthPercentageAuto.AUTO);
 
     /**
      * Sets the preferred aspect ratio for the item (width / height)
@@ -529,9 +529,27 @@ public class TaffyStyle {
 
     public TaffySize<TaffyDimension> getSize() {return size;}
 
-    public TaffySize<TaffyDimension> getMinSize() {return minSize;}
+    public TaffySize<LengthPercentageAuto> getMinSize() {return toLengthPercentageAuto(minSize);}
 
-    public TaffySize<TaffyDimension> getMaxSize() {return maxSize;}
+    public TaffySize<LengthPercentageAuto> getMaxSize() {return toLengthPercentageAuto(maxSize);}
+
+    /** Set the minimum size using the current CSS sizing value model. */
+    public void setMinSize(TaffySize<LengthPercentageAuto> value) { this.minSize = value; }
+
+    /** Set the maximum size using the current CSS sizing value model. */
+    public void setMaxSize(TaffySize<LengthPercentageAuto> value) { this.maxSize = value; }
+
+    private static TaffySize<LengthPercentageAuto> toLengthPercentageAuto(TaffySize<?> value) {
+        if (value == null) return TaffySize.all(LengthPercentageAuto.AUTO);
+        return new TaffySize<>(toLengthPercentageAuto(value.width), toLengthPercentageAuto(value.height));
+    }
+
+    private static LengthPercentageAuto toLengthPercentageAuto(Object value) {
+        if (value == null) return LengthPercentageAuto.AUTO;
+        if (value instanceof LengthPercentageAuto) return (LengthPercentageAuto) value;
+        if (value instanceof TaffyDimension) return LengthPercentageAuto.from((TaffyDimension) value);
+        throw new IllegalArgumentException("Unsupported size value: " + value.getClass().getName());
+    }
 
     public float getAspectRatio() {return aspectRatio;}
 

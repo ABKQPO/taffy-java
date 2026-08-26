@@ -176,6 +176,28 @@ public class LengthPercentageAuto {
     }
 
     /**
+     * Convert a legacy dimension value into the current length-percentage-auto model.
+     * The content keyword is only valid for flex-basis, so it maps to auto when used
+     * in a min/max constraint.
+     */
+    public static LengthPercentageAuto from(TaffyDimension dimension) {
+        switch (dimension.getType()) {
+            case LENGTH: return length(dimension.getValue());
+            case PERCENT: return percent(dimension.getValue());
+            case AUTO: return AUTO;
+            case CALC: return calc(dimension.getCalcExpression());
+            case MIN_CONTENT: return MIN_CONTENT;
+            case MAX_CONTENT: return MAX_CONTENT;
+            case FIT_CONTENT:
+                return dimension.getFitContentLimit() == null
+                    ? FIT_CONTENT : fitContent(dimension.getFitContentLimit());
+            case STRETCH: return STRETCH;
+            case CONTENT: return AUTO;
+            default: throw new IllegalStateException("Unexpected: " + dimension.getType());
+        }
+    }
+
+    /**
      * Returns the type of this length
      */
     public Type getType() {

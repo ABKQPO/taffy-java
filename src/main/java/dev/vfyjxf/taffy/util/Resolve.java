@@ -76,11 +76,21 @@ public class Resolve {
     /**
      * Maybe resolve a Size of Dimensions with null for unresolvable values.
      */
-    public static FloatSize maybeResolveSize(TaffySize<TaffyDimension> size, FloatSize parentSize) {
+    public static FloatSize maybeResolveSize(TaffySize<?> size, FloatSize parentSize) {
         return new FloatSize(
-            size.width.maybeResolve(parentSize.width),
-            size.height.maybeResolve(parentSize.height)
+            maybeResolve(size.width, parentSize.width),
+            maybeResolve(size.height, parentSize.height)
         );
+    }
+
+    private static float maybeResolve(Object value, float context) {
+        if (value instanceof LengthPercentageAuto) {
+            return ((LengthPercentageAuto) value).maybeResolve(context);
+        }
+        if (value instanceof TaffyDimension) {
+            return ((TaffyDimension) value).maybeResolve(context);
+        }
+        return Float.NaN;
     }
 
     /**

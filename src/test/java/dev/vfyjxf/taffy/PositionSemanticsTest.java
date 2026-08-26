@@ -232,6 +232,33 @@ public class PositionSemanticsTest {
     }
 
     @Test
+    void absoluteDescendantDistributesAutoMarginsInItsPositionedAncestor() {
+        TaffyStyle absoluteStyle = sizedStyle(20f, 20f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(10f),
+            LengthPercentageAuto.length(10f),
+            LengthPercentageAuto.length(10f),
+            LengthPercentageAuto.length(10f));
+        absoluteStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO);
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(40f, accumulatedX(tree, absolute), 0.01f);
+        assertEquals(40f, accumulatedY(tree, absolute), 0.01f);
+    }
+
+    @Test
     void staticAncestorsBubbleOutOfFlowCandidatesToTheirContainingBlock() {
         TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
         absoluteStyle.position = TaffyPosition.ABSOLUTE;

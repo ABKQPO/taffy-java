@@ -856,6 +856,28 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             float maxHeight = style.getMaxSize().height.maybeResolve(height);
             layout.size().width = clamp(layout.size().width, minWidth, maxWidth);
             layout.size().height = clamp(layout.size().height, minHeight, maxHeight);
+            if (!Float.isNaN(left) && !Float.isNaN(right)) {
+                float freeSpace = Math.max(0f, width - left - right - layout.size().width - marginLeft - marginRight);
+                if (style.getMargin().left.isAuto() && style.getMargin().right.isAuto()) {
+                    marginLeft = freeSpace / 2f;
+                    marginRight = freeSpace / 2f;
+                } else if (style.getMargin().left.isAuto()) {
+                    marginLeft = freeSpace;
+                } else if (style.getMargin().right.isAuto()) {
+                    marginRight = freeSpace;
+                }
+            }
+            if (!Float.isNaN(top) && !Float.isNaN(bottom)) {
+                float freeSpace = Math.max(0f, height - top - bottom - layout.size().height - marginTop - marginBottom);
+                if (style.getMargin().top.isAuto() && style.getMargin().bottom.isAuto()) {
+                    marginTop = freeSpace / 2f;
+                    marginBottom = freeSpace / 2f;
+                } else if (style.getMargin().top.isAuto()) {
+                    marginTop = freeSpace;
+                } else if (style.getMargin().bottom.isAuto()) {
+                    marginBottom = freeSpace;
+                }
+            }
             if (!Float.isNaN(left)) {
                 layout.location().x = containingOrigin.x + containingLayout.border().left + left + marginLeft - parentOrigin.x;
             } else if (!Float.isNaN(right)) {

@@ -4,6 +4,8 @@ import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.geometry.FloatRect;
 import dev.vfyjxf.taffy.geometry.FloatSize;
 
+import java.util.List;
+
 /**
  * A struct containing the result of laying out a single node.
  *
@@ -24,7 +26,9 @@ public record LayoutOutput(
     CollapsibleMarginSet bottomMargin,
     boolean marginsCanCollapseThrough,
     FloatRect scrollableOverflowRect,
-    Baselines baselines
+    Baselines baselines,
+    List<OofCandidate> oofCandidates,
+    OofPositioningArea oofPositioningArea
 ) {
 
     public LayoutOutput {
@@ -34,6 +38,14 @@ public record LayoutOutput(
         if (baselines == null) {
             baselines = Baselines.NONE;
         }
+        oofCandidates = oofCandidates == null ? List.of() : List.copyOf(oofCandidates);
+    }
+
+    public LayoutOutput(FloatSize size, FloatSize contentSize, FloatPoint firstBaselines,
+                        CollapsibleMarginSet topMargin, CollapsibleMarginSet bottomMargin,
+                        boolean marginsCanCollapseThrough, FloatRect scrollableOverflowRect, Baselines baselines) {
+        this(size, contentSize, firstBaselines, topMargin, bottomMargin, marginsCanCollapseThrough,
+            scrollableOverflowRect, baselines, List.of(), null);
     }
 
     /**

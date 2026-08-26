@@ -67,6 +67,17 @@ public class GridImplicitGridTest {
     }
 
     @Test
+    @DisplayName("auto_start_definite_end_does_not_add_a_phantom_positive_track")
+    void autoStartDefiniteEndDoesNotAddAPhantomPositiveTrack() {
+        TaffyLine<GridPlacement> gridLine = new TaffyLine<>(auto(), line(3));
+        GridTestAdapter.ChildMinMaxLineSpan result = GridTestAdapter.childMinMaxLineSpan(gridLine, 2);
+
+        assertEquals(1, result.minLine);
+        assertEquals(2, result.maxLine);
+        assertEquals(1, result.span);
+    }
+
+    @Test
     @DisplayName("explicit_grid_sizing_with_children")
     void explicitGridSizingWithChildren() {
         int explicitColCount = 6;

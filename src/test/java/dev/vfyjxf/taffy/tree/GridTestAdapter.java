@@ -319,7 +319,7 @@ public class GridTestAdapter {
             if (oz.startType == OriginZeroPlacement.Type.SPAN) {
                 min = t - oz.startValue;
             } else {
-                min = t;
+                min = t - 1;
             }
             max = t;
         } else {

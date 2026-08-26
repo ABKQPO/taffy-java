@@ -845,6 +845,12 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             } else if (style.getSize().height.isPercent()) {
                 layout.size().height = style.getSize().height.maybeResolve(height);
             }
+            float minWidth = style.getMinSize().width.maybeResolve(width);
+            float maxWidth = style.getMaxSize().width.maybeResolve(width);
+            float minHeight = style.getMinSize().height.maybeResolve(height);
+            float maxHeight = style.getMaxSize().height.maybeResolve(height);
+            layout.size().width = clamp(layout.size().width, minWidth, maxWidth);
+            layout.size().height = clamp(layout.size().height, minHeight, maxHeight);
             if (!Float.isNaN(left)) {
                 layout.location().x = containingOrigin.x + containingLayout.border().left + left - parentOrigin.x;
             } else if (!Float.isNaN(right)) {
@@ -886,6 +892,16 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             current = getParent(current);
         }
         return new FloatPoint(x, y);
+    }
+
+    private static float clamp(float value, float min, float max) {
+        if (!Float.isNaN(min)) {
+            value = Math.max(value, min);
+        }
+        if (!Float.isNaN(max)) {
+            value = Math.min(value, max);
+        }
+        return value;
     }
 
     /** Write a debug tree representation to an arbitrary character sink. */

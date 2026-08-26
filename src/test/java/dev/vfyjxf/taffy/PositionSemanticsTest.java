@@ -2,6 +2,8 @@ package dev.vfyjxf.taffy;
 
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
+import dev.vfyjxf.taffy.geometry.FloatSize;
+import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
@@ -9,6 +11,9 @@ import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.tree.LayoutComputer;
+import dev.vfyjxf.taffy.tree.LayoutOutput;
+import dev.vfyjxf.taffy.tree.SizingMode;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import org.junit.jupiter.api.Test;
 
@@ -74,6 +79,30 @@ public class PositionSemanticsTest {
         tree.computeLayout(root, TaffySize.maxContent());
 
         assertEquals(5f, accumulatedY(tree, fixedItem), 0.01f);
+    }
+
+    @Test
+    void staticAncestorsBubbleOutOfFlowCandidatesToTheirContainingBlock() {
+        TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        NodeId absolute;
+        TaffyTree tree = new TaffyTree();
+        absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(40f, 40f), absolute);
+        NodeId root = tree.newWithChildren(sizedStyle(100f, 100f), staticParent);
+
+        LayoutComputer computer = new LayoutComputer(tree, null);
+        LayoutOutput output = computer.performChildLayout(
+            root,
+            new FloatSize(Float.NaN, Float.NaN),
+            new FloatSize(Float.NaN, Float.NaN),
+            TaffySize.maxContent(),
+            SizingMode.INHERENT_SIZE,
+            new TaffyLine<>(false, false)
+        );
+
+        assertEquals(1, output.oofCandidates().size());
+        assertEquals(absolute, output.oofCandidates().get(0).node());
     }
 
     private static TaffyStyle itemStyle() {

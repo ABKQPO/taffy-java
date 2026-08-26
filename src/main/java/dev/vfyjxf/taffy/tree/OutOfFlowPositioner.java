@@ -2,6 +2,7 @@ package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
+import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 
@@ -68,15 +69,27 @@ public class OutOfFlowPositioner {
             FloatPoint containingOrigin = accumulatedLocation(tree, containingBlock);
             FloatPoint parentOrigin = accumulatedLocation(tree, parent);
             Layout layout = tree.getUnroundedLayout(node).copy();
+            boolean widthDerivedFromInsets = false;
+            boolean heightDerivedFromInsets = false;
             if (!Float.isNaN(left) && !Float.isNaN(right) && style.getSize().width.isAuto()) {
-                layout.size().width = Math.max(0f, width - left - right);
+                layout.size().width = Math.max(0f, width - left - right - marginLeft - marginRight);
+                widthDerivedFromInsets = true;
             } else if (style.getSize().width.isPercent()) {
                 layout.size().width = style.getSize().width.maybeResolve(width);
             }
             if (!Float.isNaN(top) && !Float.isNaN(bottom) && style.getSize().height.isAuto()) {
-                layout.size().height = Math.max(0f, height - top - bottom);
+                layout.size().height = Math.max(0f, height - top - bottom - marginTop - marginBottom);
+                heightDerivedFromInsets = true;
             } else if (style.getSize().height.isPercent()) {
                 layout.size().height = style.getSize().height.maybeResolve(height);
+            }
+            Float aspectRatio = style.getAspectRatio();
+            if (aspectRatio != null && !Float.isNaN(aspectRatio) && aspectRatio > 0f) {
+                if (widthDerivedFromInsets && style.getSize().height.isAuto()) {
+                    layout.size().height = layout.size().width / aspectRatio;
+                } else if (heightDerivedFromInsets && style.getSize().width.isAuto()) {
+                    layout.size().width = layout.size().height * aspectRatio;
+                }
             }
             float minWidth = style.getMinSize().width.maybeResolve(width);
             float maxWidth = style.getMaxSize().width.maybeResolve(width);
@@ -106,7 +119,7 @@ public class OutOfFlowPositioner {
                     marginBottom = freeSpace;
                 }
             }
-            if (!Float.isNaN(left)) {
+            if (!Float.isNaN(left) && (!resolveDirection(tree, containingBlock).isRtl() || Float.isNaN(right))) {
                 layout.location().x = containingOrigin.x + containingLayout.border().left + left + marginLeft - parentOrigin.x;
             } else if (!Float.isNaN(right)) {
                 layout.location().x = containingOrigin.x + containingLayout.size().width
@@ -133,6 +146,18 @@ public class OutOfFlowPositioner {
             ancestor = tree.getParent(ancestor);
         }
         return rootNode;
+    }
+
+    private TaffyDirection resolveDirection(TaffyTree tree, NodeId node) {
+        NodeId current = node;
+        while (current != null) {
+            TaffyDirection direction = tree.getStyle(current).getDirection();
+            if (!direction.isInherit()) {
+                return direction;
+            }
+            current = tree.getParent(current);
+        }
+        return TaffyDirection.DEFAULT;
     }
 
     private FloatPoint accumulatedLocation(TaffyTree tree, NodeId node) {

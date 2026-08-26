@@ -8,6 +8,7 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
+import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
@@ -192,6 +193,51 @@ public class PositionSemanticsTest {
     }
 
     @Test
+    void absoluteDescendantAppliesAspectRatioAfterInsetDerivedWidth() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.aspectRatio = 2f;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(5f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(90f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(45f, tree.getLayout(absolute).size().height, 0.01f);
+    }
+
+    @Test
+    void absoluteDescendantUsesEndInsetForOverconstrainedRtlContainingBlock() {
+        TaffyStyle absoluteStyle = sizedStyle(20f, 10f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(15f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO);
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        containingBlockStyle.direction = TaffyDirection.RTL;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(65f, accumulatedX(tree, absolute), 0.01f);
+    }
+
+    @Test
     void absoluteDescendantResolvesPercentageSizeAgainstItsPositionedAncestor() {
         TaffyStyle absoluteStyle = new TaffyStyle();
         absoluteStyle.position = TaffyPosition.ABSOLUTE;
@@ -257,6 +303,33 @@ public class PositionSemanticsTest {
 
         assertEquals(8f, accumulatedX(tree, absolute), 0.01f);
         assertEquals(7f, accumulatedY(tree, absolute), 0.01f);
+    }
+
+    @Test
+    void absoluteDescendantSubtractsFixedMarginsFromInsetDerivedSize() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(5f));
+        absoluteStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.length(3f),
+            LengthPercentageAuto.length(4f),
+            LengthPercentageAuto.length(2f),
+            LengthPercentageAuto.length(6f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(83f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(82f, tree.getLayout(absolute).size().height, 0.01f);
     }
 
     @Test

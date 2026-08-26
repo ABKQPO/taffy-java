@@ -6,6 +6,9 @@ package dev.vfyjxf.taffy.style;
 public enum TaffyDisplay {
     /** The children will follow the block layout algorithm */
     BLOCK,
+
+    /** The children follow block layout in an independent formatting context */
+    FLOW_ROOT,
     
     /** The children will follow the flexbox layout algorithm */
     FLEX,

@@ -486,7 +486,7 @@ public class TaffyStyle {
      * Returns true if this is block layout
      */
     public boolean isBlock() {
-        return display == TaffyDisplay.BLOCK;
+        return display == TaffyDisplay.BLOCK || display == TaffyDisplay.FLOW_ROOT;
     }
 
 

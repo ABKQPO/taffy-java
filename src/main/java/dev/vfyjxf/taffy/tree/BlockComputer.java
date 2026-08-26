@@ -11,6 +11,7 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxGenerationMode;
 import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.TaffyDirection;
+import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.Overflow;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -163,6 +164,7 @@ public class BlockComputer {
         // Determine margin collapsing behaviour
         boolean ownMarginsCollapseWithChildrenStart =
             verticalMarginsAreCollapsible.start &&
+            style.getDisplay() != TaffyDisplay.FLOW_ROOT &&
             !style.getOverflow().x.isScrollContainer() &&
             !style.getOverflow().y.isScrollContainer() &&
             !style.contain.establishesIndependentFormattingContext() &&
@@ -172,6 +174,7 @@ public class BlockComputer {
 
         boolean ownMarginsCollapseWithChildrenEnd =
             verticalMarginsAreCollapsible.end &&
+            style.getDisplay() != TaffyDisplay.FLOW_ROOT &&
             !style.getOverflow().x.isScrollContainer() &&
             !style.getOverflow().y.isScrollContainer() &&
             !style.contain.establishesIndependentFormattingContext() &&
@@ -185,6 +188,7 @@ public class BlockComputer {
 
         boolean hasStylesPreventingBeingCollapsedThrough =
             !style.isBlock() ||
+            style.getDisplay() == TaffyDisplay.FLOW_ROOT ||
             style.getOverflow().x.isScrollContainer() ||
             style.getOverflow().y.isScrollContainer() ||
             style.contain.establishesIndependentFormattingContext() ||

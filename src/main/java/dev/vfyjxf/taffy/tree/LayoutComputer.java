@@ -41,7 +41,7 @@ public class LayoutComputer {
         TaffyStyle style = tree.getStyle(root);
 
         // For block nodes, compute known dimensions based on style and available space
-        if (style.getDisplay() == TaffyDisplay.BLOCK) {
+        if (style.isBlock()) {
             FloatSize parentSize = availableSpaceToOptionSize(availableSpace);
 
             Float aspectRatio = style.getAspectRatio();
@@ -247,6 +247,7 @@ public class LayoutComputer {
     private LayoutOutput dispatchByDisplay(TaffyDisplay display, NodeId node, LayoutInput inputs, TaffyStyle style) {
         switch (display) {
             case BLOCK:
+            case FLOW_ROOT:
                 return computeBlockLayout(node, inputs, style);
             case FLEX:
                 return computeFlexboxLayout(node, inputs, style);

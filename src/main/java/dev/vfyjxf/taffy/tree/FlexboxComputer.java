@@ -93,7 +93,7 @@ public class FlexboxComputer {
      * Computes flexbox layout for a node.
      */
     public LayoutOutput compute(NodeId node, LayoutInput inputs, TaffyStyle style) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         FloatSize knownDimensions = inputs.knownDimensions();
         FloatSize parentSize = inputs.parentSize();
         TaffySize<AvailableSpace> availableSpace = inputs.availableSpace();
@@ -399,7 +399,7 @@ public class FlexboxComputer {
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         FloatSize contentSize = FloatSize.zero();
 
         for (NodeId childId : tree.getChildren(node)) {
@@ -423,7 +423,7 @@ public class FlexboxComputer {
     }
 
     private List<FlexItem> generateFlexItems(NodeId node, TaffyStyle containerStyle, FloatSize nodeInnerSize, FlexDirection flexDirection) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         List<FlexItem> items = new ArrayList<>();
         AlignItems defaultAlign = containerStyle.getAlignItems();
 
@@ -607,7 +607,7 @@ public class FlexboxComputer {
         boolean isRow = flexDirection.isRow();
 
         for (FlexItem item : items) {
-            TaffyTree tree = layoutComputer.getTree();
+            LayoutPartialTree tree = layoutComputer.getTree();
             TaffyStyle childStyle = tree.getStyle(item.nodeId);
 
             // Parent size for child sizing
@@ -2370,7 +2370,7 @@ public class FlexboxComputer {
      * used cross size of its flex line, clamped according to the item's used min and max cross sizes.
      */
     private void determineUsedCrossSize(List<FlexLine> lines, FlexDirection flexDirection, TaffyStyle containerStyle) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         boolean isRow = flexDirection.isRow();
 
         for (FlexLine line : lines) {
@@ -2565,7 +2565,7 @@ public class FlexboxComputer {
         TaffyDirection direction,
         boolean isWrapReverse) {
 
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         boolean isRow = flexDirection.isRow();
         boolean isReverse = flexDirection.isReverse();
         boolean isRtl = direction == TaffyDirection.RTL;
@@ -2780,7 +2780,7 @@ public class FlexboxComputer {
     private void layoutAbsoluteChildren(NodeId node, FloatSize containerSize, FloatRect contentBoxInset,
                                         FlexDirection flexDirection, AlignItems alignItems, JustifyContent justifyContent,
                                         boolean isWrapReverse, FloatRect border, FloatSize scrollbarGutter) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         boolean isRow = flexDirection.isRow();
 
         for (NodeId childId : tree.getChildren(node)) {

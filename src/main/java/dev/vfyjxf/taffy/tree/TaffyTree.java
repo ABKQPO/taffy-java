@@ -11,6 +11,7 @@ import dev.vfyjxf.taffy.util.RoundLayout;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 import java.util.*;
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Allows you to build a tree of UI nodes, run Taffy's layout algorithms over that tree,
  * and then access the resultant layout.
  */
-public class TaffyTree {
+public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
 
     private static final int DEFAULT_CAPACITY = 16;
 
@@ -517,7 +518,7 @@ public class TaffyTree {
         return getDetailedLayoutInfo(node);
     }
 
-    void setDetailedLayoutInfo(NodeId node, DetailedLayoutInfo info) {
+    public void setDetailedLayoutInfo(NodeId node, DetailedLayoutInfo info) {
         NodeData data = nodes.get(node.getId());
         if (data != null) data.setDetailedLayoutInfo(info);
     }
@@ -646,6 +647,17 @@ public class TaffyTree {
                 markNodeLayoutUpdated(node, oldLayout, layout);
             }
         }
+    }
+
+    /** Set the rounded layout, as required by the low-level RoundTree contract. */
+    public void setFinalLayout(NodeId node, Layout layout) {
+        setLayout(node, layout);
+    }
+
+    /** Return the rounded layout regardless of the tree's current rounding display mode. */
+    public Layout getFinalLayout(NodeId node) {
+        NodeData data = nodes.get(node.getId());
+        return data == null ? null : data.getFinalLayout();
     }
 
     /**
@@ -780,27 +792,19 @@ public class TaffyTree {
      * Prints a debug representation of the tree.
      */
     public void printTree(NodeId root) {
-        printTreeRecursive(root, 0);
-    }
-
-    private void printTreeRecursive(NodeId node, int depth) {
-        NodeData data = nodes.get(node.getId());
-        if (data == null) return;
-        
-        StringBuilder indentSb = new StringBuilder();
-        for (int i = 0; i < depth; i++) indentSb.append("  ");
-        String indent = indentSb.toString();
-        Layout layout = getLayout(node);
-        
-        System.out.printf("%s[%s] %s%n", indent, getDebugLabel(node), 
-            layout != null ? layout.toString() : "no layout");
-        
-        for (NodeId child : getChildren(node)) {
-            printTreeRecursive(child, depth + 1);
+        try {
+            writeTree(System.out, root);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to write tree", exception);
         }
     }
 
-    private String getDebugLabel(NodeId node) {
+    /** Write a debug tree representation to an arbitrary character sink. */
+    public void writeTree(Appendable writer, NodeId root) throws IOException {
+        TreePrinter.writeTree(writer, this, root);
+    }
+
+    public String getDebugLabel(NodeId node) {
         NodeData data = nodes.get(node.getId());
         if (data == null) return "UNKNOWN";
         

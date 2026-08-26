@@ -458,7 +458,7 @@ public class GridComputer {
      * Computes grid layout for a node.
      */
     public LayoutOutput compute(NodeId node, LayoutInput inputs, TaffyStyle style) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         FloatSize knownDimensions = inputs.knownDimensions();
         FloatSize parentSize = inputs.parentSize();
         TaffySize<AvailableSpace> availableSpace = inputs.availableSpace();
@@ -1099,7 +1099,7 @@ public class GridComputer {
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         FloatSize contentSize = FloatSize.zero();
 
         for (NodeId childId : tree.getChildren(node)) {
@@ -1206,7 +1206,7 @@ public class GridComputer {
     }
 
     private List<GridItem> generateGridItems(NodeId node, TaffyStyle containerStyle, FloatSize nodeInnerSize) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         List<GridItem> items = new ArrayList<>();
 
         // Get explicit track counts for negative line number resolution
@@ -4319,7 +4319,7 @@ public class GridComputer {
             }
 
             // Re-resolve margin with track width (percentage margins are relative to grid area width)
-            TaffyTree tree = layoutComputer.getTree();
+            LayoutPartialTree tree = layoutComputer.getTree();
             TaffyStyle childStyle = tree.getStyle(item.nodeId);
             TaffyRect<LengthPercentageAuto> marginStyle = childStyle.getMargin();
             FloatRect margin = Resolve.resolveRectLpaOrZero(marginStyle, trackWidth);
@@ -4561,7 +4561,7 @@ public class GridComputer {
     }
 
     private void performFinalLayout(List<GridItem> items) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
 
         for (GridItem item : items) {
             FloatSize scrollbarSize = new FloatSize(
@@ -4595,7 +4595,7 @@ public class GridComputer {
         FloatList columnOffsets,
         FloatList rowOffsets,
         boolean isRtl) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         TaffyStyle containerStyle = tree.getStyle(node);
         NamedLineResolver namedLineResolver = new NamedLineResolver(containerStyle);
         namedLineResolver.setExplicitColumnCount(colCounts.explicit);

@@ -20,14 +20,14 @@ import dev.vfyjxf.taffy.util.TaffyMath;
 import java.util.List;
 
 /**
- * Computes layout for a TaffyTree.
+ * Computes layout for any tree implementing the low-level layout contract.
  */
 public class LayoutComputer {
 
-    private final TaffyTree tree;
+    private final LayoutPartialTree tree;
     private final MeasureFunc defaultMeasureFunc;
 
-    public LayoutComputer(TaffyTree tree, MeasureFunc defaultMeasureFunc) {
+    public LayoutComputer(LayoutPartialTree tree, MeasureFunc defaultMeasureFunc) {
         this.tree = tree;
         this.defaultMeasureFunc = defaultMeasureFunc;
     }
@@ -280,7 +280,7 @@ public class LayoutComputer {
     /**
      * Computes layout for a leaf node (node without children or with measure function).
      */
-    private LayoutOutput computeLeafLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
+    public LayoutOutput computeLeafLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
         FloatSize knownDimensions = inputs.knownDimensions();
         FloatSize parentSize = inputs.parentSize();
         TaffySize<AvailableSpace> availableSpace = inputs.availableSpace();
@@ -533,7 +533,7 @@ public class LayoutComputer {
     /**
      * Computes layout for a block container.
      */
-    private LayoutOutput computeBlockLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
+    public LayoutOutput computeBlockLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
         // Simplified block layout - full implementation in BlockComputer
         return new BlockComputer(this).compute(node, inputs, style);
     }
@@ -541,7 +541,7 @@ public class LayoutComputer {
     /**
      * Computes layout for a flexbox container.
      */
-    private LayoutOutput computeFlexboxLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
+    public LayoutOutput computeFlexboxLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
         // Simplified flexbox layout - full implementation in FlexboxComputer
         return new FlexboxComputer(this).compute(node, inputs, style);
     }
@@ -549,13 +549,13 @@ public class LayoutComputer {
     /**
      * Computes layout for a grid container.
      */
-    private LayoutOutput computeGridLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
+    public LayoutOutput computeGridLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
         // Simplified grid layout - full implementation in GridComputer
         return new GridComputer(this).compute(node, inputs, style);
     }
 
 
-    public TaffyTree getTree() {
+    public LayoutPartialTree getTree() {
         return tree;
     }
 

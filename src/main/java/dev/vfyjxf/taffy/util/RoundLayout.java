@@ -6,7 +6,7 @@ import dev.vfyjxf.taffy.geometry.FloatRect;
 import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.NodeId;
-import dev.vfyjxf.taffy.tree.TaffyTree;
+import dev.vfyjxf.taffy.tree.RoundTree;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -41,7 +41,7 @@ public class RoundLayout {
      * Rounds the calculated layout to whole pixels.
      * Uses iterative BFS to avoid deep recursion stack overflow.
      */
-    public static void roundLayout(TaffyTree tree, NodeId nodeId) {
+    public static void roundLayout(RoundTree tree, NodeId nodeId) {
         // Use a stack-based approach instead of recursion for better performance
         // Store: [nodeId, cumulativeX, cumulativeY]
         Deque<Object[]> stack = new ArrayDeque<>();
@@ -95,10 +95,12 @@ public class RoundLayout {
                 roundedScrollbarSize,
                 roundRect(layout.border()),
                 roundRect(layout.padding()),
-                roundRect(layout.margin())
+                roundRect(layout.margin()),
+                roundRect(layout.scrollableOverflowRect()),
+                layout.baselines()
             );
 
-            tree.setLayout(currentNode, roundedLayout);
+            tree.setFinalLayout(currentNode, roundedLayout);
 
             // Push children to stack
             List<NodeId> childList = tree.getChildren(currentNode);
@@ -114,12 +116,12 @@ public class RoundLayout {
      * @deprecated Use {@link #roundLayout(TaffyTree, NodeId)} instead.
      */
     @Deprecated
-    public static void roundLayout(TaffyTree tree, NodeId nodeId, float cumulativeX, float cumulativeY) {
+    public static void roundLayout(RoundTree tree, NodeId nodeId, float cumulativeX, float cumulativeY) {
         // Delegate to iterative version
         roundLayoutRecursive(tree, nodeId, cumulativeX, cumulativeY);
     }
     
-    private static void roundLayoutRecursive(TaffyTree tree, NodeId nodeId, float cumulativeX, float cumulativeY) {
+    private static void roundLayoutRecursive(RoundTree tree, NodeId nodeId, float cumulativeX, float cumulativeY) {
         Layout layout = tree.getUnroundedLayout(nodeId);
         if (layout == null) return;
 
@@ -158,10 +160,12 @@ public class RoundLayout {
             roundedScrollbarSize,
             roundRect(layout.border()),
             roundRect(layout.padding()),
-            roundRect(layout.margin())
+            roundRect(layout.margin()),
+            roundRect(layout.scrollableOverflowRect()),
+            layout.baselines()
         );
 
-        tree.setLayout(nodeId, roundedLayout);
+        tree.setFinalLayout(nodeId, roundedLayout);
 
         for (NodeId childId : tree.getChildren(nodeId)) {
             roundLayoutRecursive(tree, childId, absoluteX, absoluteY);

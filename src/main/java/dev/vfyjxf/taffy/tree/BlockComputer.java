@@ -215,7 +215,7 @@ public class BlockComputer {
      * Computes block layout for a node.
      */
     public LayoutOutput compute(NodeId node, LayoutInput inputs, TaffyStyle style) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         FloatSize knownDimensions = inputs.knownDimensions();
         FloatSize parentSize = inputs.parentSize();
         TaffySize<AvailableSpace> availableSpace = inputs.availableSpace();
@@ -447,7 +447,7 @@ public class BlockComputer {
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         FloatSize contentSize = FloatSize.zero();
 
         for (NodeId childId : tree.getChildren(node)) {
@@ -471,7 +471,7 @@ public class BlockComputer {
     }
 
     private List<BlockItem> generateItemList(NodeId node, FloatSize nodeInnerSize) {
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         List<BlockItem> items = new ArrayList<>();
 
         int order = 0;
@@ -565,7 +565,7 @@ public class BlockComputer {
         TaffyDirection direction,
         TaffyLine<Boolean> ownMarginsCollapseWithChildren) {
 
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         float containerInnerWidth = containerOuterWidth - contentBoxInset.left - contentBoxInset.right;
         FloatSize parentSize = new FloatSize(containerOuterWidth, NaN);
         TaffySize<AvailableSpace> availableSpace = new TaffySize<>(
@@ -910,7 +910,7 @@ public class BlockComputer {
         FloatSize areaSize,
         FloatRect areaInset) {
 
-        TaffyTree tree = layoutComputer.getTree();
+        LayoutPartialTree tree = layoutComputer.getTree();
         float areaWidth = areaSize.width - areaInset.left - areaInset.right;
         float areaHeight = areaSize.height - areaInset.top - areaInset.bottom;
 

@@ -249,7 +249,7 @@ public class LayoutComputer {
         // Compute layout
         LayoutOutput output = computeLayoutUncached(node, inputs);
         if (inputs.runMode() == RunMode.PERFORM_LAYOUT) {
-            output = attachDirectOutOfFlowCandidates(node, output);
+            output = attachOutOfFlowCandidates(node, output);
         }
 
         // Store in cache
@@ -258,20 +258,11 @@ public class LayoutComputer {
         return output;
     }
 
-    private LayoutOutput attachDirectOutOfFlowCandidates(NodeId node, LayoutOutput output) {
+    private LayoutOutput attachOutOfFlowCandidates(NodeId node, LayoutOutput output) {
         List<OofCandidate> candidates = new ArrayList<>();
         List<NodeId> children = tree.getChildren(node);
         for (int index = 0; index < children.size(); index++) {
-            NodeId child = children.get(index);
-            TaffyStyle childStyle = tree.getStyle(child);
-            if (!childStyle.getPosition().isOutOfFlow()) {
-                continue;
-            }
-            Layout childLayout = tree.getUnroundedLayout(child);
-            FloatPoint staticPosition = childLayout == null
-                ? FloatPoint.zero()
-                : childLayout.location().copy();
-            candidates.add(new OofCandidate(child, index, childStyle.getPosition(), staticPosition));
+            collectOutOfFlowCandidates(children.get(index), index, FloatPoint.zero(), candidates);
         }
         if (candidates.isEmpty()) {
             return output;
@@ -280,6 +271,23 @@ public class LayoutComputer {
             candidates,
             new OofPositioningArea(output.size().copy(), FloatPoint.zero())
         );
+    }
+
+    private void collectOutOfFlowCandidates(NodeId node, int order, FloatPoint offset, List<OofCandidate> candidates) {
+        TaffyStyle style = tree.getStyle(node);
+        Layout layout = tree.getUnroundedLayout(node);
+        FloatPoint location = layout == null ? FloatPoint.zero() : layout.location();
+        FloatPoint position = new FloatPoint(offset.x + location.x, offset.y + location.y);
+        if (style.getPosition().isOutOfFlow()) {
+            candidates.add(new OofCandidate(node, order, style.getPosition(), position));
+            return;
+        }
+        if (style.getPosition().isPositioned()) {
+            return;
+        }
+        for (NodeId child : tree.getChildren(node)) {
+            collectOutOfFlowCandidates(child, order, position, candidates);
+        }
     }
 
     /**

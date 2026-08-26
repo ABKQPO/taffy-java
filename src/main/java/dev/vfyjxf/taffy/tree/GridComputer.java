@@ -1034,11 +1034,10 @@ public class GridComputer {
             Layout childLayout = tree.getUnroundedLayout(childId);
             if (childLayout == null) continue;
 
-            FloatSize childContentSize = childLayout.contentSize() != null ? childLayout.contentSize() : childLayout.size();
             FloatSize contribution = ContentSizeUtil.computeContentSizeContribution(
                 childLayout.location(),
                 childLayout.size(),
-                childContentSize,
+                childLayout.scrollableOverflowRect(),
                 childStyle.getOverflow(),
                 childStyle.contain
             );
@@ -3606,7 +3605,7 @@ public class GridComputer {
                     new TaffyLine<>(false, false)
                 );
 
-                float baselineValue = output.firstBaselines() != null ? output.firstBaselines().y : NaN;
+                float baselineValue = output.baselines() != null ? output.baselines().first() : NaN;
                 float height = output.size().height;
                 float marginTop = item.margin != null ? item.margin.top : 0f;
 
@@ -4706,7 +4705,9 @@ public class GridComputer {
                 scrollbarSize,
                 itemBorder,
                 itemPadding,
-                margin
+                margin,
+                output.scrollableOverflowRect(),
+                output.baselines()
             );
 
             tree.setUnroundedLayout(childId, layout);

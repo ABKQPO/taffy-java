@@ -364,11 +364,10 @@ public class BlockComputer {
             Layout childLayout = tree.getUnroundedLayout(childId);
             if (childLayout == null) continue;
 
-            FloatSize childContentSize = childLayout.contentSize() != null ? childLayout.contentSize() : childLayout.size();
             FloatSize contribution = ContentSizeUtil.computeContentSizeContribution(
                 childLayout.location(),
                 childLayout.size(),
-                childContentSize,
+                childLayout.scrollableOverflowRect(),
                 childStyle.getOverflow(),
                 childStyle.contain
             );
@@ -646,13 +645,15 @@ public class BlockComputer {
                 scrollbarSize,
                 item.border,
                 item.padding,
-                resolvedMargin
+                resolvedMargin,
+                itemOutput.scrollableOverflowRect(),
+                itemOutput.baselines()
             );
 
             tree.setUnroundedLayout(item.nodeId, layout);
 
             if (Float.isNaN(firstVerticalBaseline)) {
-                float childBaseline = itemOutput.firstBaselines().y;
+                float childBaseline = itemOutput.baselines().first();
                 if (item.overflow.y.isScrollContainer()) {
                     childBaseline = Float.isNaN(childBaseline) ? finalSize.height : childBaseline;
                     childBaseline = Math.max(0f, Math.min(childBaseline, finalSize.height));
@@ -881,7 +882,9 @@ public class BlockComputer {
                 scrollbarSize,
                 item.border,
                 item.padding,
-                resolvedMargin
+                resolvedMargin,
+                output.scrollableOverflowRect(),
+                output.baselines()
             );
 
             tree.setUnroundedLayout(item.nodeId, layout);

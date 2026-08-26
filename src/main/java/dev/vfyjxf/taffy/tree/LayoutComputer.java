@@ -124,7 +124,9 @@ public class LayoutComputer {
             scrollbarSize,
             border,
             padding,
-            margin
+            margin,
+            output.scrollableOverflowRect(),
+            output.baselines()
         );
 
         tree.setUnroundedLayout(root, layout);

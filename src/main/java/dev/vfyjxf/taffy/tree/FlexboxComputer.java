@@ -398,11 +398,10 @@ public class FlexboxComputer {
             Layout childLayout = tree.getUnroundedLayout(childId);
             if (childLayout == null) continue;
 
-            FloatSize childContentSize = childLayout.contentSize() != null ? childLayout.contentSize() : childLayout.size();
             FloatSize contribution = ContentSizeUtil.computeContentSizeContribution(
                 childLayout.location(),
                 childLayout.size(),
-                childContentSize,
+                childLayout.scrollableOverflowRect(),
                 childStyle.getOverflow(),
                 childStyle.contain
             );
@@ -1610,7 +1609,7 @@ public class FlexboxComputer {
                 );
 
                 // Baseline is from the first_baselines.y of child, or default to height
-                float childBaseline = output.firstBaselines() != null ? output.firstBaselines().y : NaN;
+                float childBaseline = output.baselines() != null ? output.baselines().first() : NaN;
                 float height = output.size().height;
 
                 // baseline = first_baseline (or height if none) + top margin
@@ -2614,11 +2613,11 @@ public class FlexboxComputer {
                 // Per CSS spec: baseline = baseline_offset_cross + inner_baseline
                 if (isRow) {
                     float baselineOffsetCross = crossOffset + item.offsetCross + item.margin.top;
-                    float innerBaseline = output.firstBaselines() != null ? output.firstBaselines().y : NaN;
+                    float innerBaseline = output.baselines() != null ? output.baselines().first() : NaN;
                     item.baseline = baselineOffsetCross + (!Float.isNaN(innerBaseline) ? innerBaseline : actualSize.height);
                 } else {
                     float baselineOffsetMain = mainOffset + item.offsetMain + item.margin.top;
-                    float innerBaseline = output.firstBaselines() != null ? output.firstBaselines().y : NaN;
+                    float innerBaseline = output.baselines() != null ? output.baselines().first() : NaN;
                     item.baseline = baselineOffsetMain + (!Float.isNaN(innerBaseline) ? innerBaseline : actualSize.height);
                 }
 
@@ -2635,7 +2634,9 @@ public class FlexboxComputer {
                     scrollbarSize,
                     item.border,
                     item.padding,
-                    item.margin
+                    item.margin,
+                    output.scrollableOverflowRect(),
+                    output.baselines()
                 );
 
                 tree.setUnroundedLayout(item.nodeId, layout);
@@ -2840,7 +2841,9 @@ public class FlexboxComputer {
                 scrollbarSize,
                 itemBorder,
                 itemPadding,
-                resolvedMargin
+                resolvedMargin,
+                output.scrollableOverflowRect(),
+                output.baselines()
             );
 
             tree.setUnroundedLayout(childId, layout);

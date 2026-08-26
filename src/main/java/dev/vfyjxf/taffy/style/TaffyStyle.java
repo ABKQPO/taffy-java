@@ -54,6 +54,12 @@ public class TaffyStyle {
      */
     public Contain contain = Contain.NONE;
 
+    /** Float side for block items. */
+    public TaffyFloat floatMode = TaffyFloat.NONE;
+
+    /** Float clearance requested by this block item. */
+    public Clear clear = Clear.NONE;
+
     /**
      * How much space should be reserved for scrollbars
      */
@@ -438,6 +444,8 @@ public class TaffyStyle {
         copy.boxSizing = this.boxSizing;
         copy.overflow = this.overflow.copy();
         copy.contain = this.contain;
+        copy.floatMode = this.floatMode;
+        copy.clear = this.clear;
         copy.scrollbarWidth = this.scrollbarWidth;
         copy.position = this.position;
         copy.inset = this.inset.copy();
@@ -510,6 +518,10 @@ public class TaffyStyle {
     public TaffyPoint<Overflow> getOverflow() {return overflow;}
 
     public float getScrollbarWidth() {return scrollbarWidth;}
+
+    public TaffyFloat getFloatMode() {return floatMode;}
+
+    public Clear getClear() {return clear;}
 
     public TaffyPosition getPosition() {return position;}
 

@@ -1,10 +1,13 @@
 package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.FloatPoint;
+import dev.vfyjxf.taffy.geometry.FloatRect;
+import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
+import dev.vfyjxf.taffy.util.Resolve;
 
 import java.util.List;
 
@@ -61,6 +64,11 @@ public class OutOfFlowPositioner {
             float marginRight = resolvedMargin(style.getMargin().right, width);
             float marginTop = resolvedMargin(style.getMargin().top, width);
             float marginBottom = resolvedMargin(style.getMargin().bottom, width);
+            FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), width);
+            FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), width);
+            float paddingBorderWidth = padding.left + padding.right + border.left + border.right;
+            float paddingBorderHeight = padding.top + padding.bottom + border.top + border.bottom;
+            boolean contentBox = style.getBoxSizing() == BoxSizing.CONTENT_BOX;
             if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)
                 && !style.getSize().width.isPercent() && !style.getSize().height.isPercent()) {
                 return;
@@ -75,13 +83,13 @@ public class OutOfFlowPositioner {
                 layout.size().width = Math.max(0f, width - left - right - marginLeft - marginRight);
                 widthDerivedFromInsets = true;
             } else if (style.getSize().width.isPercent()) {
-                layout.size().width = style.getSize().width.maybeResolve(width);
+                layout.size().width = style.getSize().width.maybeResolve(width) + (contentBox ? paddingBorderWidth : 0f);
             }
             if (!Float.isNaN(top) && !Float.isNaN(bottom) && style.getSize().height.isAuto()) {
                 layout.size().height = Math.max(0f, height - top - bottom - marginTop - marginBottom);
                 heightDerivedFromInsets = true;
             } else if (style.getSize().height.isPercent()) {
-                layout.size().height = style.getSize().height.maybeResolve(height);
+                layout.size().height = style.getSize().height.maybeResolve(height) + (contentBox ? paddingBorderHeight : 0f);
             }
             Float aspectRatio = style.getAspectRatio();
             if (aspectRatio != null && !Float.isNaN(aspectRatio) && aspectRatio > 0f) {
@@ -95,8 +103,14 @@ public class OutOfFlowPositioner {
             float maxWidth = style.getMaxSize().width.maybeResolve(width);
             float minHeight = style.getMinSize().height.maybeResolve(height);
             float maxHeight = style.getMaxSize().height.maybeResolve(height);
+            minWidth = addBoxSizingAdjustment(minWidth, contentBox, paddingBorderWidth);
+            maxWidth = addBoxSizingAdjustment(maxWidth, contentBox, paddingBorderWidth);
+            minHeight = addBoxSizingAdjustment(minHeight, contentBox, paddingBorderHeight);
+            maxHeight = addBoxSizingAdjustment(maxHeight, contentBox, paddingBorderHeight);
             layout.size().width = clamp(layout.size().width, minWidth, maxWidth);
             layout.size().height = clamp(layout.size().height, minHeight, maxHeight);
+            layout.size().width = Math.max(layout.size().width, paddingBorderWidth);
+            layout.size().height = Math.max(layout.size().height, paddingBorderHeight);
             if (!Float.isNaN(left) && !Float.isNaN(right)) {
                 float freeSpace = Math.max(0f, width - left - right - layout.size().width - marginLeft - marginRight);
                 if (style.getMargin().left.isAuto() && style.getMargin().right.isAuto()) {
@@ -181,6 +195,10 @@ public class OutOfFlowPositioner {
             value = Math.min(value, max);
         }
         return value;
+    }
+
+    private float addBoxSizingAdjustment(float value, boolean contentBox, float paddingBorderSize) {
+        return !Float.isNaN(value) && contentBox ? value + paddingBorderSize : value;
     }
 
     private float resolvedMargin(LengthPercentageAuto value, float context) {

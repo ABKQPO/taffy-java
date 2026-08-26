@@ -5,7 +5,9 @@ import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
@@ -253,6 +255,69 @@ public class PositionSemanticsTest {
 
         assertEquals(50f, tree.getLayout(absolute).size().width, 0.01f);
         assertEquals(40f, tree.getLayout(absolute).size().height, 0.01f);
+    }
+
+    @Test
+    void absoluteDescendantAddsPaddingAndBorderToContentBoxPercentageSize() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.boxSizing = BoxSizing.CONTENT_BOX;
+        absoluteStyle.size = new TaffySize<>(TaffyDimension.percent(0.5f), TaffyDimension.percent(0.5f));
+        absoluteStyle.padding = new TaffyRect<>(
+            LengthPercentage.length(2f),
+            LengthPercentage.length(3f),
+            LengthPercentage.length(4f),
+            LengthPercentage.length(1f));
+        absoluteStyle.border = new TaffyRect<>(
+            LengthPercentage.length(4f),
+            LengthPercentage.length(1f),
+            LengthPercentage.length(2f),
+            LengthPercentage.length(3f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(60f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(60f, tree.getLayout(absolute).size().height, 0.01f);
+    }
+
+    @Test
+    void absoluteDescendantAddsPaddingAndBorderToContentBoxMinimumSize() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.boxSizing = BoxSizing.CONTENT_BOX;
+        absoluteStyle.minSize = new TaffySize<>(LengthPercentageAuto.length(50f), LengthPercentageAuto.length(50f));
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(30f),
+            LengthPercentageAuto.length(30f),
+            LengthPercentageAuto.length(30f),
+            LengthPercentageAuto.length(30f));
+        absoluteStyle.padding = new TaffyRect<>(
+            LengthPercentage.length(2f),
+            LengthPercentage.length(3f),
+            LengthPercentage.length(4f),
+            LengthPercentage.length(1f));
+        absoluteStyle.border = new TaffyRect<>(
+            LengthPercentage.length(4f),
+            LengthPercentage.length(1f),
+            LengthPercentage.length(2f),
+            LengthPercentage.length(3f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(60f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(60f, tree.getLayout(absolute).size().height, 0.01f);
     }
 
     @Test

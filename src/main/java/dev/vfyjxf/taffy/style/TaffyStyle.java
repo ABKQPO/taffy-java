@@ -432,6 +432,7 @@ public class TaffyStyle {
         copy.itemIsReplaced = this.itemIsReplaced;
         copy.boxSizing = this.boxSizing;
         copy.overflow = this.overflow.copy();
+        copy.contain = this.contain;
         copy.scrollbarWidth = this.scrollbarWidth;
         copy.position = this.position;
         copy.inset = this.inset.copy();

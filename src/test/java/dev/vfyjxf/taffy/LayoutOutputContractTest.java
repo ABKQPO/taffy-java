@@ -6,7 +6,13 @@ import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.tree.Baselines;
 import dev.vfyjxf.taffy.tree.CollapsibleMarginSet;
 import dev.vfyjxf.taffy.tree.LayoutOutput;
+import dev.vfyjxf.taffy.tree.OofCandidate;
+import dev.vfyjxf.taffy.tree.OofPositioningArea;
+import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -63,5 +69,18 @@ public class LayoutOutputContractTest {
 
         assertTrue(output.oofCandidates().isEmpty());
         assertTrue(output.oofPositioningArea() == null);
+    }
+
+    @Test
+    void withOutOfFlowPreservesTheComputedLayoutFields() {
+        LayoutOutput output = LayoutOutput.fromOuterSize(new FloatSize(10f, 20f));
+        OofCandidate candidate = new OofCandidate(new NodeId(1), 2, TaffyPosition.ABSOLUTE, new FloatPoint(3f, 4f));
+        OofPositioningArea area = new OofPositioningArea(new FloatSize(5f, 6f), new FloatPoint(7f, 8f));
+
+        LayoutOutput updated = output.withOutOfFlow(List.of(candidate), area);
+
+        assertEquals(output.size(), updated.size());
+        assertEquals(List.of(candidate), updated.oofCandidates());
+        assertEquals(area, updated.oofPositioningArea());
     }
 }

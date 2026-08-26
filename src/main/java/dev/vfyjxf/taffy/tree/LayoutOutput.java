@@ -168,6 +168,22 @@ public record LayoutOutput(
         return fromSizes(size, FloatSize.zero());
     }
 
+    /** Return this output with pending out-of-flow candidates and their positioning area. */
+    public LayoutOutput withOutOfFlow(List<OofCandidate> candidates, OofPositioningArea positioningArea) {
+        return new LayoutOutput(
+            size,
+            contentSize,
+            firstBaselines,
+            topMargin,
+            bottomMargin,
+            marginsCanCollapseThrough,
+            scrollableOverflowRect,
+            baselines,
+            candidates,
+            positioningArea
+        );
+    }
+
     private static FloatRect overflowFromContent(FloatSize contentSize) {
         if (contentSize == null || Float.isNaN(contentSize.width) || Float.isNaN(contentSize.height)) {
             return FloatRect.zero();

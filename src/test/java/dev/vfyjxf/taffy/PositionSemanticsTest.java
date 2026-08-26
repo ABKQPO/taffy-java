@@ -103,6 +103,16 @@ public class PositionSemanticsTest {
 
         assertEquals(1, output.oofCandidates().size());
         assertEquals(absolute, output.oofCandidates().get(0).node());
+
+        LayoutOutput cachedOutput = computer.performChildLayout(
+            root,
+            new FloatSize(Float.NaN, Float.NaN),
+            new FloatSize(Float.NaN, Float.NaN),
+            TaffySize.maxContent(),
+            SizingMode.INHERENT_SIZE,
+            new TaffyLine<>(false, false)
+        );
+        assertEquals(output.oofCandidates(), cachedOutput.oofCandidates());
     }
 
     private static TaffyStyle itemStyle() {

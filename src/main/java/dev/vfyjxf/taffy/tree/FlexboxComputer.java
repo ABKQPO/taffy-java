@@ -2478,15 +2478,20 @@ public class FlexboxComputer {
         if (!orderedLines.isEmpty()) {
             FlexLine firstLine = orderedLines.get(0);
             if (!firstLine.items.isEmpty()) {
-                // Look for baseline-aligned item or fall back to first item
-                for (FlexItem item : firstLine.items) {
-                    if (isRow && item.alignSelf == AlignSelf.BASELINE) {
-                        firstBaselineItem = item;
-                        break;
+                if (isRow) {
+                    // Look for baseline-aligned item or fall back to the first item.
+                    for (FlexItem item : firstLine.items) {
+                        if (item.alignSelf == AlignSelf.BASELINE) {
+                            firstBaselineItem = item;
+                            break;
+                        }
                     }
-                }
-                if (firstBaselineItem == null) {
-                    firstBaselineItem = firstLine.items.get(0);
+                    if (firstBaselineItem == null) {
+                        firstBaselineItem = firstLine.items.get(0);
+                    }
+                } else {
+                    int visualStartIndex = isReverse ? firstLine.items.size() - 1 : 0;
+                    firstBaselineItem = firstLine.items.get(visualStartIndex);
                 }
             }
         }

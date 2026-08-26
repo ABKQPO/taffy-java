@@ -365,7 +365,8 @@ public class BlockComputer {
                 childLayout.location(),
                 childLayout.size(),
                 childContentSize,
-                childStyle.getOverflow()
+                childStyle.getOverflow(),
+                childStyle.contain
             );
             contentSize = ContentSizeUtil.max(contentSize, contribution);
         }

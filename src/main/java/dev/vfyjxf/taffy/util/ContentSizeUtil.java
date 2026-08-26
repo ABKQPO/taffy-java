@@ -4,6 +4,7 @@ import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyPoint;
 import dev.vfyjxf.taffy.style.Overflow;
+import dev.vfyjxf.taffy.style.Contain;
 
 /**
  * Helpers for computing CSS content size contributions.
@@ -35,7 +36,8 @@ public class ContentSizeUtil {
         FloatPoint location,
         FloatSize size,
         FloatSize contentSize,
-        TaffyPoint<Overflow> overflow
+        TaffyPoint<Overflow> overflow,
+        Contain contain
     ) {
         float x = sanitize(location.x);
         float y = sanitize(location.y);
@@ -46,8 +48,9 @@ public class ContentSizeUtil {
         float contentW = sanitize(contentSize.width);
         float contentH = sanitize(contentSize.height);
 
-        float contributionW = overflow.x == Overflow.VISIBLE ? Math.max(sizeW, contentW) : sizeW;
-        float contributionH = overflow.y == Overflow.VISIBLE ? Math.max(sizeH, contentH) : sizeH;
+        boolean containsScrollableOverflow = contain.containsScrollableOverflow();
+        float contributionW = !containsScrollableOverflow && overflow.x == Overflow.VISIBLE ? Math.max(sizeW, contentW) : sizeW;
+        float contributionH = !containsScrollableOverflow && overflow.y == Overflow.VISIBLE ? Math.max(sizeH, contentH) : sizeH;
 
         if (contributionW > 0f && contributionH > 0f) {
             return new FloatSize(x + contributionW, y + contributionH);

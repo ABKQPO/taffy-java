@@ -970,12 +970,15 @@ public class BlockComputer {
             float nonAutoMarginTop = Float.isNaN(marginOpt.top) ? 0f : marginOpt.top;
             float nonAutoMarginBottom = Float.isNaN(marginOpt.bottom) ? 0f : marginOpt.bottom;
 
-            knownDimensions = AbsoluteSizing.resolveStretch(
+            knownDimensions = AbsoluteSizing.resolveMeasurementKeywords(
+                layoutComputer,
+                item.nodeId,
                 childStyle.getSize(),
                 knownDimensions,
                 new FloatSize(areaWidth, areaHeight),
                 new FloatRect(left, right, top, bottom),
-                new FloatRect(nonAutoMarginLeft, nonAutoMarginRight, nonAutoMarginTop, nonAutoMarginBottom)
+                new FloatRect(nonAutoMarginLeft, nonAutoMarginRight, nonAutoMarginTop, nonAutoMarginBottom),
+                SizingMode.CONTENT_SIZE
             );
 
             // Fill in width from left/right if not set

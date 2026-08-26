@@ -22,7 +22,7 @@ import java.util.List;
 public class OutOfFlowPositioner {
     public void reposition(TaffyTree tree, NodeId rootNode) {
         for (NodeId node : tree.getAllNodes()) {
-            repositionNode(tree, rootNode, node);
+            repositionNode(tree, rootNode, node, null);
         }
     }
 
@@ -31,11 +31,19 @@ public class OutOfFlowPositioner {
      */
     public void reposition(TaffyTree tree, NodeId rootNode, List<OofCandidate> candidates) {
         for (OofCandidate candidate : candidates) {
-            repositionNode(tree, rootNode, candidate.node());
+            repositionNode(tree, rootNode, candidate.node(), null);
         }
     }
 
-    private void repositionNode(TaffyTree tree, NodeId rootNode, NodeId node) {
+    /** Repositions candidates while preserving access to the layout measurement dispatcher. */
+    public void reposition(TaffyTree tree, NodeId rootNode, List<OofCandidate> candidates,
+                           LayoutComputer layoutComputer) {
+        for (OofCandidate candidate : candidates) {
+            repositionNode(tree, rootNode, candidate.node(), layoutComputer);
+        }
+    }
+
+    private void repositionNode(TaffyTree tree, NodeId rootNode, NodeId node, LayoutComputer layoutComputer) {
             TaffyStyle style = tree.getStyle(node);
             if (!style.getPosition().isOutOfFlow()) {
                 return;
@@ -71,17 +79,25 @@ public class OutOfFlowPositioner {
             float paddingBorderWidth = padding.left + padding.right + border.left + border.right;
             float paddingBorderHeight = padding.top + padding.bottom + border.top + border.bottom;
             boolean contentBox = style.getBoxSizing() == BoxSizing.CONTENT_BOX;
-            FloatSize stretchSize = AbsoluteSizing.resolveStretch(
-                style.getSize(),
-                new FloatSize(Float.NaN, Float.NaN),
-                new FloatSize(width, height),
-                new FloatRect(left, right, top, bottom),
-                new FloatRect(marginLeft, marginRight, marginTop, marginBottom)
-            );
+            FloatSize areaSize = new FloatSize(width, height);
+            FloatRect inset = new FloatRect(left, right, top, bottom);
+            FloatRect margin = new FloatRect(marginLeft, marginRight, marginTop, marginBottom);
+            FloatSize keywordSize = layoutComputer == null
+                ? AbsoluteSizing.resolveStretch(style.getSize(), new FloatSize(Float.NaN, Float.NaN), areaSize, inset, margin)
+                : AbsoluteSizing.resolveMeasurementKeywords(
+                    layoutComputer,
+                    node,
+                    style.getSize(),
+                    new FloatSize(Float.NaN, Float.NaN),
+                    areaSize,
+                    inset,
+                    margin,
+                    SizingMode.CONTENT_SIZE
+                );
             if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)
                 && !isContainingBlockResolvable(style.getSize().width)
                 && !isContainingBlockResolvable(style.getSize().height)
-                && Float.isNaN(stretchSize.width) && Float.isNaN(stretchSize.height)) {
+                && Float.isNaN(keywordSize.width) && Float.isNaN(keywordSize.height)) {
                 return;
             }
 
@@ -90,16 +106,16 @@ public class OutOfFlowPositioner {
             Layout layout = tree.getUnroundedLayout(node).copy();
             boolean widthDerivedFromInsets = false;
             boolean heightDerivedFromInsets = false;
-            if (!Float.isNaN(stretchSize.width)) {
-                layout.size().width = stretchSize.width;
+            if (!Float.isNaN(keywordSize.width)) {
+                layout.size().width = keywordSize.width;
             } else if (!Float.isNaN(left) && !Float.isNaN(right) && style.getSize().width.isAuto()) {
                 layout.size().width = Math.max(0f, width - left - right - marginLeft - marginRight);
                 widthDerivedFromInsets = true;
             } else if (isContainingBlockResolvable(style.getSize().width)) {
                 layout.size().width = style.getSize().width.maybeResolve(width) + (contentBox ? paddingBorderWidth : 0f);
             }
-            if (!Float.isNaN(stretchSize.height)) {
-                layout.size().height = stretchSize.height;
+            if (!Float.isNaN(keywordSize.height)) {
+                layout.size().height = keywordSize.height;
             } else if (!Float.isNaN(top) && !Float.isNaN(bottom) && style.getSize().height.isAuto()) {
                 layout.size().height = Math.max(0f, height - top - bottom - marginTop - marginBottom);
                 heightDerivedFromInsets = true;

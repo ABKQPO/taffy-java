@@ -751,7 +751,7 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         // For now, delegate to the LayoutComputer
         LayoutComputer computer = new LayoutComputer(this, defaultMeasureFunc);
         LayoutOutput output = computer.computeLayoutWithOutput(rootNode, availableSpace);
-        new OutOfFlowPositioner().reposition(this, rootNode, output.oofCandidates());
+        new OutOfFlowPositioner().reposition(this, rootNode, output.oofCandidates(), computer);
         
         // Round layouts if enabled
         if (useRounding) {

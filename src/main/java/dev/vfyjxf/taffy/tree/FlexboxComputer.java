@@ -2973,12 +2973,15 @@ public class FlexboxComputer {
 
             FloatSize knownDimensions = maybeClamp(styleSize, minSz, maxSz);
 
-            knownDimensions = AbsoluteSizing.resolveStretch(
+            knownDimensions = AbsoluteSizing.resolveMeasurementKeywords(
+                layoutComputer,
+                childId,
                 childStyle.getSize(),
                 knownDimensions,
                 new FloatSize(insetRelativeWidth, insetRelativeHeight),
                 new FloatRect(left, right, top, bottom),
-                margin
+                margin,
+                SizingMode.CONTENT_SIZE
             );
 
             // Fill from insets if not set

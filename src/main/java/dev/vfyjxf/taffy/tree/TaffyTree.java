@@ -355,6 +355,31 @@ public class TaffyTree {
     }
 
     /**
+     * Removes all children in the half-open range [fromIndex, toIndex).
+     * Removed nodes remain in the tree as unattached nodes.
+     */
+    public void removeChildrenRange(NodeId parent, int fromIndex, int toIndex) {
+        long parentKey = parent.getId();
+        List<NodeId> parentChildren = children.get(parentKey);
+        if (parentChildren == null) {
+            throw TaffyException.invalidParentNode(parent);
+        }
+        if (fromIndex < 0 || toIndex < fromIndex || toIndex > parentChildren.size()) {
+            throw TaffyException.childIndexOutOfBounds(parent, toIndex, parentChildren.size());
+        }
+        for (int i = fromIndex; i < toIndex; i++) {
+            parents.put(parentChildren.get(i).getId(), null);
+        }
+        parentChildren.subList(fromIndex, toIndex).clear();
+        markDirty(parent);
+    }
+
+    /** Removes all children from the supplied index through the end. */
+    public void removeChildrenRange(NodeId parent, int fromIndex) {
+        removeChildrenRange(parent, fromIndex, childCount(parent));
+    }
+
+    /**
      * Gets the child at the given index.
      */
     public NodeId getChildAtIndex(NodeId parent, int childIndex) {
@@ -478,6 +503,23 @@ public class TaffyTree {
     public Layout getUnroundedLayout(NodeId node) {
         NodeData data = nodes.get(node.getId());
         return data != null ? data.getUnroundedLayout() : null;
+    }
+
+    /** Returns algorithm-specific detail data for a node. */
+    public DetailedLayoutInfo getDetailedLayoutInfo(NodeId node) {
+        NodeData data = nodes.get(node.getId());
+        if (data == null) throw TaffyException.invalidInputNode(node);
+        return data.getDetailedLayoutInfo();
+    }
+
+    /** Alias matching the Rust API naming. */
+    public DetailedLayoutInfo detailedLayoutInfo(NodeId node) {
+        return getDetailedLayoutInfo(node);
+    }
+
+    void setDetailedLayoutInfo(NodeId node, DetailedLayoutInfo info) {
+        NodeData data = nodes.get(node.getId());
+        if (data != null) data.setDetailedLayoutInfo(info);
     }
 
 

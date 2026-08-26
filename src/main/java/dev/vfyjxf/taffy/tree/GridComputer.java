@@ -959,6 +959,8 @@ public class GridComputer {
             }
 
             FloatSize contentSize = computeContentSizeFromChildren(node);
+            tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
+                rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, colOffsets, items, style)));
             return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, NaN));
         }
 
@@ -1022,12 +1024,60 @@ public class GridComputer {
         float containerBaseline = style.contain.suppressesBaseline() ? NaN : calculateContainerBaseline(items);
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
+        tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
+            rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, columnOffsets, items, style)));
 
         return LayoutOutput.fromSizesAndBaselines(
             containerSize,
             contentSize,
             new FloatPoint(NaN, containerBaseline)
         );
+    }
+
+    private DetailedGridInfo buildDetailedGridInfo(
+        TrackCounts rowCounts,
+        TrackCounts columnCounts,
+        FloatList rowSizes,
+        FloatList columnSizes,
+        FloatList rowOffsets,
+        FloatList columnOffsets,
+        List<GridItem> items,
+        TaffyStyle style) {
+        List<Float> rows = toFloatList(rowSizes);
+        List<Float> columns = toFloatList(columnSizes);
+        List<Float> rowOffsetValues = toFloatList(rowOffsets);
+        List<Float> columnOffsetValues = toFloatList(columnOffsets);
+        List<DetailedGridItemInfo> detailItems = new ArrayList<>();
+
+        for (GridItem item : items) {
+            int columnStart = item.columnStart != null
+                ? item.columnStart : item.columnEnd != null ? item.columnEnd - item.columnSpan : columnCounts.implicitStartLine();
+            int rowStart = item.rowStart != null
+                ? item.rowStart : item.rowEnd != null ? item.rowEnd - item.rowSpan : rowCounts.implicitStartLine();
+            detailItems.add(new DetailedGridItemInfo(
+                item.nodeId,
+                columnStart,
+                columnStart + Math.max(1, item.columnSpan),
+                rowStart,
+                rowStart + Math.max(1, item.rowSpan)));
+        }
+
+        return DetailedGridInfo.from(
+            rowCounts,
+            columnCounts,
+            rows,
+            columns,
+            rowOffsetValues,
+            columnOffsetValues,
+            detailItems,
+            style.getGridTemplateRows(),
+            style.getGridTemplateColumns());
+    }
+
+    private static List<Float> toFloatList(FloatList values) {
+        List<Float> result = new ArrayList<>(values.size());
+        for (int i = 0; i < values.size(); i++) result.add(values.getFloat(i));
+        return result;
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {

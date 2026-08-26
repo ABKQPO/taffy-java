@@ -15,6 +15,9 @@ public class NodeData {
     
     /** The final results of the layout computation (may be rounded) */
     private Layout finalLayout;
+
+    /** Algorithm-specific layout metadata, such as resolved grid tracks. */
+    private DetailedLayoutInfo detailedLayoutInfo;
     
     /** Whether the node has context data (measure function) */
     private boolean hasContext;
@@ -41,6 +44,7 @@ public class NodeData {
         this.style = style != null ? style : new TaffyStyle();
         this.unroundedLayout = new Layout();
         this.finalLayout = new Layout();
+        this.detailedLayoutInfo = DetailedLayoutInfo.none();
         this.hasContext = false;
         this.cache = new LayoutCache();
         this.hasNewLayout = false;
@@ -69,6 +73,14 @@ public class NodeData {
     
     public void setFinalLayout(Layout layout) {
         this.finalLayout = layout;
+    }
+
+    public DetailedLayoutInfo getDetailedLayoutInfo() {
+        return detailedLayoutInfo;
+    }
+
+    public void setDetailedLayoutInfo(DetailedLayoutInfo detailedLayoutInfo) {
+        this.detailedLayoutInfo = detailedLayoutInfo == null ? DetailedLayoutInfo.none() : detailedLayoutInfo;
     }
     
     public boolean hasContext() {

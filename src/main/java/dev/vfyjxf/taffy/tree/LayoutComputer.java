@@ -232,6 +232,7 @@ public class LayoutComputer {
         TaffyStyle style = tree.getStyle(node);
         TaffyDisplay display = style.getDisplay();
         int childCount = tree.childCount(node);
+        tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.none());
 
         // Dispatch based on display mode and whether node has children
         if (display == TaffyDisplay.NONE) {

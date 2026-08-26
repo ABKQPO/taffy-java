@@ -960,7 +960,12 @@ public class GridComputer {
 
             FloatSize contentSize = computeContentSizeFromChildren(node);
             tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
-                rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, colOffsets, items, style)));
+                rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, colOffsets, items, style,
+                layoutComputer.resolveDirection(node), new FloatRect(
+                    contentBoxInset.left,
+                    containerSize.width - contentBoxInset.right,
+                    contentBoxInset.top,
+                    containerSize.height - contentBoxInset.bottom))));
             return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, NaN));
         }
 
@@ -1025,7 +1030,12 @@ public class GridComputer {
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
         tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
-            rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, columnOffsets, items, style)));
+            rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, columnOffsets, items, style,
+            direction, new FloatRect(
+                contentBoxInset.left,
+                containerSize.width - contentBoxInset.right,
+                contentBoxInset.top,
+                containerSize.height - contentBoxInset.bottom))));
 
         return LayoutOutput.fromSizesAndBaselines(
             containerSize,
@@ -1042,12 +1052,17 @@ public class GridComputer {
         FloatList rowOffsets,
         FloatList columnOffsets,
         List<GridItem> items,
-        TaffyStyle style) {
+        TaffyStyle style,
+        TaffyDirection direction,
+        FloatRect paddingBox) {
         List<Float> rows = toFloatList(rowSizes);
         List<Float> columns = toFloatList(columnSizes);
         List<Float> rowOffsetValues = toFloatList(rowOffsets);
         List<Float> columnOffsetValues = toFloatList(columnOffsets);
         List<DetailedGridItemInfo> detailItems = new ArrayList<>();
+        NamedLineResolver namedLineResolver = new NamedLineResolver(style);
+        namedLineResolver.setExplicitRowCount(rowCounts.explicit);
+        namedLineResolver.setExplicitColumnCount(columnCounts.explicit);
 
         for (GridItem item : items) {
             int columnStart = item.columnStart != null
@@ -1071,7 +1086,10 @@ public class GridComputer {
             columnOffsetValues,
             detailItems,
             style.getGridTemplateRows(),
-            style.getGridTemplateColumns());
+            style.getGridTemplateColumns(),
+            namedLineResolver,
+            direction,
+            paddingBox);
     }
 
     private static List<Float> toFloatList(FloatList values) {

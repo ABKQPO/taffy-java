@@ -7,6 +7,7 @@ import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -368,6 +369,29 @@ public class NamedLineResolver {
      */
     public boolean hasNamedLines() {
         return !rowLines.isEmpty() || !columnLines.isEmpty() || !areas.isEmpty();
+    }
+
+    /** Return a copy of row line names keyed by their one-based explicit line index. */
+    public Map<Integer, List<String>> getRowLineNamesByIndex() {
+        return lineNamesByIndex(rowLines);
+    }
+
+    /** Return a copy of column line names keyed by their one-based explicit line index. */
+    public Map<Integer, List<String>> getColumnLineNamesByIndex() {
+        return lineNamesByIndex(columnLines);
+    }
+
+    private static Map<Integer, List<String>> lineNamesByIndex(Map<String, List<Integer>> lineLookup) {
+        Map<Integer, List<String>> result = new HashMap<>();
+        for (Map.Entry<String, List<Integer>> entry : lineLookup.entrySet()) {
+            for (Integer index : entry.getValue()) {
+                result.computeIfAbsent(index, ignored -> new ArrayList<>()).add(entry.getKey());
+            }
+        }
+        for (List<String> names : result.values()) {
+            Collections.sort(names);
+        }
+        return result;
     }
     
     @Override

@@ -6,11 +6,11 @@ import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TrackSizingFunction;
+import dev.vfyjxf.taffy.tree.grid.NamedLineResolver;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /** Detailed track and item information produced by a grid layout. */
 public class DetailedGridInfo {
@@ -19,18 +19,27 @@ public class DetailedGridInfo {
     private final List<DetailedGridItemInfo> items;
     private final String gridTemplateRows;
     private final String gridTemplateColumns;
+    private final NamedLineResolver namedLineResolver;
+    private final TaffyDirection direction;
+    private final FloatRect paddingBox;
 
     public DetailedGridInfo(
         DetailedGridTracksInfo rows,
         DetailedGridTracksInfo columns,
         List<DetailedGridItemInfo> items,
         String gridTemplateRows,
-        String gridTemplateColumns) {
+        String gridTemplateColumns,
+        NamedLineResolver namedLineResolver,
+        TaffyDirection direction,
+        FloatRect paddingBox) {
         this.rows = rows;
         this.columns = columns;
         this.items = Collections.unmodifiableList(new ArrayList<>(items == null ? Collections.emptyList() : items));
         this.gridTemplateRows = gridTemplateRows == null ? "" : gridTemplateRows;
         this.gridTemplateColumns = gridTemplateColumns == null ? "" : gridTemplateColumns;
+        this.namedLineResolver = namedLineResolver;
+        this.direction = direction == null ? TaffyDirection.LTR : direction;
+        this.paddingBox = paddingBox == null ? FloatRect.zero() : paddingBox.copy();
     }
 
     public DetailedGridTracksInfo rows() {
@@ -64,31 +73,70 @@ public class DetailedGridInfo {
         FloatLine rowStart = rows.positionForTrackLine(item.rowStart());
         FloatLine rowEnd = rows.positionForTrackLine(item.rowEnd() - 1);
         if (columnStart == null || columnEnd == null || rowStart == null || rowEnd == null) return null;
-        return FloatRect.ltrb(
+        FloatRect area = FloatRect.ltrb(
             Math.min(columnStart.start, columnEnd.start),
             Math.min(rowStart.start, rowEnd.start),
             Math.max(columnStart.end, columnEnd.end),
             Math.max(rowStart.end, rowEnd.end));
+        return direction.isRtl() ? mirrorInlineAxis(area, paddingBox) : area;
     }
 
-    /**
-     * Resolve an absolutely positioned grid area from numeric line placements.
-     * Named and span placements remain auto when they cannot be resolved without style data.
-     */
+    /** Resolve an absolutely positioned grid area from CSS Grid line placement values. */
     public FloatRect resolveAbsoluteGridArea(
         TaffyLine<GridPlacement> gridRow,
         TaffyLine<GridPlacement> gridColumn,
         TaffyDirection direction,
         FloatRect paddingBox) {
         if (paddingBox == null) return null;
-        Integer rowStart = rows.resolveLine(gridRow == null ? null : gridRow.start, true);
-        Integer rowEnd = rows.resolveLine(gridRow == null ? null : gridRow.end, false);
-        Integer columnStart = columns.resolveLine(gridColumn == null ? null : gridColumn.start, true);
-        Integer columnEnd = columns.resolveLine(gridColumn == null ? null : gridColumn.end, false);
-        FloatLine row = resolveLinePair(rows, rowStart, rowEnd, paddingBox.top, paddingBox.bottom, false);
-        FloatLine column = resolveLinePair(columns, columnStart, columnEnd, paddingBox.left, paddingBox.right,
+        TaffyLine<GridPlacement> resolvedRows = resolveNames(gridRow, true);
+        TaffyLine<GridPlacement> resolvedColumns = resolveNames(gridColumn, false);
+        TaffyLine<Integer> rowIndices = resolveAbsoluteTrackIndices(rows, resolvedRows);
+        TaffyLine<Integer> columnIndices = resolveAbsoluteTrackIndices(columns, resolvedColumns);
+        FloatLine row = resolveLinePair(rows, rowIndices.start, rowIndices.end, paddingBox.top, paddingBox.bottom, false);
+        FloatLine column = resolveLinePair(columns, columnIndices.start, columnIndices.end, paddingBox.left, paddingBox.right,
             direction != null && direction.isRtl());
-        return FloatRect.ltrb(column.start, row.start, column.end, row.end);
+        FloatRect area = FloatRect.ltrb(column.start, row.start, column.end, row.end);
+        return direction != null && direction.isRtl() ? mirrorInlineAxis(area, paddingBox) : area;
+    }
+
+    private static FloatRect mirrorInlineAxis(FloatRect area, FloatRect paddingBox) {
+        float left = paddingBox.left + paddingBox.right - area.right;
+        float right = paddingBox.left + paddingBox.right - area.left;
+        return new FloatRect(left, right, area.top, area.bottom);
+    }
+
+    private TaffyLine<GridPlacement> resolveNames(TaffyLine<GridPlacement> placement, boolean row) {
+        if (placement == null) return new TaffyLine<>(GridPlacement.auto(), GridPlacement.auto());
+        if (namedLineResolver == null) return placement;
+        return row ? namedLineResolver.resolveRowNames(placement) : namedLineResolver.resolveColumnNames(placement);
+    }
+
+    private static TaffyLine<Integer> resolveAbsoluteTrackIndices(
+        DetailedGridTracksInfo tracks,
+        TaffyLine<GridPlacement> placement) {
+        GridPlacement start = placement == null ? null : placement.start;
+        GridPlacement end = placement == null ? null : placement.end;
+        Integer startLine = tracks.resolveLine(start);
+        Integer endLine = tracks.resolveLine(end);
+
+        if (startLine != null && endLine != null) {
+            if (startLine.equals(endLine)) endLine++;
+            else {
+                int low = Math.min(startLine, endLine);
+                int high = Math.max(startLine, endLine);
+                startLine = low;
+                endLine = high;
+            }
+        } else if (startLine != null && end != null && end.isSpan()) {
+            endLine = startLine + end.getValue();
+        } else if (endLine != null && start != null && start.isSpan()) {
+            startLine = endLine - start.getValue();
+        }
+
+        int lineCount = tracks.positions().size();
+        if (startLine != null && (startLine < 0 || startLine > lineCount)) startLine = null;
+        if (endLine != null && (endLine < 0 || endLine > lineCount)) endLine = null;
+        return new TaffyLine<>(startLine, endLine);
     }
 
     private static FloatLine resolveLinePair(
@@ -98,8 +146,8 @@ public class DetailedGridInfo {
         float fallbackStart,
         float fallbackEnd,
         boolean reversed) {
-        float startPosition = tracks.linePosition(start, fallbackStart, fallbackEnd, reversed, true);
-        float endPosition = tracks.linePosition(end, fallbackStart, fallbackEnd, reversed, false);
+        float startPosition = tracks.startLinePosition(start, fallbackStart, fallbackEnd, reversed);
+        float endPosition = tracks.endLinePosition(end, fallbackStart, fallbackEnd, reversed);
         return new FloatLine(Math.min(startPosition, endPosition), Math.max(startPosition, endPosition));
     }
 
@@ -113,19 +161,25 @@ public class DetailedGridInfo {
         List<Float> columnOffsets,
         List<DetailedGridItemInfo> items,
         List<TrackSizingFunction> rowTemplate,
-        List<TrackSizingFunction> columnTemplate) {
-        DetailedGridTracksInfo rows = DetailedGridTracksInfo.from(rowCounts, rowSizes, rowOffsets);
-        DetailedGridTracksInfo columns = DetailedGridTracksInfo.from(columnCounts, columnSizes, columnOffsets);
-        return new DetailedGridInfo(rows, columns, items, resolvedTemplate(rowSizes), resolvedTemplate(columnSizes));
-    }
-
-    private static String resolvedTemplate(List<Float> sizes) {
-        StringBuilder builder = new StringBuilder();
-        for (Float size : sizes) {
-            if (builder.length() > 0) builder.append(' ');
-            builder.append(String.format(Locale.ROOT, "%.4f", size)).append("px");
-        }
-        return builder.toString();
+        List<TrackSizingFunction> columnTemplate,
+        NamedLineResolver namedLineResolver,
+        TaffyDirection direction,
+        FloatRect paddingBox) {
+        DetailedGridTracksInfo rows = DetailedGridTracksInfo.from(
+            rowCounts, rowSizes, rowOffsets,
+            namedLineResolver == null ? Collections.emptyMap() : namedLineResolver.getRowLineNamesByIndex());
+        DetailedGridTracksInfo columns = DetailedGridTracksInfo.from(
+            columnCounts, columnSizes, columnOffsets,
+            namedLineResolver == null ? Collections.emptyMap() : namedLineResolver.getColumnLineNamesByIndex());
+        return new DetailedGridInfo(
+            rows,
+            columns,
+            items,
+            rows.resolvedTrackList(),
+            columns.resolvedTrackList(),
+            namedLineResolver,
+            direction,
+            paddingBox);
     }
 
     @Override

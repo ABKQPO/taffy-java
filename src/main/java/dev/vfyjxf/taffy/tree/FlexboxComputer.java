@@ -2973,6 +2973,14 @@ public class FlexboxComputer {
 
             FloatSize knownDimensions = maybeClamp(styleSize, minSz, maxSz);
 
+            knownDimensions = AbsoluteSizing.resolveStretch(
+                childStyle.getSize(),
+                knownDimensions,
+                new FloatSize(insetRelativeWidth, insetRelativeHeight),
+                new FloatRect(left, right, top, bottom),
+                margin
+            );
+
             // Fill from insets if not set
             if (isNaN(knownDimensions.width) && !isNaN(left) && !isNaN(right)) {
                 float newWidth = TaffyMath.maybeSub(TaffyMath.maybeSub(insetRelativeWidth, marginOption.left), marginOption.right);

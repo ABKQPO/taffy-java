@@ -4656,6 +4656,14 @@ public class GridComputer {
 
             FloatSize knownDimensions = maybeClamp(styleSize, minSz, maxSz);
 
+            knownDimensions = AbsoluteSizing.resolveStretch(
+                childStyle.getSize(),
+                knownDimensions,
+                new FloatSize(areaWidth, areaHeight),
+                new FloatRect(left, right, top, bottom),
+                margin
+            );
+
             // Size from inset (when both left/right or top/bottom are set)
             // Per CSS spec, width from inset is applied first
             if (Float.isNaN(knownDimensions.width) && !Float.isNaN(left) && !Float.isNaN(right)) {

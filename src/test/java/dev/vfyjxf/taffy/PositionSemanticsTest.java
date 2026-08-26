@@ -12,6 +12,7 @@ import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
+import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
@@ -338,6 +339,55 @@ public class PositionSemanticsTest {
         tree.computeLayout(containingBlock, TaffySize.maxContent());
 
         assertEquals(60f, tree.getLayout(absolute).size().width, 0.01f);
+    }
+
+    @Test
+    void absoluteStretchUsesContainingBlockAcrossLayoutAlgorithms() {
+        TaffyDisplay[] displays = {TaffyDisplay.BLOCK, TaffyDisplay.FLEX, TaffyDisplay.GRID};
+        for (TaffyDisplay display : displays) {
+            TaffyStyle absoluteStyle = new TaffyStyle();
+            absoluteStyle.position = TaffyPosition.ABSOLUTE;
+            absoluteStyle.size = new TaffySize<>(TaffyDimension.stretch(), TaffyDimension.stretch());
+            absoluteStyle.margin = new TaffyRect<>(
+                LengthPercentageAuto.length(3f),
+                LengthPercentageAuto.length(4f),
+                LengthPercentageAuto.length(5f),
+                LengthPercentageAuto.length(6f));
+
+            TaffyStyle rootStyle = sizedStyle(100f, 80f);
+            rootStyle.display = display;
+            rootStyle.position = TaffyPosition.RELATIVE;
+            TaffyTree tree = new TaffyTree();
+            NodeId absolute = tree.newLeaf(absoluteStyle);
+            NodeId root = tree.newWithChildren(rootStyle, absolute);
+            tree.computeLayout(root, TaffySize.maxContent());
+
+            assertEquals(93f, tree.getLayout(absolute).size().width, 0.01f, display.toString());
+            assertEquals(69f, tree.getLayout(absolute).size().height, 0.01f, display.toString());
+        }
+    }
+
+    @Test
+    void nestedAbsoluteStretchUsesItsPositionedAncestor() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.size = new TaffySize<>(TaffyDimension.stretch(), TaffyDimension.stretch());
+        absoluteStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.length(3f),
+            LengthPercentageAuto.length(4f),
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(6f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 80f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(93f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(69f, tree.getLayout(absolute).size().height, 0.01f);
     }
 
     @Test

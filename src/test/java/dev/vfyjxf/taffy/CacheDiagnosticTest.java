@@ -29,6 +29,7 @@ public class CacheDiagnosticTest {
         LayoutCache cache = new LayoutCache();
         FloatSize knownDimensions = FloatSize.none();
         TaffySize<AvailableSpace> availableSpace = TaffySize.maxContent();
+        TaffySize<Boolean> knownDimensionsAreDefinite = new TaffySize<>(true, true);
         LayoutOutput horizontalOutput = LayoutOutput.fromOuterSize(new FloatSize(100.0f, 0.0f));
 
         cache.store(
@@ -36,6 +37,7 @@ public class CacheDiagnosticTest {
             availableSpace,
             RunMode.COMPUTE_SIZE,
             RequestedAxis.HORIZONTAL,
+            knownDimensionsAreDefinite,
             horizontalOutput
         );
 
@@ -43,7 +45,8 @@ public class CacheDiagnosticTest {
             knownDimensions,
             availableSpace,
             RunMode.COMPUTE_SIZE,
-            RequestedAxis.VERTICAL
+            RequestedAxis.VERTICAL,
+            knownDimensionsAreDefinite
         ));
 
         cache.store(
@@ -51,6 +54,7 @@ public class CacheDiagnosticTest {
             availableSpace,
             RunMode.COMPUTE_SIZE,
             RequestedAxis.BOTH,
+            knownDimensionsAreDefinite,
             LayoutOutput.fromOuterSize(new FloatSize(100.0f, 50.0f))
         );
 
@@ -58,7 +62,8 @@ public class CacheDiagnosticTest {
             knownDimensions,
             availableSpace,
             RunMode.COMPUTE_SIZE,
-            RequestedAxis.VERTICAL
+            RequestedAxis.VERTICAL,
+            knownDimensionsAreDefinite
         ));
     }
 

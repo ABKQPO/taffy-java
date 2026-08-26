@@ -626,10 +626,11 @@ public class TaffyTree {
      * Gets the cache entry for a node.
      */
     public LayoutOutput getCacheEntry(NodeId node, FloatSize knownDimensions,
-                                      TaffySize<AvailableSpace> availableSpace, RunMode runMode, RequestedAxis axis) {
+                                      TaffySize<AvailableSpace> availableSpace, RunMode runMode, RequestedAxis axis,
+                                      TaffySize<Boolean> knownDimensionsAreDefinite) {
         NodeData data = nodes.get(node.getId());
         if (data == null) return null;
-        return data.getCache().get(knownDimensions, availableSpace, runMode, axis);
+        return data.getCache().get(knownDimensions, availableSpace, runMode, axis, knownDimensionsAreDefinite);
     }
 
     /**
@@ -637,10 +638,10 @@ public class TaffyTree {
      */
     public void storeCacheEntry(NodeId node, FloatSize knownDimensions,
                                 TaffySize<AvailableSpace> availableSpace, RunMode runMode,
-                                RequestedAxis axis, LayoutOutput output) {
+                                RequestedAxis axis, TaffySize<Boolean> knownDimensionsAreDefinite, LayoutOutput output) {
         NodeData data = nodes.get(node.getId());
         if (data != null) {
-            data.getCache().store(knownDimensions, availableSpace, runMode, axis, output);
+            data.getCache().store(knownDimensions, availableSpace, runMode, axis, knownDimensionsAreDefinite, output);
         }
     }
 

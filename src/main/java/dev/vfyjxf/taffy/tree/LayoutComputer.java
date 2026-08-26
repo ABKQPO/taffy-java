@@ -146,6 +146,7 @@ public class LayoutComputer {
             sizingMode,
             RequestedAxis.BOTH,
             knownDimensions,
+            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
             parentSize,
             availableSpace,
             verticalMarginsAreCollapsible
@@ -173,6 +174,7 @@ public class LayoutComputer {
             sizingMode,
             RequestedAxis.BOTH,
             knownDimensions,
+            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
             parentSize,
             availableSpace,
             verticalMarginsAreCollapsible
@@ -197,7 +199,8 @@ public class LayoutComputer {
             inputs.knownDimensions(),
             inputs.availableSpace(),
             inputs.runMode(),
-            inputs.axis()
+            inputs.axis(),
+            inputs.knownDimensionsAreDefinite()
         );
         if (cached != null) {
             return cached;
@@ -213,6 +216,7 @@ public class LayoutComputer {
             inputs.availableSpace(),
             inputs.runMode(),
             inputs.axis(),
+            inputs.knownDimensionsAreDefinite(),
             output
         );
 

@@ -12,6 +12,7 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
  * @param sizingMode Whether style sizes are taken into account
  * @param axis Which axis needs to be measured
  * @param knownDimensions Dimensions treated as fixed during layout
+ * @param knownDimensionsAreDefinite Whether each known dimension is definite
  * @param parentSize Parent dimensions used for percentage resolution
  * @param availableSpace Available space used as a soft wrapping constraint
  * @param verticalMarginsAreCollapsible Whether block margins may collapse
@@ -21,6 +22,7 @@ public record LayoutInput(
     SizingMode sizingMode,
     RequestedAxis axis,
     FloatSize knownDimensions,
+    TaffySize<Boolean> knownDimensionsAreDefinite,
     FloatSize parentSize,
     TaffySize<AvailableSpace> availableSpace,
     TaffyLine<Boolean> verticalMarginsAreCollapsible
@@ -34,6 +36,7 @@ public record LayoutInput(
         SizingMode.INHERENT_SIZE,
         RequestedAxis.BOTH,
         FloatSize.none(),
+        new TaffySize<>(false, false),
         FloatSize.none(),
         new TaffySize<>(AvailableSpace.MAX_CONTENT, AvailableSpace.MAX_CONTENT),
         TaffyLine.FALSE
@@ -55,6 +58,7 @@ public record LayoutInput(
             sizingMode,
             axis,
             knownDimensions,
+            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
             parentSize,
             availableSpace,
             verticalMarginsAreCollapsible
@@ -70,6 +74,7 @@ public record LayoutInput(
             sizingMode,
             axis,
             knownDimensions,
+            knownDimensionsAreDefinite,
             parentSize,
             availableSpace,
             verticalMarginsAreCollapsible

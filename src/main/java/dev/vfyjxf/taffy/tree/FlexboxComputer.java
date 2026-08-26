@@ -102,8 +102,9 @@ public class FlexboxComputer {
         FlexDirection flexDirection = style.getFlexDirection();
         TaffyDirection direction = layoutComputer.resolveDirection(node);
         boolean isRow = flexDirection.isRow();
-        boolean isWrap = style.getFlexWrap() != FlexWrap.NO_WRAP;
-        boolean isWrapReverse = style.getFlexWrap() == FlexWrap.WRAP_REVERSE;
+        boolean isWrap = style.getFlexWrap().isMultiLine();
+        boolean isWrapReverse = style.getFlexWrap().isReverse();
+        boolean isBalance = style.getFlexWrap().isBalance();
 
         Float aspectRatio = style.getAspectRatio();
         FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
@@ -242,7 +243,17 @@ public class FlexboxComputer {
         // Collect items into flex lines (use innerAvailableSpace for wrapping, matching Rust)
         float innerMainSize = isRow ? nodeInnerSize.width : nodeInnerSize.height;
         float mainGap = isRow ? gap.width : gap.height;
-        List<FlexLine> flexLines = collectIntoFlexLines(items, innerAvailableSpace, mainGap, isWrap, flexDirection, minSize, maxSize);
+        List<FlexLine> flexLines = collectIntoFlexLines(
+            items,
+            innerAvailableSpace,
+            mainGap,
+            isWrap,
+            isBalance,
+            style.getFlexLineCount(),
+            flexDirection,
+            minSize,
+            maxSize
+        );
 
         // Determine container main size if not already known (needed for flex grow/shrink)
         if (isNaN(innerMainSize)) {
@@ -479,8 +490,7 @@ public class FlexboxComputer {
             // resolve the cross size here. Stretch should be able to set it.
             // For WRAP containers, keep the AR-derived cross so hypothetical cross sizing uses
             // the initial AR value (matching browser behavior where container cross reflects pre-flex-growth AR).
-            boolean isWrap = containerStyle.getFlexWrap() == FlexWrap.WRAP ||
-                             containerStyle.getFlexWrap() == FlexWrap.WRAP_REVERSE;
+            boolean isWrap = containerStyle.getFlexWrap().isMultiLine();
             if (aspectRatio != null && !Float.isNaN(aspectRatio) && item.alignSelf == AlignSelf.STRETCH) {
                 boolean crossSizeAutoInStyle = isRow ? (isNaN(rawResolvedSize.height)) : (isNaN(rawResolvedSize.width));
 
@@ -1138,6 +1148,8 @@ public class FlexboxComputer {
         TaffySize<AvailableSpace> availableSpace,
         float mainGap,
         boolean isWrap,
+        boolean isBalance,
+        int requestedLineCount,
         FlexDirection flexDirection,
         FloatSize minSize,
         FloatSize maxSize) {
@@ -1152,6 +1164,18 @@ public class FlexboxComputer {
             line.offsetCross = 0;
             lines.add(line);
             return lines;
+        }
+
+        if (isBalance) {
+            return collectBalancedFlexLines(
+                items,
+                availableSpace,
+                mainGap,
+                flexDirection,
+                requestedLineCount,
+                minSize,
+                maxSize
+            );
         }
 
         // Determine main axis available space for wrapping (matching Rust's collect_flex_lines)
@@ -1228,6 +1252,94 @@ public class FlexboxComputer {
             lines.add(line);
         }
 
+        return lines;
+    }
+
+    /**
+     * Partitions flex items into contiguous lines that minimize the largest
+     * line size while honoring the requested minimum line count.
+     */
+    private List<FlexLine> collectBalancedFlexLines(
+        List<FlexItem> items,
+        TaffySize<AvailableSpace> availableSpace,
+        float mainGap,
+        FlexDirection flexDirection,
+        int requestedLineCount,
+        FloatSize minSize,
+        FloatSize maxSize) {
+
+        boolean isRow = flexDirection.isRow();
+        int itemCount = items.size();
+        int minimumLines = Math.max(1, Math.min(requestedLineCount, itemCount));
+        AvailableSpace outerMain = isRow ? availableSpace.width : availableSpace.height;
+        float available = outerMain.isDefinite() ? outerMain.getValue() : Float.NaN;
+
+        if (!Float.isNaN(available) && available >= 0f) {
+            int requiredLines = 1;
+            float lineSize = 0f;
+            for (FlexItem item : items) {
+                float itemSize = isRow ? item.hypotheticalOuterSize.width : item.hypotheticalOuterSize.height;
+                float next = lineSize == 0f ? itemSize : lineSize + mainGap + itemSize;
+                if (lineSize > 0f && next > available + 0.001f) {
+                    requiredLines++;
+                    lineSize = itemSize;
+                } else {
+                    lineSize = next;
+                }
+            }
+            minimumLines = Math.max(minimumLines, requiredLines);
+        }
+
+        int lineCount = Math.min(itemCount, minimumLines);
+        double[] prefix = new double[itemCount + 1];
+        for (int i = 0; i < itemCount; i++) {
+            float itemSize = isRow ? items.get(i).hypotheticalOuterSize.width : items.get(i).hypotheticalOuterSize.height;
+            prefix[i + 1] = prefix[i] + Math.max(0f, itemSize);
+        }
+
+        double[][] costs = new double[lineCount + 1][itemCount + 1];
+        int[][] previous = new int[lineCount + 1][itemCount + 1];
+        for (int line = 0; line <= lineCount; line++) {
+            java.util.Arrays.fill(costs[line], Double.POSITIVE_INFINITY);
+            java.util.Arrays.fill(previous[line], -1);
+        }
+        costs[0][0] = 0d;
+
+        for (int line = 1; line <= lineCount; line++) {
+            for (int end = line; end <= itemCount; end++) {
+                for (int start = line - 1; start < end; start++) {
+                    if (Double.isInfinite(costs[line - 1][start])) continue;
+                    double segment = prefix[end] - prefix[start] + mainGap * Math.max(0, end - start - 1);
+                    double candidate = Math.max(costs[line - 1][start], segment);
+                    if (candidate < costs[line][end]) {
+                        costs[line][end] = candidate;
+                        previous[line][end] = start;
+                    }
+                }
+            }
+        }
+
+        List<Integer> boundaries = new ArrayList<>();
+        int end = itemCount;
+        for (int line = lineCount; line > 0; line--) {
+            int start = previous[line][end];
+            if (start < 0) start = line - 1;
+            boundaries.add(start);
+            end = start;
+        }
+        boundaries.add(itemCount);
+        java.util.Collections.sort(boundaries);
+
+        List<FlexLine> lines = new ArrayList<>();
+        for (int i = 0; i < boundaries.size() - 1; i++) {
+            int start = boundaries.get(i);
+            int finish = boundaries.get(i + 1);
+            FlexLine line = new FlexLine();
+            line.items = new ArrayList<>(items.subList(start, finish));
+            line.crossSize = 0f;
+            line.offsetCross = 0f;
+            lines.add(line);
+        }
         return lines;
     }
 
@@ -1638,8 +1750,7 @@ public class FlexboxComputer {
         // If the flex container is single-line and has a definite cross size,
         // the cross size of the flex line is the flex container's inner cross size.
         // Exception: when cross is AR-derived, allow content to grow beyond the AR value.
-        boolean isWrap = containerStyle.getFlexWrap() == FlexWrap.WRAP ||
-                         containerStyle.getFlexWrap() == FlexWrap.WRAP_REVERSE;
+        boolean isWrap = containerStyle.getFlexWrap().isMultiLine();
         if (!isWrap && lines.size() == 1 && !Float.isNaN(innerCrossSize) && !crossIsArDerived) {
             // When container has a definite cross size, line cross size equals the container's inner cross size
             // No need to apply min/max here - those constraints were already applied when determining container size

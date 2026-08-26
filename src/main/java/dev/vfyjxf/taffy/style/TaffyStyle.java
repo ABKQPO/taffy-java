@@ -160,6 +160,11 @@ public class TaffyStyle {
      */
     public FlexWrap flexWrap = FlexWrap.NO_WRAP;
 
+    /**
+     * Minimum number of flex lines requested by balanced wrapping.
+     */
+    public int flexLineCount = 1;
+
 
     /**
      * Yoga-style flex shorthand. When set (not NaN), this overrides flexGrow/flexShrink/flexBasis:
@@ -454,6 +459,7 @@ public class TaffyStyle {
         copy.direction = this.direction;
         copy.flexDirection = this.flexDirection;
         copy.flexWrap = this.flexWrap;
+        copy.flexLineCount = this.flexLineCount;
         copy.flexBasis = this.flexBasis;
         copy.flexGrow = this.flexGrow;
         copy.flexShrink = this.flexShrink;
@@ -572,6 +578,8 @@ public class TaffyStyle {
     public FlexDirection getFlexDirection() {return flexDirection;}
 
     public FlexWrap getFlexWrap() {return flexWrap;}
+
+    public int getFlexLineCount() {return Math.max(1, flexLineCount);}
 
     /**
      * Returns the raw flex field value (may be NaN if not set)

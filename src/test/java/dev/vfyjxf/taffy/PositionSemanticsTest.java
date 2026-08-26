@@ -11,6 +11,7 @@ import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.tree.OutOfFlowPositioner;
 import dev.vfyjxf.taffy.tree.LayoutComputer;
 import dev.vfyjxf.taffy.tree.LayoutOutput;
 import dev.vfyjxf.taffy.tree.SizingMode;
@@ -105,6 +106,33 @@ public class PositionSemanticsTest {
         NodeId staticParent = tree.newWithChildren(staticParentStyle, absolute);
         NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
         tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(5f, accumulatedX(tree, absolute), 0.01f);
+        assertEquals(7f, accumulatedY(tree, absolute), 0.01f);
+    }
+
+    @Test
+    void outOfFlowPositionerRepositionsNestedAbsoluteDescendants() {
+        TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.length(7f),
+            LengthPercentageAuto.AUTO);
+
+        TaffyTree tree = new TaffyTree();
+        tree.disableRounding();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        tree.getUnroundedLayout(absolute).location().x = 33f;
+        tree.getUnroundedLayout(absolute).location().y = 44f;
+        new OutOfFlowPositioner().reposition(tree, containingBlock);
 
         assertEquals(5f, accumulatedX(tree, absolute), 0.01f);
         assertEquals(7f, accumulatedY(tree, absolute), 0.01f);
@@ -290,6 +318,21 @@ public class PositionSemanticsTest {
             new TaffyLine<>(false, false)
         );
         assertEquals(output.oofCandidates(), cachedOutput.oofCandidates());
+    }
+
+    @Test
+    void rootLayoutOutputContainsBubbledOutOfFlowCandidates() {
+        TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(40f, 40f), absolute);
+        NodeId root = tree.newWithChildren(sizedStyle(100f, 100f), staticParent);
+
+        LayoutOutput output = new LayoutComputer(tree, null).computeLayoutWithOutput(root, TaffySize.maxContent());
+
+        assertEquals(1, output.oofCandidates().size());
+        assertEquals(absolute, output.oofCandidates().get(0).node());
     }
 
     private static TaffyStyle itemStyle() {

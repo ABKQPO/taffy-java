@@ -37,6 +37,13 @@ public class LayoutComputer {
      * Computes layout starting from the root node.
      */
     public void computeLayout(NodeId root, TaffySize<AvailableSpace> availableSpace) {
+        computeLayoutWithOutput(root, availableSpace);
+    }
+
+    /**
+     * Computes layout starting from the root node and returns its complete layout output.
+     */
+    public LayoutOutput computeLayoutWithOutput(NodeId root, TaffySize<AvailableSpace> availableSpace) {
         FloatSize knownDimensions = new FloatSize(Float.NaN, Float.NaN);
 
         TaffyStyle style = tree.getStyle(root);
@@ -131,6 +138,7 @@ public class LayoutComputer {
         );
 
         tree.setUnroundedLayout(root, layout);
+        return output;
     }
 
     /**
@@ -283,10 +291,31 @@ public class LayoutComputer {
             return;
         }
         if (style.getPosition().isPositioned()) {
+            for (NodeId child : tree.getChildren(node)) {
+                collectFixedOutOfFlowCandidates(child, order, position, candidates);
+            }
             return;
         }
         for (NodeId child : tree.getChildren(node)) {
             collectOutOfFlowCandidates(child, order, position, candidates);
+        }
+    }
+
+    private void collectFixedOutOfFlowCandidates(NodeId node, int order, FloatPoint offset,
+                                                  List<OofCandidate> candidates) {
+        TaffyStyle style = tree.getStyle(node);
+        Layout layout = tree.getUnroundedLayout(node);
+        FloatPoint location = layout == null ? FloatPoint.zero() : layout.location();
+        FloatPoint position = new FloatPoint(offset.x + location.x, offset.y + location.y);
+        if (style.getPosition() == TaffyPosition.FIXED) {
+            candidates.add(new OofCandidate(node, order, TaffyPosition.FIXED, position));
+            return;
+        }
+        if (style.getPosition() == TaffyPosition.ABSOLUTE) {
+            return;
+        }
+        for (NodeId child : tree.getChildren(node)) {
+            collectFixedOutOfFlowCandidates(child, order, position, candidates);
         }
     }
 

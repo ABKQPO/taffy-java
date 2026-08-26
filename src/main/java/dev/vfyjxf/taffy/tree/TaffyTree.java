@@ -1,14 +1,11 @@
 package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.FloatSize;
-import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyStyle;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 import dev.vfyjxf.taffy.util.RoundLayout;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -753,8 +750,8 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         // This will be implemented by the compute module
         // For now, delegate to the LayoutComputer
         LayoutComputer computer = new LayoutComputer(this, defaultMeasureFunc);
-        computer.computeLayout(rootNode, availableSpace);
-        repositionOutOfFlowDescendants(rootNode);
+        LayoutOutput output = computer.computeLayoutWithOutput(rootNode, availableSpace);
+        new OutOfFlowPositioner().reposition(this, rootNode, output.oofCandidates());
         
         // Round layouts if enabled
         if (useRounding) {
@@ -797,143 +794,6 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to write tree", exception);
         }
-    }
-
-    private void repositionOutOfFlowDescendants(NodeId rootNode) {
-        for (Long id : nodes.keySet()) {
-            NodeId node = new NodeId(id);
-            TaffyStyle style = getStyle(node);
-            if (!style.getPosition().isOutOfFlow()) {
-                continue;
-            }
-
-            NodeId parent = getParent(node);
-            if (parent == null) {
-                continue;
-            }
-
-            NodeId containingBlock = containingBlock(node, rootNode, style.getPosition());
-            if (style.getPosition() == TaffyPosition.ABSOLUTE && containingBlock.equals(parent)) {
-                continue;
-            }
-            if (style.getPosition() == TaffyPosition.ABSOLUTE
-                && containingBlock.equals(rootNode)
-                && !getStyle(rootNode).getPosition().isPositioned()) {
-                continue;
-            }
-            Layout containingLayout = getUnroundedLayout(containingBlock);
-            float width = containingLayout.size().width - containingLayout.border().left - containingLayout.border().right;
-            float height = containingLayout.size().height - containingLayout.border().top - containingLayout.border().bottom;
-            float left = style.getInset().left.maybeResolve(width);
-            float right = style.getInset().right.maybeResolve(width);
-            float top = style.getInset().top.maybeResolve(height);
-            float bottom = style.getInset().bottom.maybeResolve(height);
-            float marginLeft = resolvedMargin(style.getMargin().left, width);
-            float marginRight = resolvedMargin(style.getMargin().right, width);
-            float marginTop = resolvedMargin(style.getMargin().top, width);
-            float marginBottom = resolvedMargin(style.getMargin().bottom, width);
-            if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)
-                && !style.getSize().width.isPercent() && !style.getSize().height.isPercent()) {
-                continue;
-            }
-
-            FloatPoint containingOrigin = accumulatedLocation(containingBlock);
-            FloatPoint parentOrigin = accumulatedLocation(parent);
-            Layout layout = getUnroundedLayout(node).copy();
-            if (!Float.isNaN(left) && !Float.isNaN(right) && style.getSize().width.isAuto()) {
-                layout.size().width = Math.max(0f, width - left - right);
-            } else if (style.getSize().width.isPercent()) {
-                layout.size().width = style.getSize().width.maybeResolve(width);
-            }
-            if (!Float.isNaN(top) && !Float.isNaN(bottom) && style.getSize().height.isAuto()) {
-                layout.size().height = Math.max(0f, height - top - bottom);
-            } else if (style.getSize().height.isPercent()) {
-                layout.size().height = style.getSize().height.maybeResolve(height);
-            }
-            float minWidth = style.getMinSize().width.maybeResolve(width);
-            float maxWidth = style.getMaxSize().width.maybeResolve(width);
-            float minHeight = style.getMinSize().height.maybeResolve(height);
-            float maxHeight = style.getMaxSize().height.maybeResolve(height);
-            layout.size().width = clamp(layout.size().width, minWidth, maxWidth);
-            layout.size().height = clamp(layout.size().height, minHeight, maxHeight);
-            if (!Float.isNaN(left) && !Float.isNaN(right)) {
-                float freeSpace = Math.max(0f, width - left - right - layout.size().width - marginLeft - marginRight);
-                if (style.getMargin().left.isAuto() && style.getMargin().right.isAuto()) {
-                    marginLeft = freeSpace / 2f;
-                    marginRight = freeSpace / 2f;
-                } else if (style.getMargin().left.isAuto()) {
-                    marginLeft = freeSpace;
-                } else if (style.getMargin().right.isAuto()) {
-                    marginRight = freeSpace;
-                }
-            }
-            if (!Float.isNaN(top) && !Float.isNaN(bottom)) {
-                float freeSpace = Math.max(0f, height - top - bottom - layout.size().height - marginTop - marginBottom);
-                if (style.getMargin().top.isAuto() && style.getMargin().bottom.isAuto()) {
-                    marginTop = freeSpace / 2f;
-                    marginBottom = freeSpace / 2f;
-                } else if (style.getMargin().top.isAuto()) {
-                    marginTop = freeSpace;
-                } else if (style.getMargin().bottom.isAuto()) {
-                    marginBottom = freeSpace;
-                }
-            }
-            if (!Float.isNaN(left)) {
-                layout.location().x = containingOrigin.x + containingLayout.border().left + left + marginLeft - parentOrigin.x;
-            } else if (!Float.isNaN(right)) {
-                layout.location().x = containingOrigin.x + containingLayout.size().width
-                    - containingLayout.border().right - right - marginRight - layout.size().width - parentOrigin.x;
-            }
-            if (!Float.isNaN(top)) {
-                layout.location().y = containingOrigin.y + containingLayout.border().top + top + marginTop - parentOrigin.y;
-            } else if (!Float.isNaN(bottom)) {
-                layout.location().y = containingOrigin.y + containingLayout.size().height
-                    - containingLayout.border().bottom - bottom - marginBottom - layout.size().height - parentOrigin.y;
-            }
-            setUnroundedLayout(node, layout);
-        }
-    }
-
-    private NodeId containingBlock(NodeId node, NodeId rootNode, TaffyPosition position) {
-        if (position == TaffyPosition.FIXED) {
-            return rootNode;
-        }
-        NodeId ancestor = getParent(node);
-        while (ancestor != null) {
-            if (getStyle(ancestor).getPosition().isPositioned()) {
-                return ancestor;
-            }
-            ancestor = getParent(ancestor);
-        }
-        return rootNode;
-    }
-
-    private FloatPoint accumulatedLocation(NodeId node) {
-        float x = 0f;
-        float y = 0f;
-        NodeId current = node;
-        while (current != null) {
-            Layout layout = getUnroundedLayout(current);
-            x += layout.location().x;
-            y += layout.location().y;
-            current = getParent(current);
-        }
-        return new FloatPoint(x, y);
-    }
-
-    private static float clamp(float value, float min, float max) {
-        if (!Float.isNaN(min)) {
-            value = Math.max(value, min);
-        }
-        if (!Float.isNaN(max)) {
-            value = Math.min(value, max);
-        }
-        return value;
-    }
-
-    private static float resolvedMargin(LengthPercentageAuto value, float context) {
-        float resolved = value.maybeResolve(context);
-        return Float.isNaN(resolved) ? 0f : resolved;
     }
 
     /** Write a debug tree representation to an arbitrary character sink. */

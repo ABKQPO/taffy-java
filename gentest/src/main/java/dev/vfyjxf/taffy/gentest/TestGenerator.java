@@ -422,8 +422,12 @@ public class TestGenerator {
         // Position
         if (style.has("position") && !style.get("position").isJsonNull()) {
             String position = style.get("position").getAsString();
-            if ("absolute".equals(position)) {
-                sb.append(ind).append(styleVar).append(".position = TaffyPosition.ABSOLUTE;\n");
+            switch (position) {
+                case "static" -> sb.append(ind).append(styleVar).append(".position = TaffyPosition.STATIC;\n");
+                case "relative" -> sb.append(ind).append(styleVar).append(".position = TaffyPosition.RELATIVE;\n");
+                case "absolute" -> sb.append(ind).append(styleVar).append(".position = TaffyPosition.ABSOLUTE;\n");
+                case "fixed" -> sb.append(ind).append(styleVar).append(".position = TaffyPosition.FIXED;\n");
+                default -> throw new IllegalArgumentException("Unknown position value: " + position);
             }
         }
         

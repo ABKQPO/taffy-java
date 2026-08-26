@@ -28,8 +28,9 @@ import dev.vfyjxf.taffy.util.Resolve;
 import dev.vfyjxf.taffy.util.TaffyMath;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static java.lang.Float.NaN;
 import static java.lang.Float.POSITIVE_INFINITY;
@@ -527,7 +528,7 @@ public class FlexboxComputer {
         for (NodeId childId : tree.getChildren(node)) {
             TaffyStyle childStyle = tree.getStyle(childId);
             if (childStyle.getBoxGenerationMode() == BoxGenerationMode.NONE ||
-                childStyle.getPosition() == TaffyPosition.ABSOLUTE) {
+                childStyle.getPosition().isOutOfFlow()) {
                 order++;
                 continue;
             }
@@ -640,13 +641,17 @@ public class FlexboxComputer {
                 childStyle.getMargin().bottom.isAuto()
             );
 
-            TaffyRect<LengthPercentageAuto> insetStyle = childStyle.getInset();
-            item.inset = new FloatRect(
-                insetStyle.left.maybeResolve(nodeInnerSize.width),
-                insetStyle.right.maybeResolve(nodeInnerSize.width),
-                insetStyle.top.maybeResolve(nodeInnerSize.height),
-                insetStyle.bottom.maybeResolve(nodeInnerSize.height)
-            );
+            if (childStyle.getPosition() == TaffyPosition.RELATIVE) {
+                TaffyRect<LengthPercentageAuto> insetStyle = childStyle.getInset();
+                item.inset = new FloatRect(
+                    insetStyle.left.maybeResolve(nodeInnerSize.width),
+                    insetStyle.right.maybeResolve(nodeInnerSize.width),
+                    insetStyle.top.maybeResolve(nodeInnerSize.height),
+                    insetStyle.bottom.maybeResolve(nodeInnerSize.height)
+                );
+            } else {
+                item.inset = new FloatRect(NaN, NaN, NaN, NaN);
+            }
 
             item.hypotheticalInnerSize = new FloatSize(0f, 0f);
             item.hypotheticalOuterSize = new FloatSize(0f, 0f);
@@ -1409,8 +1414,8 @@ public class FlexboxComputer {
         double[][] costs = new double[lineCount + 1][itemCount + 1];
         int[][] previous = new int[lineCount + 1][itemCount + 1];
         for (int line = 0; line <= lineCount; line++) {
-            java.util.Arrays.fill(costs[line], Double.POSITIVE_INFINITY);
-            java.util.Arrays.fill(previous[line], -1);
+            Arrays.fill(costs[line], Double.POSITIVE_INFINITY);
+            Arrays.fill(previous[line], -1);
         }
         costs[0][0] = 0d;
 
@@ -1437,7 +1442,7 @@ public class FlexboxComputer {
             end = start;
         }
         boundaries.add(itemCount);
-        java.util.Collections.sort(boundaries);
+        Collections.sort(boundaries);
 
         List<FlexLine> lines = new ArrayList<>();
         for (int i = 0; i < boundaries.size() - 1; i++) {
@@ -2918,7 +2923,7 @@ public class FlexboxComputer {
 
         for (NodeId childId : tree.getChildren(node)) {
             TaffyStyle childStyle = tree.getStyle(childId);
-            if (childStyle.getPosition() != TaffyPosition.ABSOLUTE) continue;
+            if (!childStyle.getPosition().isOutOfFlow()) continue;
             if (childStyle.getBoxGenerationMode() == BoxGenerationMode.NONE) continue;
 
             // Area available for positioning (container size minus border and scrollbar gutter)

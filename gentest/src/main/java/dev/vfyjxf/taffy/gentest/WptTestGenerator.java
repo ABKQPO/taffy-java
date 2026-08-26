@@ -10,6 +10,7 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -1058,7 +1059,7 @@ public class WptTestGenerator {
             if (prev == '\\' || prev == '/') continue;
 
             // Insert the current platform separator before the token.
-            String candidate = raw.substring(0, idx) + java.io.File.separator + raw.substring(idx);
+            String candidate = raw.substring(0, idx) + File.separator + raw.substring(idx);
             try {
                 Path repaired = Paths.get(candidate).toAbsolutePath().normalize();
                 if (Files.isDirectory(repaired)) {

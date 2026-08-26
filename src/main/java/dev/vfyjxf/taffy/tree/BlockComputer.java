@@ -261,7 +261,7 @@ public class BlockComputer {
             !style.getOverflow().x.isScrollContainer() &&
             !style.getOverflow().y.isScrollContainer() &&
             !style.contain.establishesIndependentFormattingContext() &&
-            style.getPosition() == TaffyPosition.RELATIVE &&
+            !style.getPosition().isOutOfFlow() &&
             padding.top == 0 &&
             border.top == 0;
 
@@ -271,7 +271,7 @@ public class BlockComputer {
             !style.getOverflow().x.isScrollContainer() &&
             !style.getOverflow().y.isScrollContainer() &&
             !style.contain.establishesIndependentFormattingContext() &&
-            style.getPosition() == TaffyPosition.RELATIVE &&
+            !style.getPosition().isOutOfFlow() &&
             padding.bottom == 0 &&
             border.bottom == 0 &&
             Float.isNaN(sizeStyle.height);
@@ -285,7 +285,7 @@ public class BlockComputer {
             style.getOverflow().x.isScrollContainer() ||
             style.getOverflow().y.isScrollContainer() ||
             style.contain.establishesIndependentFormattingContext() ||
-            style.getPosition() == TaffyPosition.ABSOLUTE ||
+            style.getPosition().isOutOfFlow() ||
             (!Float.isNaN(style.getAspectRatio())) ||
             padding.top > 0 ||
             padding.bottom > 0 ||
@@ -536,7 +536,7 @@ public class BlockComputer {
         float maxChildWidth = 0f;
 
         for (BlockItem item : items) {
-            if (item.position == TaffyPosition.ABSOLUTE) continue;
+            if (item.position.isOutOfFlow()) continue;
 
             FloatSize knownDimensions = maybeClamp(item.size, item.minSize, item.maxSize);
 
@@ -593,7 +593,7 @@ public class BlockComputer {
         FloatContext floatContext = new FloatContext(containerInnerWidth);
 
         for (BlockItem item : items) {
-            if (item.position == TaffyPosition.ABSOLUTE) {
+            if (item.position.isOutOfFlow()) {
                 // In RTL, static position starts from right
                 float staticX = isRtl
                     ? (containerOuterWidth - contentBoxInset.right)
@@ -739,13 +739,16 @@ public class BlockComputer {
                 bottomMarginSet.resolve()
             );
 
-            // Resolve item inset
-            float insetLeft = item.inset.left.maybeResolve(containerInnerWidth);
-            float insetRight = item.inset.right.maybeResolve(containerInnerWidth);
-            float insetTop = item.inset.top.maybeResolve(0f);
-            float insetBottom = item.inset.bottom.maybeResolve(0f);
-            float insetOffsetX = !Float.isNaN(insetLeft) ? insetLeft : (!Float.isNaN(insetRight) ? -insetRight : 0f);
-            float insetOffsetY = !Float.isNaN(insetTop) ? insetTop : (!Float.isNaN(insetBottom) ? -insetBottom : 0f);
+            float insetOffsetX = 0f;
+            float insetOffsetY = 0f;
+            if (item.position == TaffyPosition.RELATIVE) {
+                float insetLeft = item.inset.left.maybeResolve(containerInnerWidth);
+                float insetRight = item.inset.right.maybeResolve(containerInnerWidth);
+                float insetTop = item.inset.top.maybeResolve(0f);
+                float insetBottom = item.inset.bottom.maybeResolve(0f);
+                insetOffsetX = !Float.isNaN(insetLeft) ? insetLeft : (!Float.isNaN(insetRight) ? -insetRight : 0f);
+                insetOffsetY = !Float.isNaN(insetTop) ? insetTop : (!Float.isNaN(insetBottom) ? -insetBottom : 0f);
+            }
 
             // Compute y margin offset with margin collapse
             float yMarginOffset;
@@ -922,7 +925,7 @@ public class BlockComputer {
         float areaHeight = areaSize.height - areaInset.top - areaInset.bottom;
 
         for (BlockItem item : items) {
-            if (item.position != TaffyPosition.ABSOLUTE) continue;
+            if (!item.position.isOutOfFlow()) continue;
 
             TaffyStyle childStyle = tree.getStyle(item.nodeId);
             if (childStyle.getBoxGenerationMode() == BoxGenerationMode.NONE) continue;

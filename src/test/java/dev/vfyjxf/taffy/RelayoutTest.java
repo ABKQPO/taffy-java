@@ -8,6 +8,7 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.NodeId;
@@ -361,6 +362,7 @@ public class RelayoutTest {
         
         TaffyStyle outerStyle = new TaffyStyle();
         outerStyle.size = new TaffySize<>(TaffyDimension.percent(1.0f), TaffyDimension.AUTO);
+        outerStyle.position = TaffyPosition.RELATIVE;
         outerStyle.inset = new TaffyRect<>(
             LengthPercentageAuto.length(1.5f),
             LengthPercentageAuto.AUTO,

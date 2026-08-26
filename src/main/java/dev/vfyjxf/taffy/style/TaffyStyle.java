@@ -69,7 +69,7 @@ public class TaffyStyle {
     /**
      * What should the position value use as a base offset?
      */
-    public TaffyPosition position = TaffyPosition.RELATIVE;
+    public TaffyPosition position = TaffyPosition.STATIC;
 
     /**
      * How should the position of this element be tweaked relative to the layout defined?

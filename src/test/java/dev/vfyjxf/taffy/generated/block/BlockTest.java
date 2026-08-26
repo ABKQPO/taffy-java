@@ -5301,6 +5301,7 @@ public class BlockTest {
         TaffyStyle node0Style = new TaffyStyle();
         node0Style.direction = TaffyDirection.LTR;
         node0Style.display = TaffyDisplay.BLOCK;
+        node0Style.position = TaffyPosition.RELATIVE;
         node0Style.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(50.0f));
         node0Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.AUTO, LengthPercentageAuto.length(10.0f), LengthPercentageAuto.AUTO);
         NodeId node0 = tree.newLeaf(node0Style);
@@ -5357,6 +5358,7 @@ public class BlockTest {
         node0Style.boxSizing = BoxSizing.CONTENT_BOX;
         node0Style.direction = TaffyDirection.LTR;
         node0Style.display = TaffyDisplay.BLOCK;
+        node0Style.position = TaffyPosition.RELATIVE;
         node0Style.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(50.0f));
         node0Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.AUTO, LengthPercentageAuto.length(10.0f), LengthPercentageAuto.AUTO);
         NodeId node0 = tree.newLeaf(node0Style);
@@ -5427,6 +5429,7 @@ public class BlockTest {
         TaffyStyle node1Style = new TaffyStyle();
         node1Style.direction = TaffyDirection.LTR;
         node1Style.display = TaffyDisplay.BLOCK;
+        node1Style.position = TaffyPosition.RELATIVE;
         node1Style.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(20.0f));
         node1Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.AUTO, LengthPercentageAuto.length(5.0f), LengthPercentageAuto.AUTO);
         NodeId node1 = tree.newWithChildren(node1Style, node10);
@@ -5485,6 +5488,7 @@ public class BlockTest {
         node1Style.boxSizing = BoxSizing.CONTENT_BOX;
         node1Style.direction = TaffyDirection.LTR;
         node1Style.display = TaffyDisplay.BLOCK;
+        node1Style.position = TaffyPosition.RELATIVE;
         node1Style.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(20.0f));
         node1Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.AUTO, LengthPercentageAuto.length(5.0f), LengthPercentageAuto.AUTO);
         NodeId node1 = tree.newWithChildren(node1Style, node10);
@@ -6985,18 +6989,21 @@ public class BlockTest {
 
         TaffyStyle node0Style = new TaffyStyle();
         node0Style.direction = TaffyDirection.LTR;
+        node0Style.position = TaffyPosition.RELATIVE;
         node0Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node0Style.inset = new TaffyRect<>(LengthPercentageAuto.length(2.0f), LengthPercentageAuto.AUTO, LengthPercentageAuto.length(4.0f), LengthPercentageAuto.AUTO);
         NodeId node0 = tree.newLeaf(node0Style);
 
         TaffyStyle node1Style = new TaffyStyle();
         node1Style.direction = TaffyDirection.LTR;
+        node1Style.position = TaffyPosition.RELATIVE;
         node1Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node1Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.length(6.0f), LengthPercentageAuto.AUTO, LengthPercentageAuto.length(8.0f));
         NodeId node1 = tree.newLeaf(node1Style);
 
         TaffyStyle node2Style = new TaffyStyle();
         node2Style.direction = TaffyDirection.LTR;
+        node2Style.position = TaffyPosition.RELATIVE;
         node2Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node2Style.inset = new TaffyRect<>(LengthPercentageAuto.length(2.0f), LengthPercentageAuto.length(6.0f), LengthPercentageAuto.length(4.0f), LengthPercentageAuto.length(8.0f));
         NodeId node2 = tree.newLeaf(node2Style);
@@ -7040,6 +7047,7 @@ public class BlockTest {
         TaffyStyle node0Style = new TaffyStyle();
         node0Style.boxSizing = BoxSizing.CONTENT_BOX;
         node0Style.direction = TaffyDirection.LTR;
+        node0Style.position = TaffyPosition.RELATIVE;
         node0Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node0Style.inset = new TaffyRect<>(LengthPercentageAuto.length(2.0f), LengthPercentageAuto.AUTO, LengthPercentageAuto.length(4.0f), LengthPercentageAuto.AUTO);
         NodeId node0 = tree.newLeaf(node0Style);
@@ -7047,6 +7055,7 @@ public class BlockTest {
         TaffyStyle node1Style = new TaffyStyle();
         node1Style.boxSizing = BoxSizing.CONTENT_BOX;
         node1Style.direction = TaffyDirection.LTR;
+        node1Style.position = TaffyPosition.RELATIVE;
         node1Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node1Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.length(6.0f), LengthPercentageAuto.AUTO, LengthPercentageAuto.length(8.0f));
         NodeId node1 = tree.newLeaf(node1Style);
@@ -7054,6 +7063,7 @@ public class BlockTest {
         TaffyStyle node2Style = new TaffyStyle();
         node2Style.boxSizing = BoxSizing.CONTENT_BOX;
         node2Style.direction = TaffyDirection.LTR;
+        node2Style.position = TaffyPosition.RELATIVE;
         node2Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node2Style.inset = new TaffyRect<>(LengthPercentageAuto.length(2.0f), LengthPercentageAuto.length(6.0f), LengthPercentageAuto.length(4.0f), LengthPercentageAuto.length(8.0f));
         NodeId node2 = tree.newLeaf(node2Style);
@@ -7097,18 +7107,21 @@ public class BlockTest {
 
         TaffyStyle node0Style = new TaffyStyle();
         node0Style.direction = TaffyDirection.LTR;
+        node0Style.position = TaffyPosition.RELATIVE;
         node0Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node0Style.inset = new TaffyRect<>(LengthPercentageAuto.percent(0.02f), LengthPercentageAuto.AUTO, LengthPercentageAuto.percent(0.04f), LengthPercentageAuto.AUTO);
         NodeId node0 = tree.newLeaf(node0Style);
 
         TaffyStyle node1Style = new TaffyStyle();
         node1Style.direction = TaffyDirection.LTR;
+        node1Style.position = TaffyPosition.RELATIVE;
         node1Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node1Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.percent(0.06f), LengthPercentageAuto.AUTO, LengthPercentageAuto.percent(0.08f));
         NodeId node1 = tree.newLeaf(node1Style);
 
         TaffyStyle node2Style = new TaffyStyle();
         node2Style.direction = TaffyDirection.LTR;
+        node2Style.position = TaffyPosition.RELATIVE;
         node2Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node2Style.inset = new TaffyRect<>(LengthPercentageAuto.percent(0.02f), LengthPercentageAuto.percent(0.06f), LengthPercentageAuto.percent(0.04f), LengthPercentageAuto.percent(0.08f));
         NodeId node2 = tree.newLeaf(node2Style);
@@ -7152,6 +7165,7 @@ public class BlockTest {
         TaffyStyle node0Style = new TaffyStyle();
         node0Style.boxSizing = BoxSizing.CONTENT_BOX;
         node0Style.direction = TaffyDirection.LTR;
+        node0Style.position = TaffyPosition.RELATIVE;
         node0Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node0Style.inset = new TaffyRect<>(LengthPercentageAuto.percent(0.02f), LengthPercentageAuto.AUTO, LengthPercentageAuto.percent(0.04f), LengthPercentageAuto.AUTO);
         NodeId node0 = tree.newLeaf(node0Style);
@@ -7159,6 +7173,7 @@ public class BlockTest {
         TaffyStyle node1Style = new TaffyStyle();
         node1Style.boxSizing = BoxSizing.CONTENT_BOX;
         node1Style.direction = TaffyDirection.LTR;
+        node1Style.position = TaffyPosition.RELATIVE;
         node1Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node1Style.inset = new TaffyRect<>(LengthPercentageAuto.AUTO, LengthPercentageAuto.percent(0.06f), LengthPercentageAuto.AUTO, LengthPercentageAuto.percent(0.08f));
         NodeId node1 = tree.newLeaf(node1Style);
@@ -7166,6 +7181,7 @@ public class BlockTest {
         TaffyStyle node2Style = new TaffyStyle();
         node2Style.boxSizing = BoxSizing.CONTENT_BOX;
         node2Style.direction = TaffyDirection.LTR;
+        node2Style.position = TaffyPosition.RELATIVE;
         node2Style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10.0f));
         node2Style.inset = new TaffyRect<>(LengthPercentageAuto.percent(0.02f), LengthPercentageAuto.percent(0.06f), LengthPercentageAuto.percent(0.04f), LengthPercentageAuto.percent(0.08f));
         NodeId node2 = tree.newLeaf(node2Style);

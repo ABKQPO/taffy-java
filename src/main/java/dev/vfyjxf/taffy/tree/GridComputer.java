@@ -1319,7 +1319,7 @@ public class GridComputer {
             item.computedSize = new FloatSize(0f, 0f);
             item.location = new FloatPoint(0f, 0f);
 
-            if (item.position != TaffyPosition.ABSOLUTE) {
+            if (!item.position.isOutOfFlow()) {
                 items.add(item);
             }
         }
@@ -1758,7 +1758,7 @@ public class GridComputer {
         // Build a set of columns that contain items
         boolean[] columnOccupied = new boolean[columnSizes.size()];
         for (GridItem item : items) {
-            if (item.position == TaffyPosition.ABSOLUTE) {
+            if (item.position.isOutOfFlow()) {
                 continue;
             }
             int colStart = getItemColumnWithCounts(item, 0, columnSizes.size(), colCounts);
@@ -4603,7 +4603,7 @@ public class GridComputer {
 
         for (NodeId childId : tree.getChildren(node)) {
             TaffyStyle childStyle = tree.getStyle(childId);
-            if (childStyle.getPosition() != TaffyPosition.ABSOLUTE) continue;
+            if (!childStyle.getPosition().isOutOfFlow()) continue;
             if (childStyle.getBoxGenerationMode() == BoxGenerationMode.NONE) continue;
 
             // Resolve grid placement for absolute positioned items
@@ -5684,7 +5684,7 @@ public class GridComputer {
 
             GridItem item = new GridItem();
             item.order = i;
-            item.position = TaffyPosition.RELATIVE;
+            item.position = TaffyPosition.STATIC;
 
             GridPlacementResult colPlacement = gc.parseGridPlacement(
                 child.getGridColumnStart(),

@@ -752,6 +752,7 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         LayoutComputer computer = new LayoutComputer(this, defaultMeasureFunc);
         LayoutOutput output = computer.computeLayoutWithOutput(rootNode, availableSpace);
         new OutOfFlowPositioner().reposition(this, rootNode, output.oofCandidates(), computer);
+        ScrollableOverflow.refreshTree(this, computer, rootNode);
         
         // Round layouts if enabled
         if (useRounding) {

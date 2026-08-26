@@ -418,6 +418,16 @@ public class BlockComputer {
         }
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
+        FloatRect scrollableOverflowRect = ScrollableOverflow.fromChildren(
+            tree,
+            node,
+            finalOuterSize,
+            resolvedBorder,
+            resolvedPadding,
+            new FloatSize(scrollbarGutterRight, scrollbarGutterBottom),
+            layoutComputer.resolveDirection(node),
+            overflow
+        );
 
         // Determine whether this node can be collapsed through
         boolean canBeCollapsedThrough = !hasStylesPreventingBeingCollapsedThrough &&
@@ -449,7 +459,9 @@ public class BlockComputer {
             new FloatPoint(NaN, firstVerticalBaseline),
             topMargin,
             bottomMargin,
-            canBeCollapsedThrough
+            canBeCollapsedThrough,
+            scrollableOverflowRect,
+            Baselines.fromLegacy(firstVerticalBaseline)
         );
     }
 

@@ -959,14 +959,25 @@ public class GridComputer {
             }
 
             FloatSize contentSize = computeContentSizeFromChildren(node);
+            TaffyDirection direction = layoutComputer.resolveDirection(node);
+            FloatRect scrollableOverflowRect = ScrollableOverflow.fromChildren(
+                tree,
+                node,
+                containerSize,
+                border,
+                padding,
+                new FloatSize(scrollbarGutterX, scrollbarGutterY),
+                direction,
+                overflow
+            );
             tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
                 rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, colOffsets, items, style,
-                layoutComputer.resolveDirection(node), new FloatRect(
+                direction, new FloatRect(
                     contentBoxInset.left,
                     containerSize.width - contentBoxInset.right,
                     contentBoxInset.top,
                     containerSize.height - contentBoxInset.bottom))));
-            return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, NaN));
+            return LayoutOutput.fromSizesAndOverflow(containerSize, contentSize, scrollableOverflowRect, Baselines.NONE);
         }
 
         // Calculate track offsets for absolute positioned children
@@ -1029,6 +1040,16 @@ public class GridComputer {
         float containerBaseline = style.contain.suppressesBaseline() ? NaN : calculateContainerBaseline(items);
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
+        FloatRect scrollableOverflowRect = ScrollableOverflow.fromChildren(
+            tree,
+            node,
+            containerSize,
+            border,
+            padding,
+            new FloatSize(scrollbarGutterX, scrollbarGutterY),
+            direction,
+            overflow
+        );
         tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
             rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, columnOffsets, items, style,
             direction, new FloatRect(
@@ -1037,10 +1058,11 @@ public class GridComputer {
                 contentBoxInset.top,
                 containerSize.height - contentBoxInset.bottom))));
 
-        return LayoutOutput.fromSizesAndBaselines(
+        return LayoutOutput.fromSizesAndOverflow(
             containerSize,
             contentSize,
-            new FloatPoint(NaN, containerBaseline)
+            scrollableOverflowRect,
+            Baselines.fromLegacy(containerBaseline)
         );
     }
 

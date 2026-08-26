@@ -254,7 +254,17 @@ public class FlexboxComputer {
             }
 
             FloatSize contentSize = computeContentSizeFromChildren(node);
-            return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, NaN));
+            FloatRect scrollableOverflowRect = ScrollableOverflow.fromChildren(
+                tree,
+                node,
+                containerSize,
+                border,
+                padding,
+                scrollbarGutter,
+                direction,
+                overflow
+            );
+            return LayoutOutput.fromSizesAndOverflow(containerSize, contentSize, scrollableOverflowRect, Baselines.NONE);
         }
 
         // Determine flex base size and hypothetical main size
@@ -447,10 +457,25 @@ public class FlexboxComputer {
         }
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
+        FloatRect scrollableOverflowRect = ScrollableOverflow.fromChildren(
+            tree,
+            node,
+            containerSize,
+            border,
+            padding,
+            scrollbarGutter,
+            direction,
+            overflow
+        );
         if (style.contain.suppressesBaseline()) {
             firstVerticalBaseline = NaN;
         }
-        return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, firstVerticalBaseline));
+        return LayoutOutput.fromSizesAndOverflow(
+            containerSize,
+            contentSize,
+            scrollableOverflowRect,
+            Baselines.fromLegacy(firstVerticalBaseline)
+        );
     }
 
     private static boolean hasDefiniteAxisSize(

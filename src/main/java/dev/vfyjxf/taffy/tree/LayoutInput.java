@@ -4,34 +4,30 @@ import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
-import lombok.Value;
-import lombok.experimental.Accessors;
 
 /**
- * A struct containing the input constraints/hints for laying out a node, which are passed in by the parent.
+ * A struct containing the input constraints and hints for laying out a node.
  *
- * @param runMode                       Whether we only need to know the Node's size, or whether we need to perform a full layout
- * @param sizingMode                    Whether a Node's style sizes should be taken into account or ignored
- * @param axis                          Which axis we need the size of
- * @param knownDimensions               Known dimensions represent dimensions (width/height) which should be taken as fixed when performing layout.
- * @param parentSize                    Parent size dimensions are intended to be used for percentage resolution.
- * @param availableSpace                Available space represents an amount of space to layout into, and is used as a soft constraint for wrapping.
- * @param verticalMarginsAreCollapsible Specific to CSS Block layout. Used for correctly computing margin collapsing.
+ * @param runMode Whether to compute only the node size or perform full layout
+ * @param sizingMode Whether style sizes are taken into account
+ * @param axis Which axis needs to be measured
+ * @param knownDimensions Dimensions treated as fixed during layout
+ * @param parentSize Parent dimensions used for percentage resolution
+ * @param availableSpace Available space used as a soft wrapping constraint
+ * @param verticalMarginsAreCollapsible Whether block margins may collapse
  */
-@Value
-@Accessors(fluent = true)
-public class LayoutInput {
-
-    RunMode runMode;
-    SizingMode sizingMode;
-    RequestedAxis axis;
-    FloatSize knownDimensions;
-    FloatSize parentSize;
-    TaffySize<AvailableSpace> availableSpace;
-    TaffyLine<Boolean> verticalMarginsAreCollapsible;
+public record LayoutInput(
+    RunMode runMode,
+    SizingMode sizingMode,
+    RequestedAxis axis,
+    FloatSize knownDimensions,
+    FloatSize parentSize,
+    TaffySize<AvailableSpace> availableSpace,
+    TaffyLine<Boolean> verticalMarginsAreCollapsible
+) {
 
     /**
-     * Create a LayoutInput for hidden layout
+     * Create a LayoutInput for hidden layout.
      */
     public static final LayoutInput HIDDEN = new LayoutInput(
         RunMode.PERFORM_HIDDEN_LAYOUT,
@@ -44,41 +40,45 @@ public class LayoutInput {
     );
 
     /**
-     * Static factory method for hidden layout input
+     * Static factory method for hidden layout input.
      */
     public static LayoutInput hidden() {
         return HIDDEN;
     }
 
-    // === Getters ===
-
     /**
-     * Create a copy with modified knownDimensions
+     * Create a copy with modified known dimensions.
      */
     public LayoutInput withKnownDimensions(FloatSize knownDimensions) {
         return new LayoutInput(
-            this.runMode,
-            this.sizingMode,
-            this.axis,
+            runMode,
+            sizingMode,
+            axis,
             knownDimensions,
-            this.parentSize,
-            this.availableSpace,
-            this.verticalMarginsAreCollapsible
+            parentSize,
+            availableSpace,
+            verticalMarginsAreCollapsible
         );
     }
 
     /**
-     * Create a copy with modified availableSpace
+     * Create a copy with modified available space.
      */
     public LayoutInput withAvailableSpace(TaffySize<AvailableSpace> availableSpace) {
         return new LayoutInput(
-            this.runMode,
-            this.sizingMode,
-            this.axis,
-            this.knownDimensions,
-            this.parentSize,
+            runMode,
+            sizingMode,
+            axis,
+            knownDimensions,
+            parentSize,
             availableSpace,
-            this.verticalMarginsAreCollapsible
+            verticalMarginsAreCollapsible
         );
+    }
+
+    @Override
+    public String toString() {
+        return "LayoutInput{runMode=" + runMode + ", knownDimensions=" + knownDimensions
+            + ", availableSpace=" + availableSpace + "}";
     }
 }

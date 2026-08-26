@@ -802,7 +802,7 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         for (Long id : nodes.keySet()) {
             NodeId node = new NodeId(id);
             TaffyStyle style = getStyle(node);
-            if (style.getPosition() != TaffyPosition.FIXED) {
+            if (!style.getPosition().isOutOfFlow()) {
                 continue;
             }
 
@@ -811,7 +811,15 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
                 continue;
             }
 
-            NodeId containingBlock = rootNode;
+            NodeId containingBlock = containingBlock(node, rootNode, style.getPosition());
+            if (style.getPosition() == TaffyPosition.ABSOLUTE && containingBlock.equals(parent)) {
+                continue;
+            }
+            if (style.getPosition() == TaffyPosition.ABSOLUTE
+                && containingBlock.equals(rootNode)
+                && !getStyle(rootNode).getPosition().isPositioned()) {
+                continue;
+            }
             Layout containingLayout = getUnroundedLayout(containingBlock);
             float width = containingLayout.size().width - containingLayout.border().left - containingLayout.border().right;
             float height = containingLayout.size().height - containingLayout.border().top - containingLayout.border().bottom;
@@ -832,6 +840,20 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             }
             setUnroundedLayout(node, layout);
         }
+    }
+
+    private NodeId containingBlock(NodeId node, NodeId rootNode, TaffyPosition position) {
+        if (position == TaffyPosition.FIXED) {
+            return rootNode;
+        }
+        NodeId ancestor = getParent(node);
+        while (ancestor != null) {
+            if (getStyle(ancestor).getPosition().isPositioned()) {
+                return ancestor;
+            }
+            ancestor = getParent(ancestor);
+        }
+        return rootNode;
     }
 
     private FloatPoint accumulatedLocation(NodeId node) {

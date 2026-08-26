@@ -82,6 +82,35 @@ public class PositionSemanticsTest {
     }
 
     @Test
+    void absoluteDescendantSkipsItsStaticParentForExplicitInsets() {
+        TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.length(7f),
+            LengthPercentageAuto.AUTO);
+
+        TaffyStyle staticParentStyle = sizedStyle(30f, 30f);
+        staticParentStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.length(40f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.length(40f),
+            LengthPercentageAuto.AUTO);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(staticParentStyle, absolute);
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(5f, accumulatedX(tree, absolute), 0.01f);
+        assertEquals(7f, accumulatedY(tree, absolute), 0.01f);
+    }
+
+    @Test
     void staticAncestorsBubbleOutOfFlowCandidatesToTheirContainingBlock() {
         TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
         absoluteStyle.position = TaffyPosition.ABSOLUTE;
@@ -140,5 +169,15 @@ public class PositionSemanticsTest {
             current = tree.getParent(current);
         }
         return y;
+    }
+
+    private static float accumulatedX(TaffyTree tree, NodeId node) {
+        float x = 0f;
+        NodeId current = node;
+        while (current != null) {
+            x += tree.getLayout(current).location().x;
+            current = tree.getParent(current);
+        }
+        return x;
     }
 }

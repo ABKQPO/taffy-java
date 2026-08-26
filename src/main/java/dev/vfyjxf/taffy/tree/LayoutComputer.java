@@ -18,6 +18,7 @@ import dev.vfyjxf.taffy.util.Resolve;
 import dev.vfyjxf.taffy.util.TaffyMath;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Computes layout for any tree implementing the low-level layout contract.
@@ -247,11 +248,38 @@ public class LayoutComputer {
 
         // Compute layout
         LayoutOutput output = computeLayoutUncached(node, inputs);
+        if (inputs.runMode() == RunMode.PERFORM_LAYOUT) {
+            output = attachDirectOutOfFlowCandidates(node, output);
+        }
 
         // Store in cache
         tree.storeCacheEntry(node, inputs, output);
 
         return output;
+    }
+
+    private LayoutOutput attachDirectOutOfFlowCandidates(NodeId node, LayoutOutput output) {
+        List<OofCandidate> candidates = new ArrayList<>();
+        List<NodeId> children = tree.getChildren(node);
+        for (int index = 0; index < children.size(); index++) {
+            NodeId child = children.get(index);
+            TaffyStyle childStyle = tree.getStyle(child);
+            if (!childStyle.getPosition().isOutOfFlow()) {
+                continue;
+            }
+            Layout childLayout = tree.getUnroundedLayout(child);
+            FloatPoint staticPosition = childLayout == null
+                ? FloatPoint.zero()
+                : childLayout.location().copy();
+            candidates.add(new OofCandidate(child, index, childStyle.getPosition(), staticPosition));
+        }
+        if (candidates.isEmpty()) {
+            return output;
+        }
+        return output.withOutOfFlow(
+            candidates,
+            new OofPositioningArea(output.size().copy(), FloatPoint.zero())
+        );
     }
 
     /**

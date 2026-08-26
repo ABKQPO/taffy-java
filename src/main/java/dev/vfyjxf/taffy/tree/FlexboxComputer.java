@@ -226,7 +226,7 @@ public class FlexboxComputer {
                         FloatSize.none(),
                         FloatSize.none(),
                         TaffySize.maxContent(),
-                        SizingMode.INHERENT_SIZE,
+                        SizingMode.CONTENT_SIZE,
                         TaffyLine.FALSE
                     );
                 }
@@ -374,7 +374,7 @@ public class FlexboxComputer {
                     FloatSize.none(),
                     FloatSize.none(),
                     TaffySize.maxContent(),
-                    SizingMode.INHERENT_SIZE,
+                    SizingMode.CONTENT_SIZE,
                     TaffyLine.FALSE
                 );
             }
@@ -2728,9 +2728,8 @@ public class FlexboxComputer {
                 knownDimensions,
                 new FloatSize(insetRelativeWidth, insetRelativeHeight),
                 new TaffySize<>(AvailableSpace.definite(containerSize.width), AvailableSpace.definite(containerSize.height)),
-                // Absolute positioned nodes need inherent sizing so that min/max constraints and aspect-ratio
-                // resolution are applied by leaf/layout algorithms.
-                SizingMode.INHERENT_SIZE,
+                // The caller already resolves explicit size, min/max, and aspect-ratio constraints.
+                SizingMode.CONTENT_SIZE,
                 new TaffyLine<>(false, false)
             );
 

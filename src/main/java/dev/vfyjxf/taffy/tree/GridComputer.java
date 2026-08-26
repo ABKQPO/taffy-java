@@ -4522,6 +4522,10 @@ public class GridComputer {
         FloatList rowOffsets,
         boolean isRtl) {
         TaffyTree tree = layoutComputer.getTree();
+        TaffyStyle containerStyle = tree.getStyle(node);
+        NamedLineResolver namedLineResolver = new NamedLineResolver(containerStyle);
+        namedLineResolver.setExplicitColumnCount(colCounts.explicit);
+        namedLineResolver.setExplicitRowCount(rowCounts.explicit);
 
         for (NodeId childId : tree.getChildren(node)) {
             TaffyStyle childStyle = tree.getStyle(childId);
@@ -4531,6 +4535,8 @@ public class GridComputer {
             // Resolve grid placement for absolute positioned items
             TaffyLine<GridPlacement> gridCol = childStyle.gridColumn;
             TaffyLine<GridPlacement> gridRow = childStyle.gridRow;
+            gridCol = namedLineResolver.resolveColumnNames(gridCol);
+            gridRow = namedLineResolver.resolveRowNames(gridRow);
 
             // Calculate grid area based on grid placement
             FloatRect gridArea = resolveAbsoluteGridArea(

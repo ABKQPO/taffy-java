@@ -164,6 +164,24 @@ public class PositionSemanticsTest {
     }
 
     @Test
+    void absoluteDescendantResolvesPercentageSizeAgainstItsPositionedAncestor() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.size = new TaffySize<>(TaffyDimension.percent(0.5f), TaffyDimension.percent(0.4f));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(sizedStyle(30f, 30f), absolute);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(50f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(40f, tree.getLayout(absolute).size().height, 0.01f);
+    }
+
+    @Test
     void staticAncestorsBubbleOutOfFlowCandidatesToTheirContainingBlock() {
         TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
         absoluteStyle.position = TaffyPosition.ABSOLUTE;

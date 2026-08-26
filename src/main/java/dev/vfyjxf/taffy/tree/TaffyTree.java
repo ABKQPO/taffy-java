@@ -827,7 +827,8 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             float right = style.getInset().right.maybeResolve(width);
             float top = style.getInset().top.maybeResolve(height);
             float bottom = style.getInset().bottom.maybeResolve(height);
-            if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)) {
+            if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)
+                && !style.getSize().width.isPercent() && !style.getSize().height.isPercent()) {
                 continue;
             }
 
@@ -836,9 +837,13 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             Layout layout = getUnroundedLayout(node).copy();
             if (!Float.isNaN(left) && !Float.isNaN(right) && style.getSize().width.isAuto()) {
                 layout.size().width = Math.max(0f, width - left - right);
+            } else if (style.getSize().width.isPercent()) {
+                layout.size().width = style.getSize().width.maybeResolve(width);
             }
             if (!Float.isNaN(top) && !Float.isNaN(bottom) && style.getSize().height.isAuto()) {
                 layout.size().height = Math.max(0f, height - top - bottom);
+            } else if (style.getSize().height.isPercent()) {
+                layout.size().height = style.getSize().height.maybeResolve(height);
             }
             if (!Float.isNaN(left)) {
                 layout.location().x = containingOrigin.x + containingLayout.border().left + left - parentOrigin.x;

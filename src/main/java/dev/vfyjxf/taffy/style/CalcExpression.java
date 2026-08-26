@@ -25,7 +25,6 @@ public interface CalcExpression {
      */
     float resolve(float basis);
     
-    // === Common calc expression factories ===
     
     /**
      * Creates a calc expression that adds a percentage of the basis to a fixed length.

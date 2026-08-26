@@ -722,7 +722,6 @@ public class GridComputer {
             }
         }
 
-        // === Rust-style Re-run Logic (CSS Grid spec 11.8) ===
         // Column sizing must be re-run (once) if:
         //   - The grid container's width was initially indefinite and there are any columns with percentage track sizing functions
         //   - Any grid item crossing an intrinsically sized track's min content contribution width has changed

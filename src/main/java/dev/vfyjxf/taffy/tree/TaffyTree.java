@@ -61,7 +61,6 @@ public class TaffyTree {
         this.parents = new Long2ObjectOpenHashMap<>(capacity);
     }
 
-    // === Configuration ===
 
     /**
      * Enable rounding of layout values. Rounding is enabled by default.
@@ -109,7 +108,6 @@ public class TaffyTree {
         return layoutChangeListener;
     }
 
-    // === Node Creation ===
 
     /**
      * Creates and adds a new unattached leaf node to the tree.
@@ -170,7 +168,6 @@ public class TaffyTree {
         return newWithChildren(style, childNodes.toArray(new NodeId[0]));
     }
 
-    // === Tree Manipulation ===
 
     /**
      * Drops all nodes in the tree.
@@ -211,7 +208,6 @@ public class TaffyTree {
         nodeContextData.remove(key);
     }
 
-    // === Context (Measure Function) Management ===
 
     /**
      * Sets the measure function for a node.
@@ -241,7 +237,6 @@ public class TaffyTree {
         return nodeContextData.get(node.getId());
     }
 
-    // === Child Management ===
 
     /**
      * Adds a child node under the parent.
@@ -402,7 +397,6 @@ public class TaffyTree {
         return oldChild;
     }
 
-    // === Getters ===
 
     /**
      * Returns the number of children of a node.
@@ -442,7 +436,6 @@ public class TaffyTree {
         return parents.get(child.getId());
     }
 
-    // === Style Management ===
 
     /**
      * Sets the style of a node.
@@ -467,7 +460,6 @@ public class TaffyTree {
         return data.getStyle();
     }
 
-    // === Layout Access ===
 
     /**
      * Returns the layout of a node.
@@ -488,7 +480,6 @@ public class TaffyTree {
         return data != null ? data.getUnroundedLayout() : null;
     }
 
-    // === Layout Change Tracking (Yoga-style dirty propagation) ===
 
     /**
      * Returns true if this node has a new layout that hasn't been acknowledged.
@@ -630,7 +621,6 @@ public class TaffyTree {
         }
     }
 
-    // === Cache Management ===
 
     /**
      * Gets the cache entry for a node.
@@ -664,7 +654,6 @@ public class TaffyTree {
         }
     }
 
-    // === Dirty State ===
 
     /**
      * Marks the node and its ancestors as needing layout recalculation.
@@ -694,7 +683,6 @@ public class TaffyTree {
         return data == null || data.getCache().isEmpty();
     }
 
-    // === Layout Computation ===
 
     /**
      * Computes the layout for the tree starting from the given root node.
@@ -719,7 +707,6 @@ public class TaffyTree {
         }
     }
 
-    // === Utility Methods ===
 
     /**
      * Returns the node data for internal use.

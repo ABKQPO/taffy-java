@@ -14,7 +14,6 @@ import java.util.List;
  */
 public class TaffyStyle {
 
-    // === Display and Box Model ===
 
     /**
      * What layout strategy should be used?
@@ -44,7 +43,6 @@ public class TaffyStyle {
      */
     public BoxSizing boxSizing = BoxSizing.BORDER_BOX;
 
-    // === Overflow Properties ===
 
     /**
      * How children overflowing their container should affect layout
@@ -56,7 +54,6 @@ public class TaffyStyle {
      */
     public float scrollbarWidth = 0;
 
-    // === Position Properties ===
 
     /**
      * What should the position value use as a base offset?
@@ -68,7 +65,6 @@ public class TaffyStyle {
      */
     public TaffyRect<LengthPercentageAuto> inset = TaffyRect.all(LengthPercentageAuto.AUTO);
 
-    // === Size Properties ===
 
     /**
      * Sets the initial size of the item
@@ -90,7 +86,6 @@ public class TaffyStyle {
      */
     public float aspectRatio = Float.NaN;
 
-    // === Spacing Properties ===
 
     /**
      * How large should the margin be on each side?
@@ -107,7 +102,6 @@ public class TaffyStyle {
      */
     public TaffyRect<LengthPercentage> border = TaffyRect.all(LengthPercentage.ZERO);
 
-    // === Alignment Properties ===
 
     /**
      * How this node's children aligned in the cross/block axis?
@@ -144,14 +138,12 @@ public class TaffyStyle {
      */
     public TaffySize<LengthPercentage> gap = TaffySize.all(LengthPercentage.ZERO);
 
-    // === Block Container Properties ===
 
     /**
      * How items elements should aligned in the inline axis
      */
     public TextAlign textAlign = TextAlign.AUTO;
 
-    // === Flexbox Container Properties ===
 
     /**
      * Which direction does the main axis flow in?
@@ -163,7 +155,6 @@ public class TaffyStyle {
      */
     public FlexWrap flexWrap = FlexWrap.NO_WRAP;
 
-    // === Flexbox Item Properties ===
 
     /**
      * Yoga-style flex shorthand. When set (not NaN), this overrides flexGrow/flexShrink/flexBasis:
@@ -190,7 +181,6 @@ public class TaffyStyle {
      */
     public TaffyDimension flexBasis = TaffyDimension.AUTO;
 
-    // === Flex Shorthand Methods ===
 
     /**
      * Gets the effective flex-grow value, considering the flex shorthand.
@@ -344,7 +334,6 @@ public class TaffyStyle {
         return this;
     }
 
-    // === Grid Container Properties ===
 
     /**
      * Defines the track sizing functions (heights) of the grid rows
@@ -411,7 +400,6 @@ public class TaffyStyle {
      */
     public GridAutoFlow gridAutoFlow = GridAutoFlow.ROW;
 
-    // === Grid Child Properties ===
 
     /**
      * Defines which row in the grid the item should start and end at
@@ -496,7 +484,6 @@ public class TaffyStyle {
         return display == TaffyDisplay.BLOCK;
     }
 
-    // === Getter methods ===
 
     public TaffyDisplay getDisplay() {return display;}
 

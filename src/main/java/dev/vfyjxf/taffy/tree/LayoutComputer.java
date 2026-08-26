@@ -544,7 +544,6 @@ public class LayoutComputer {
         return new GridComputer(this).compute(node, inputs, style);
     }
 
-    // === Helper methods ===
 
     public TaffyTree getTree() {
         return tree;

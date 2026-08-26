@@ -824,8 +824,10 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             float width = containingLayout.size().width - containingLayout.border().left - containingLayout.border().right;
             float height = containingLayout.size().height - containingLayout.border().top - containingLayout.border().bottom;
             float left = style.getInset().left.maybeResolve(width);
+            float right = style.getInset().right.maybeResolve(width);
             float top = style.getInset().top.maybeResolve(height);
-            if (Float.isNaN(left) && Float.isNaN(top)) {
+            float bottom = style.getInset().bottom.maybeResolve(height);
+            if (Float.isNaN(left) && Float.isNaN(right) && Float.isNaN(top) && Float.isNaN(bottom)) {
                 continue;
             }
 
@@ -834,9 +836,15 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
             Layout layout = getUnroundedLayout(node).copy();
             if (!Float.isNaN(left)) {
                 layout.location().x = containingOrigin.x + containingLayout.border().left + left - parentOrigin.x;
+            } else if (!Float.isNaN(right)) {
+                layout.location().x = containingOrigin.x + containingLayout.size().width
+                    - containingLayout.border().right - right - layout.size().width - parentOrigin.x;
             }
             if (!Float.isNaN(top)) {
                 layout.location().y = containingOrigin.y + containingLayout.border().top + top - parentOrigin.y;
+            } else if (!Float.isNaN(bottom)) {
+                layout.location().y = containingOrigin.y + containingLayout.size().height
+                    - containingLayout.border().bottom - bottom - layout.size().height - parentOrigin.y;
             }
             setUnroundedLayout(node, layout);
         }

@@ -19,11 +19,11 @@ import java.util.List;
  * <p>This class is intentionally located in the {@code dev.vfyjxf.taffy.tree} package so it can
  * call package-private debug hooks in {@link GridComputer} without reflection.
  */
-public final class GridTestAdapter {
+public class GridTestAdapter {
 
     private GridTestAdapter() {}
 
-    public static final class PlacementItem {
+    public static class PlacementItem {
         public final int index;
         public final int columnStart;
         public final int columnEnd;
@@ -39,7 +39,7 @@ public final class GridTestAdapter {
         }
     }
 
-    public static final class PlacementResult {
+    public static class PlacementResult {
         public final TrackCounts columnCounts;
         public final TrackCounts rowCounts;
         public final List<PlacementItem> items;
@@ -69,9 +69,7 @@ public final class GridTestAdapter {
         return new PlacementResult(raw.columnCounts(), raw.rowCounts(), Collections.unmodifiableList(items));
     }
 
-    // ---------------------------------------------------------------------
     // Ports of Rust helper algorithms used only by unit tests
-    // ---------------------------------------------------------------------
 
     public enum AutoRepeatStrategy {
         /** Max repetitions that do not overflow the container. */
@@ -268,9 +266,9 @@ public final class GridTestAdapter {
         return converted;
     }
 
-    // ---- implicit grid helper ports (tests only) ----
+    // Implicit grid helper ports for tests
 
-    public static final class ChildMinMaxLineSpan {
+    public static class ChildMinMaxLineSpan {
         public final int minLine;
         public final int maxLine;
         public final int span;
@@ -340,7 +338,7 @@ public final class GridTestAdapter {
         return new ChildMinMaxLineSpan(min, max, span);
     }
 
-    public static final class GridSizeEstimate {
+    public static class GridSizeEstimate {
         public final TrackCounts columnCounts;
         public final TrackCounts rowCounts;
 
@@ -397,14 +395,14 @@ public final class GridTestAdapter {
         return new GridSizeEstimate(cols, rows);
     }
 
-    // ---- explicit grid track initialisation helper (tests only) ----
+    // Explicit grid track initialization helper for tests
 
     public enum DebugGridTrackKind {
         TRACK,
         GUTTER
     }
 
-    public static final class DebugGridTrack {
+    public static class DebugGridTrack {
         public final DebugGridTrackKind kind;
         public final TrackSizingFunction min;
         public final TrackSizingFunction max;
@@ -597,9 +595,9 @@ public final class GridTestAdapter {
         return 0;
     }
 
-    // ---- OriginZero placement conversion used by test-only sizing estimate ----
+    // OriginZero placement conversion used by the test-only sizing estimate
 
-    private static final class OriginZeroPlacement {
+    private static class OriginZeroPlacement {
         enum Type { AUTO, LINE, SPAN }
 
         final Type startType;

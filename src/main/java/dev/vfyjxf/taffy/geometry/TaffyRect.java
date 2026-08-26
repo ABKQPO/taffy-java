@@ -12,7 +12,7 @@ import java.util.function.BiFunction;
  * This can represent either a bounding box or padding/margin/border values.
  * @param <T> The type of the edge values
  */
-public final class TaffyRect<T> {
+public class TaffyRect<T> {
     public T left;
     public T right;
     public T top;

@@ -126,6 +126,8 @@ public class TestGenerator {
                 classBuilder.append("import dev.vfyjxf.taffy.style.*;\n");
                 classBuilder.append("import dev.vfyjxf.taffy.tree.*;\n");
                 classBuilder.append("import dev.vfyjxf.taffy.util.MeasureFunc;\n");
+                classBuilder.append("import java.util.ArrayList;\n");
+                classBuilder.append("import java.util.List;\n");
                 classBuilder.append("import org.junit.jupiter.api.Test;\n");
                 classBuilder.append("import org.junit.jupiter.api.DisplayName;\n");
                 classBuilder.append("import static org.junit.jupiter.api.Assertions.*;\n\n");
@@ -738,7 +740,7 @@ public class TestGenerator {
         if (hasAutoRepetition) {
             // Use the new gridTemplateColumnsWithRepeat / gridTemplateRowsWithRepeat
             String withRepeatProp = propName + "WithRepeat";
-            sb.append(ind).append(styleVar).append(".").append(withRepeatProp).append(" = new java.util.ArrayList<>();\n");
+                sb.append(ind).append(styleVar).append(".").append(withRepeatProp).append(" = new ArrayList<>();\n");
             
             for (JsonElement elem : tracks) {
                 JsonObject track = elem.getAsJsonObject();

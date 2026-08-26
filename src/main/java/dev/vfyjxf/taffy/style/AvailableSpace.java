@@ -1,6 +1,7 @@
 package dev.vfyjxf.taffy.style;
 
 import java.util.Objects;
+import java.util.function.Function;
 
 import static java.lang.Float.NaN;
 
@@ -9,7 +10,7 @@ import static java.lang.Float.NaN;
  * 
  * This is used to communicate sizing constraints from parent to child during layout.
  */
-public final class AvailableSpace {
+public class AvailableSpace {
     
     /** The type of available space constraint */
     public enum Type {
@@ -104,7 +105,7 @@ public final class AvailableSpace {
     /**
      * Applies the provided function to the value if definite, otherwise returns self
      */
-    public AvailableSpace mapDefiniteValue(java.util.function.Function<Float, Float> f) {
+    public AvailableSpace mapDefiniteValue(Function<Float, Float> f) {
         if (type == Type.DEFINITE) {
             return definite(f.apply(value));
         }

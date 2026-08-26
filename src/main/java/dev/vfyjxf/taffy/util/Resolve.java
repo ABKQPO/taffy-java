@@ -11,7 +11,7 @@ import dev.vfyjxf.taffy.style.TaffyDimension;
 /**
  * Utility class for resolving CSS dimension values against parent/context sizes.
  */
-public final class Resolve {
+public class Resolve {
 
     private Resolve() {
     }

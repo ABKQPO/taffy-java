@@ -5,7 +5,7 @@ import java.util.Objects;
 /**
  * A unit of linear measurement that can be either a fixed length, a percentage, or a calc expression.
  */
-public final class LengthPercentage {
+public class LengthPercentage {
 
     /**
      * The type of length value

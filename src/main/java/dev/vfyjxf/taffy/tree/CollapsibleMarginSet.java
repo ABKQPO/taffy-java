@@ -3,7 +3,7 @@ package dev.vfyjxf.taffy.tree;
 /**
  * A set of margins that are available for collapsing with for block layout's margin collapsing.
  */
-public final class CollapsibleMarginSet {
+public class CollapsibleMarginSet {
     /** The largest positive margin */
     private float positive;
     
@@ -62,6 +62,13 @@ public final class CollapsibleMarginSet {
      */
     public float resolve() {
         return positive + negative;
+    }
+
+    /**
+     * Return whether this set carries no collapsible margin.
+     */
+    public boolean isZero() {
+        return positive == 0f && negative == 0f;
     }
 
     /**

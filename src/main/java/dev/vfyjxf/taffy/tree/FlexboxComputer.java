@@ -29,6 +29,7 @@ import dev.vfyjxf.taffy.util.TaffyMath;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 
 import static java.lang.Float.NaN;
 import static java.lang.Float.POSITIVE_INFINITY;
@@ -949,6 +950,15 @@ public class FlexboxComputer {
                         contentContribution = clamped + marginMain;
                     } else if (maxMainSize <= minMainSize) {
                         contentContribution = minMainSize + marginMain;
+                    } else if (!Float.isNaN(stylePreferredMain)) {
+                        float paddingBorderMain = isRow
+                                                  ? item.padding.left + item.padding.right + item.border.left + item.border.right
+                                                  : item.padding.top + item.padding.bottom + item.border.top + item.border.bottom;
+                        float innerMainSize = Math.max(stylePreferredMain, paddingBorderMain);
+                        contentContribution = isRow
+                                              ? innerMainSize + marginMain
+                                              : Math.max(innerMainSize, item.flexBasis) + marginMain;
+                        contentContribution = TaffyMath.maybeClamp(contentContribution, styleMinMain, styleMaxMain);
                     } else if (item.overflow.x != Overflow.VISIBLE || item.overflow.y != Overflow.VISIBLE) {
                         // Scroll container: use flex-basis
                         contentContribution = intrinsicFlexBasis + marginMain;
@@ -1014,20 +1024,20 @@ public class FlexboxComputer {
                             childKnownDimensions,
                             nodeInnerSize,
                             childAvailSpace,
-                            SizingMode.INHERENT_SIZE,
+                            SizingMode.CONTENT_SIZE,
                             new TaffyLine<>(false, false)
                         );
 
                         float measuredMain = isRow ? measured.size().width : measured.size().height;
-                        float contentMainSize = measuredMain + marginMain;
+                        float innerMainSize = measuredMain;
 
                         // Asymmetric behavior between row and column containers (matches Webkit/Firefox):
                         // - Row containers: use content size clamped by min/max
                         // - Column containers: content size is at least flex-basis
                         if (isRow) {
-                            contentContribution = TaffyMath.maybeClamp(contentMainSize, styleMinMain, styleMaxMain);
+                            contentContribution = TaffyMath.maybeClamp(innerMainSize + marginMain, styleMinMain, styleMaxMain);
                         } else {
-                            contentContribution = Math.max(contentMainSize, item.flexBasis);
+                            contentContribution = Math.max(innerMainSize, item.flexBasis) + marginMain;
                             contentContribution = TaffyMath.maybeClamp(contentContribution, styleMinMain, styleMaxMain);
                         }
                         contentContribution = Math.max(contentContribution, mainContentBoxInset);
@@ -2217,7 +2227,7 @@ public class FlexboxComputer {
         // When wrap-reverse is enabled, lines are laid out in reverse order.
         List<FlexLine> orderedLines = isWrapReverse ? new ArrayList<>(lines) : lines;
         if (isWrapReverse) {
-            java.util.Collections.reverse(orderedLines);
+            Collections.reverse(orderedLines);
         }
 
         float cursor = 0;
@@ -2461,7 +2471,7 @@ public class FlexboxComputer {
         // Handle wrap reverse
         List<FlexLine> orderedLines = isWrapReverse ? new ArrayList<>(lines) : lines;
         if (isWrapReverse) {
-            java.util.Collections.reverse(orderedLines);
+            Collections.reverse(orderedLines);
         }
 
         // Find the first item for baseline calculation
@@ -2489,7 +2499,7 @@ public class FlexboxComputer {
             // handles the right-to-left positioning. We only reverse for actual flex-direction: *-reverse.
             List<FlexItem> orderedItems = isReverse ? new ArrayList<>(line.items) : line.items;
             if (isReverse) {
-                java.util.Collections.reverse(orderedItems);
+                Collections.reverse(orderedItems);
             }
 
             // Calculate starting position for main axis

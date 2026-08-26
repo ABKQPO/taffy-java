@@ -70,7 +70,7 @@ public class RelayoutBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Builders ====================
+    // Builders
 
     private static Object[] buildFlexWideTree(int targetNodeCount) {
         TaffyTree tree = new TaffyTree();

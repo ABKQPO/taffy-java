@@ -9,6 +9,7 @@ import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -26,7 +27,7 @@ public class DirectionRtlBenchmark {
 
     private static final long SEED = 12345L;
 
-    // ==================== Flexbox LTR vs RTL Comparison ====================
+    // Flexbox LTR versus RTL comparison
 
     @State(Scope.Thread)
     public static class FlexboxDirectionState {
@@ -87,7 +88,7 @@ public class DirectionRtlBenchmark {
         bh.consume(state.treeRtl.getLayout(state.rootRtl));
     }
 
-    // ==================== Flexbox Row-Reverse with RTL ====================
+    // Flexbox row-reverse with RTL
 
     @State(Scope.Thread)
     public static class FlexboxRowReverseRtlState {
@@ -125,7 +126,7 @@ public class DirectionRtlBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Grid with JustifyContent.STRETCH ====================
+    // Grid with stretched content
 
     @State(Scope.Thread)
     public static class GridStretchState {
@@ -175,7 +176,7 @@ public class DirectionRtlBenchmark {
         }
 
         private List<TrackSizingFunction> createAutoTracks(int count) {
-            java.util.ArrayList<TrackSizingFunction> tracks = new java.util.ArrayList<>();
+            ArrayList<TrackSizingFunction> tracks = new ArrayList<>();
             for (int i = 0; i < count; i++) {
                 tracks.add(TrackSizingFunction.auto());
             }
@@ -197,7 +198,7 @@ public class DirectionRtlBenchmark {
         bh.consume(state.treeStart.getLayout(state.rootStart));
     }
 
-    // ==================== Grid RTL Column Layout ====================
+    // Grid RTL column layout
 
     @State(Scope.Thread)
     public static class GridRtlState {
@@ -243,7 +244,7 @@ public class DirectionRtlBenchmark {
         }
 
         private List<TrackSizingFunction> createFixedTracks(int count, float size) {
-            java.util.ArrayList<TrackSizingFunction> tracks = new java.util.ArrayList<>();
+            ArrayList<TrackSizingFunction> tracks = new ArrayList<>();
             for (int i = 0; i < count; i++) {
                 tracks.add(TrackSizingFunction.fixed(LengthPercentage.length(size)));
             }
@@ -265,7 +266,7 @@ public class DirectionRtlBenchmark {
         bh.consume(state.treeRtl.getLayout(state.rootRtl));
     }
 
-    // ==================== Direction Inheritance Benchmark ====================
+    // Direction inheritance benchmark
 
     @State(Scope.Thread)
     public static class DirectionInheritState {

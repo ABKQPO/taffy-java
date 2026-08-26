@@ -47,7 +47,7 @@ import com.sun.net.httpserver.HttpServer;
  * The generator uses headless Chrome to compute DOM layout (as an oracle), then generates
  * equivalent Taffy trees + asserts that Taffy produces the same geometry.
  */
-public final class WptTestGenerator {
+public class WptTestGenerator {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -239,6 +239,8 @@ public final class WptTestGenerator {
                     sb.append("import dev.vfyjxf.taffy.geometry.*;\n");
                     sb.append("import dev.vfyjxf.taffy.style.*;\n");
                     sb.append("import dev.vfyjxf.taffy.tree.*;\n");
+                    sb.append("import java.util.ArrayList;\n");
+                    sb.append("import java.util.List;\n");
                     sb.append("import org.junit.jupiter.api.Test;\n");
                     sb.append("import org.junit.jupiter.api.DisplayName;\n");
                     sb.append("import static org.junit.jupiter.api.Assertions.*;\n\n");
@@ -606,7 +608,7 @@ public final class WptTestGenerator {
      * This is needed because many WPT tests reference resources via absolute URLs
      * (e.g. /resources/testharness.js) which do not work when opening a file:// URL.
      */
-    private static final class LocalHttpServer implements AutoCloseable {
+    private static class LocalHttpServer implements AutoCloseable {
         private final HttpServer server;
         private final Path root;
         private final Path cssRoot;
@@ -1243,9 +1245,9 @@ public final class WptTestGenerator {
         }
     }
 
-    // -------------------- DOM data model --------------------
+    // DOM data model
 
-    private static final class NodeInfo {
+    private static class NodeInfo {
         final int index;
         final int parentIndex;
         final String tag;
@@ -1311,9 +1313,9 @@ public final class WptTestGenerator {
         }
     }
 
-    // -------------------- Style mapping --------------------
+    // Style mapping
 
-    private static final class StyleModel {
+    private static class StyleModel {
         final List<StyleSpec> styles;
 
         private StyleModel(List<StyleSpec> styles) {
@@ -1330,7 +1332,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class StyleSpec {
+    private static class StyleSpec {
         // Enum names as strings, emitted into generated Java.
         String display;
         String position;
@@ -1739,7 +1741,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class CssStyleMap {
+    private static class CssStyleMap {
         final Map<String, String> props;
 
         private CssStyleMap(Map<String, String> props) {
@@ -1899,7 +1901,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class RectParts {
+    private static class RectParts {
         final String left;
         final String right;
         final String top;
@@ -2044,7 +2046,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class GapParts {
+    private static class GapParts {
         final String row;
         final String col;
 
@@ -2096,7 +2098,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class TrackList {
+    private static class TrackList {
         final List<String> items;
 
         private TrackList(List<String> items) {
@@ -2121,8 +2123,8 @@ public final class WptTestGenerator {
         }
 
         String toJavaList() {
-            if (items.isEmpty()) return "new java.util.ArrayList<>()";
-            return "java.util.List.of(" + String.join(", ", items) + ")";
+            if (items.isEmpty()) return "new ArrayList<>()";
+            return "List.of(" + String.join(", ", items) + ")";
         }
 
         static String trackExpr(String t) {
@@ -2222,7 +2224,7 @@ public final class WptTestGenerator {
      *
      * Named grid lines ([...]) are ignored.
      */
-    private static final class GridTemplateList {
+    private static class GridTemplateList {
         final List<String> items;
 
         private GridTemplateList(List<String> items) {
@@ -2254,8 +2256,8 @@ public final class WptTestGenerator {
         }
 
         String toJavaList() {
-            if (items.isEmpty()) return "new java.util.ArrayList<>()";
-            return "java.util.List.of(" + String.join(", ", items) + ")";
+            if (items.isEmpty()) return "new ArrayList<>()";
+            return "List.of(" + String.join(", ", items) + ")";
         }
 
         private static String repeatExpr(String repeatToken) {
@@ -2294,7 +2296,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class GridPlacementParts {
+    private static class GridPlacementParts {
         final String kind;
         final int value;
 
@@ -2333,7 +2335,7 @@ public final class WptTestGenerator {
         }
     }
 
-    private static final class UnsupportedStyleException extends RuntimeException {
+    private static class UnsupportedStyleException extends RuntimeException {
         UnsupportedStyleException(String message) { super(message); }
     }
 

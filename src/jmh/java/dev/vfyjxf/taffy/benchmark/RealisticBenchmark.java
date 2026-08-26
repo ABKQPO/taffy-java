@@ -50,7 +50,7 @@ public class RealisticBenchmark {
 
     private static final long SEED = 12345L;
 
-    // ==================== 1. Web Page Layout ====================
+    // Web page layout
     // Classic layout: header, sidebar, main content area, footer
     // Main content has multiple sections with varied content
 
@@ -79,7 +79,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 2. Virtual List (RecyclerView-like) ====================
+    // Virtual list
     // Long scrollable list with many items, each item has complex structure
 
     @State(Scope.Thread)
@@ -107,7 +107,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 3. Dashboard Grid ====================
+    // Dashboard grid
     // Grid of cards with different sizes (1x1, 2x1, 1x2, 2x2)
 
     @State(Scope.Thread)
@@ -134,7 +134,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 4. Form Layout ====================
+    // Form layout
     // Complex form with labels, inputs, validation messages
 
     @State(Scope.Thread)
@@ -161,7 +161,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 5. Nested Cards ====================
+    // Nested cards
     // Cards containing cards - common in component libraries
 
     @State(Scope.Thread)
@@ -191,7 +191,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 6. Chat UI ====================
+    // Chat UI
     // Message bubbles with varied content lengths
 
     @State(Scope.Thread)
@@ -224,7 +224,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 7. E-commerce Product Grid ====================
+    // E-commerce product grid
     // Product cards with image, title, price, rating
 
     @State(Scope.Thread)
@@ -257,7 +257,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 8. Responsive Multi-Size ====================
+    // Responsive multi-size
     // Same tree computed at multiple viewport sizes
 
     @State(Scope.Thread)
@@ -297,7 +297,7 @@ public class RealisticBenchmark {
         }
     }
 
-    // ==================== 9. Data Table ====================
+    // Data table
     // Table with many rows and columns, like spreadsheet
 
     @State(Scope.Thread)
@@ -327,7 +327,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== 10. Mobile App Screen ====================
+    // Mobile app screen
     // Typical mobile app with nav, tab bar, scrollable content
 
     @State(Scope.Thread)
@@ -360,7 +360,7 @@ public class RealisticBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Builder Methods ====================
+    // Builder methods
 
     private static NodeId buildWebPage(TaffyTree tree, int contentSections) {
         // Root: column flex container
@@ -869,7 +869,7 @@ public class RealisticBenchmark {
         return tree.newWithChildren(itemStyle, new NodeId[]{header, body, footer});
     }
 
-    // ==================== Helper Methods ====================
+    // Helper methods
 
     private static TaffyStyle createBoxStyle(float width, float height) {
         TaffyStyle style = new TaffyStyle();
@@ -888,9 +888,9 @@ public class RealisticBenchmark {
         return style;
     }
 
-    // ==================== Measure Function ====================
+    // Measure function
 
-    private static final class TextMeasureFunc implements MeasureFunc {
+    private static class TextMeasureFunc implements MeasureFunc {
         private static final float CHAR_WIDTH = 8f;
         private static final float LINE_HEIGHT = 20f;
         private static final int[] WORD_LENGTHS = {3, 5, 7, 4, 6, 8, 3, 5, 4, 6, 7, 5, 4, 8, 3, 6};

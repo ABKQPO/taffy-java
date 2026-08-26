@@ -10,7 +10,7 @@ import java.util.Objects;
  * - row_start, row_end: Row line indices (1-based)
  * - column_start, column_end: Column line indices (1-based)
  */
-public final class GridTemplateArea {
+public class GridTemplateArea {
     private final String name;
     private final int rowStart;
     private final int rowEnd;

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Resolves named grid lines and areas to numeric line indices.
@@ -20,7 +21,7 @@ import java.util.Map;
  * <p>
  * Corresponds to Rust's NamedLineResolver in taffy/src/compute/grid/types/named.rs
  */
-public final class NamedLineResolver {
+public class NamedLineResolver {
     
     /** Map of row line names to line numbers (1-based). Each name may have multiple lines. */
     private final Map<String, List<Integer>> rowLines;
@@ -254,7 +255,7 @@ public final class NamedLineResolver {
      * @return The 1-based line number
      */
     private int findLineIndex(String name, int idx, Axis axis, End end, 
-                              java.util.function.Function<List<Integer>, List<Integer>> filter) {
+                              Function<List<Integer>, List<Integer>> filter) {
         int explicitTrackCount = (axis == Axis.ROW) ? explicitRowCount : explicitColumnCount;
         
         // 0 means "no index specified", treat as 1

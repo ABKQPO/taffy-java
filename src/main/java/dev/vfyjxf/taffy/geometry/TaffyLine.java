@@ -7,7 +7,7 @@ import java.util.function.Function;
  * A line with start and end values, used for representing spans or pairs of values.
  * @param <T> The type of the line values
  */
-public final class TaffyLine<T> {
+public class TaffyLine<T> {
     public T start;
     public T end;
 

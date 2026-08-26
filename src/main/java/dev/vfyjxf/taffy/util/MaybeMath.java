@@ -4,13 +4,13 @@ package dev.vfyjxf.taffy.util;
  * Utility class for mathematical operations that handle nullable Float values.
  * Ported from taffy/src/util/math.rs
  */
-public final class MaybeMath {
+public class MaybeMath {
 
     private MaybeMath() {
         // Utility class, not instantiable
     }
 
-    // ==================== Option<Float> with Option<Float> ====================
+    // Option<Float> with Option<Float>
 
     /**
      * Returns the minimum of two nullable Float values.
@@ -68,7 +68,7 @@ public final class MaybeMath {
         return lhs - rhs;
     }
 
-    // ==================== Option<Float> with float primitive ====================
+    // Option<Float> with float primitive
 
     /**
      * Returns the minimum of a nullable Float and a primitive float.
@@ -114,7 +114,7 @@ public final class MaybeMath {
         return lhs - rhs;
     }
 
-    // ==================== float primitive with Option<Float> ====================
+    // float primitive with Option<Float>
 
     /**
      * Returns the minimum of a primitive float and a nullable Float.

@@ -62,7 +62,7 @@ tree.computeLayout(root, new Size<>(
 for (NodeId n : tree.getAllNodes()) {
   if (!tree.hasUnconsumedLayout(n)) continue;
   Layout l = tree.getLayout(n);
-  // ... 将 l 写入渲染系统（例如更新变换、大小、裁剪等）
+  // ... Apply the layout to the rendering system, such as transforms, size, and clipping.
   tree.acknowledgeLayout(n);
 }
 ```

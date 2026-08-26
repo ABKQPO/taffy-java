@@ -12,6 +12,8 @@ import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,7 +36,7 @@ public class FlexboxBenchmark {
 
     private static final long SEED = 12345L;
 
-    // ==================== yoga 'huge nested' ====================
+    // Yoga huge nested
     // Rust: builder.build_deep_hierarchy(*node_count, 10)
     // Style: size = length(10.0), flex_grow = 1.0
 
@@ -63,7 +65,7 @@ public class FlexboxBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Wide tree ====================
+    // Wide tree
     // Rust: builder.build_flat_hierarchy(*node_count)
     // Style: RandomStyleGenerator (random dimensions)
 
@@ -89,7 +91,7 @@ public class FlexboxBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Deep tree (random size) ====================
+    // Deep tree with random size
     // Rust: builder.build_deep_hierarchy(*node_count, 2)
     // Style: RandomStyleGenerator
 
@@ -116,7 +118,7 @@ public class FlexboxBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Deep tree (auto size) ====================
+    // Deep tree with auto size
     // Rust: builder.build_deep_hierarchy(*node_count, 2)
     // Style: flex_grow = 1.0, margin = length(10.0)
 
@@ -145,7 +147,7 @@ public class FlexboxBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== super deep ====================
+    // Super deep tree
     // Rust: builder.build_super_deep_hierarchy(*depth, 3)
     // Style: flex_direction = Row, flex_grow = 1.0, margin = length(10.0)
 
@@ -171,7 +173,7 @@ public class FlexboxBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Helper Methods ====================
+    // Helper methods
 
     /**
      * Builds a deep hierarchy with fixed style (matching Rust's build_deep_hierarchy)
@@ -234,7 +236,7 @@ public class FlexboxBenchmark {
      */
     private static NodeId buildFlatHierarchy(TaffyTree tree, int targetNodeCount, Random rng) {
         int created = 0;
-        java.util.List<NodeId> children = new java.util.ArrayList<>();
+        List<NodeId> children = new ArrayList<>();
 
         while (created < targetNodeCount) {
             int count = 1 + rng.nextInt(4); // 1-4 children per container

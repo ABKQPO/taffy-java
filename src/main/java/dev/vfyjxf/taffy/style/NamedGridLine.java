@@ -8,7 +8,7 @@ import java.util.Objects;
  * Corresponds to Rust's NamedGridLine struct.
  * Used in grid_template_column_names and grid_template_row_names.
  */
-public final class NamedGridLine {
+public class NamedGridLine {
     private final String name;
     private final int index; // 1-based line index
 

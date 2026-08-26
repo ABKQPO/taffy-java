@@ -13,7 +13,7 @@ import java.util.Objects;
  * - Span(u16)
  * - NamedSpan(S, u16)
  */
-public final class GridPlacement {
+public class GridPlacement {
     
     /** The type of grid placement */
     public enum Type {

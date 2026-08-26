@@ -1,7 +1,6 @@
 plugins {
     id 'java'
     id 'maven-publish'
-    id 'xyz.wagyourtail.jvmdowngrader' version '1.3.5'
     id 'me.champeau.jmh' version '0.7.2'
     id 'com.gradleup.shadow' version '9.2.0'
 }
@@ -28,18 +27,8 @@ java {
     withSourcesJar()
 }
 
-configurations {
-    jvmdgApi
-}
-
-jvmdg {
-    downgradeTo = JavaVersion.VERSION_1_8
-    apiJar = configurations.jvmdgApi
-}
-
 dependencies {
     implementation 'it.unimi.dsi:fastutil:8.5.12'
-    jvmdgApi 'xyz.wagyourtail.jvmdowngrader:jvmdowngrader-java-api:1.3.5:downgraded-8'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -88,10 +77,6 @@ jmh {
     jvmArgs = ['-Xss16m']
 }
 
-tasks.named('assemble') {
-    dependsOn tasks.named('downgradeJar')
-}
-
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -99,9 +84,6 @@ publishing {
             artifactId = 'taffy-java'
             version = project.version
             from components.java
-            artifact(tasks.named('downgradeJar')) {
-                classifier = 'java8'
-            }
             pom {
                 name = 'Taffy-Java'
                 description = 'A pure Java implementation of the Taffy UI layout library.'

@@ -12,7 +12,7 @@ import java.util.List;
  * A typed representation of CSS style properties.
  * This is the primary input to layout computations.
  */
-public final class TaffyStyle {
+public class TaffyStyle {
 
     // === Display and Box Model ===
 

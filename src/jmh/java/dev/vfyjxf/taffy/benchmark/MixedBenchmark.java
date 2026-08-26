@@ -74,7 +74,7 @@ public class MixedBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Tree builder (mirrors Rust build_mixed_tree) ====================
+    // Tree builder
 
     private static NodeId buildMixedTree(
         TaffyTree taffy,
@@ -105,7 +105,7 @@ public class MixedBenchmark {
         return taffy.newWithChildren(style, children);
     }
 
-    // ==================== Random style generators (mirrors Rust) ====================
+    // Random style generators
 
     private static TrackSizingFunction randomGridTrack(Random rng) {
         float r = rng.nextFloat();
@@ -150,9 +150,9 @@ public class MixedBenchmark {
         return style;
     }
 
-    // ==================== Measure function (approximates cosmic_text measurement) ====================
+    // Measure function
 
-    private static final class LoremIpsumMeasure implements MeasureFunc {
+    private static class LoremIpsumMeasure implements MeasureFunc {
         private static final float CHAR_WIDTH = 7.0f;
         private static final float SPACE_WIDTH = 3.0f;
         private static final float LINE_HEIGHT = 16.0f;

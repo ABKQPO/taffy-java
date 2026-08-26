@@ -1,6 +1,8 @@
 package dev.vfyjxf.taffy.style;
 
 import java.util.Objects;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Represents a component in a grid-template-rows or grid-template-columns definition.
@@ -43,7 +45,7 @@ public class GridTemplateComponent {
      * Creates a repeat component with a specific count
      */
     public static GridTemplateComponent repeatCount(int count, TrackSizingFunction... tracks) {
-        java.util.List<TrackSizingFunction> trackList = java.util.Arrays.asList(tracks);
+        List<TrackSizingFunction> trackList = Arrays.asList(tracks);
         return new GridTemplateComponent(Type.REPEAT, null, GridRepetition.count(count, trackList));
     }
     
@@ -51,7 +53,7 @@ public class GridTemplateComponent {
      * Creates an auto-fill repeat component
      */
     public static GridTemplateComponent autoFill(TrackSizingFunction... tracks) {
-        java.util.List<TrackSizingFunction> trackList = java.util.Arrays.asList(tracks);
+        List<TrackSizingFunction> trackList = Arrays.asList(tracks);
         return new GridTemplateComponent(Type.REPEAT, null, GridRepetition.autoFill(trackList));
     }
     
@@ -59,7 +61,7 @@ public class GridTemplateComponent {
      * Creates an auto-fit repeat component
      */
     public static GridTemplateComponent autoFit(TrackSizingFunction... tracks) {
-        java.util.List<TrackSizingFunction> trackList = java.util.Arrays.asList(tracks);
+        List<TrackSizingFunction> trackList = Arrays.asList(tracks);
         return new GridTemplateComponent(Type.REPEAT, null, GridRepetition.autoFit(trackList));
     }
     

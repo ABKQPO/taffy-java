@@ -12,7 +12,7 @@ import dev.vfyjxf.taffy.style.Overflow;
  * a node contributes its border-box size, except that if its overflow is VISIBLE in an axis,
  * then its contribution in that axis is {@code max(size, contentSize)}.
  */
-public final class ContentSizeUtil {
+public class ContentSizeUtil {
 
     private ContentSizeUtil() {
     }

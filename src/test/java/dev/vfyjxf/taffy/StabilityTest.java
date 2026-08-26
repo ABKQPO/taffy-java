@@ -51,7 +51,7 @@ public class StabilityTest {
 
     private static final float EPSILON = 0.01f;
 
-    // ==================== Incremental Update Tests ====================
+    // Incremental update tests
     
     @Nested
     @DisplayName("Incremental Update Tests")
@@ -217,7 +217,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Cache Consistency Tests ====================
+    // Cache consistency tests
     
     @Nested
     @DisplayName("Cache Consistency Tests")
@@ -370,7 +370,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Edge Case Tests ====================
+    // Edge case tests
     
     @Nested
     @DisplayName("Edge Case Tests")
@@ -520,7 +520,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Flexbox Web Compatibility Tests ====================
+    // Flexbox web compatibility tests
     
     @Nested
     @DisplayName("Flexbox Web Compatibility Tests")
@@ -760,7 +760,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Grid Web Compatibility Tests ====================
+    // Grid web compatibility tests
     
     @Nested
     @DisplayName("Grid Web Compatibility Tests")
@@ -893,7 +893,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Complex Scenario Tests ====================
+    // Complex scenario tests
     
     @Nested
     @DisplayName("Complex Scenario Tests")
@@ -1121,7 +1121,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Randomized Stress Tests ====================
+    // Randomized stress tests
     
     @Nested
     @DisplayName("Randomized Stress Tests")
@@ -1224,7 +1224,7 @@ public class StabilityTest {
         }
     }
     
-    // ==================== Regression Tests ====================
+    // Regression tests
     
     @Nested
     @DisplayName("Regression Tests")

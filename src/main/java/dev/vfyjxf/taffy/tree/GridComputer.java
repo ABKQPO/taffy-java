@@ -40,6 +40,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static java.lang.Float.NaN;
 
@@ -1232,7 +1233,7 @@ public class GridComputer {
      * @param startIndex null means auto
      * @param endIndex   null means auto
      */
-    private static final class GridPlacementResult {
+    private static class GridPlacementResult {
         private final Integer startIndex;
         private final Integer endIndex;
         private final int span;
@@ -1261,13 +1262,13 @@ public class GridComputer {
             if (o == null || getClass() != o.getClass()) return false;
             GridPlacementResult that = (GridPlacementResult) o;
             return span == that.span
-                && java.util.Objects.equals(startIndex, that.startIndex)
-                && java.util.Objects.equals(endIndex, that.endIndex);
+                && Objects.equals(startIndex, that.startIndex)
+                && Objects.equals(endIndex, that.endIndex);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(startIndex, endIndex, span);
+            return Objects.hash(startIndex, endIndex, span);
         }
 
         @Override
@@ -1489,7 +1490,7 @@ public class GridComputer {
      * @param trackCount          Number of auto-fit tracks
      * @param tracksPerRepetition Number of tracks per repetition (for multi-track auto-fit)
      */
-    private static final class AutoFitInfo {
+    private static class AutoFitInfo {
         private final int startIndex;
         private final int trackCount;
         private final int tracksPerRepetition;
@@ -1524,7 +1525,7 @@ public class GridComputer {
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(startIndex, trackCount, tracksPerRepetition);
+            return Objects.hash(startIndex, trackCount, tracksPerRepetition);
         }
 
         @Override
@@ -5458,16 +5459,16 @@ public class GridComputer {
         return new FloatSize(width, height);
     }
 
-    // ---------------------------------------------------------------------
+    // Debug placement records
     // Test-only hooks (package-private)
     //
     // These helpers expose a narrow, structured view of grid placement so that
     // unit tests can assert correctness without relying on reflection.
     // They are intentionally package-private and should not be used by
     // production code.
-    // ---------------------------------------------------------------------
+    // Debug placement results
 
-    static final class DebugPlacedItem {
+    public static class DebugPlacedItem {
         private final int index;
         private final int columnStart;
         private final int columnEnd;
@@ -5516,7 +5517,7 @@ public class GridComputer {
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(index, columnStart, columnEnd, rowStart, rowEnd);
+            return Objects.hash(index, columnStart, columnEnd, rowStart, rowEnd);
         }
 
         @Override
@@ -5525,7 +5526,7 @@ public class GridComputer {
         }
     }
 
-    static final class DebugPlacementResult {
+    public static class DebugPlacementResult {
         private final TrackCounts columnCounts;
         private final TrackCounts rowCounts;
         private final List<DebugPlacedItem> items;
@@ -5553,14 +5554,14 @@ public class GridComputer {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             DebugPlacementResult that = (DebugPlacementResult) o;
-            return java.util.Objects.equals(columnCounts, that.columnCounts)
-                && java.util.Objects.equals(rowCounts, that.rowCounts)
-                && java.util.Objects.equals(items, that.items);
+            return Objects.equals(columnCounts, that.columnCounts)
+                && Objects.equals(rowCounts, that.rowCounts)
+                && Objects.equals(items, that.items);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(columnCounts, rowCounts, items);
+            return Objects.hash(columnCounts, rowCounts, items);
         }
 
         @Override

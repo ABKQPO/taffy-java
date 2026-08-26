@@ -6,7 +6,7 @@ import java.util.Objects;
  * Represents a track sizing function for grid layout.
  * Can be fixed, min/max content, flexible (fr), auto, or minmax().
  */
-public final class TrackSizingFunction {
+public class TrackSizingFunction {
 
     /**
      * The type of track sizing function

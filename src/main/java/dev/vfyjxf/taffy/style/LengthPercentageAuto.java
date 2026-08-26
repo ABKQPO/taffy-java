@@ -14,7 +14,7 @@ import java.util.Objects;
  *   <li>{@link Type#STRETCH} - Fill the available space in the containing block</li>
  * </ul>
  */
-public final class LengthPercentageAuto {
+public class LengthPercentageAuto {
     
     /** The type of length value */
     public enum Type {

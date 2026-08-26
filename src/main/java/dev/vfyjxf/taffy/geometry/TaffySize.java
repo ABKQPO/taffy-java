@@ -14,7 +14,7 @@ import java.util.function.Supplier;
  *
  * @param <T> The type of the size values
  */
-public final class TaffySize<T> {
+public class TaffySize<T> {
     public T width;
     public T height;
 

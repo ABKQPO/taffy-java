@@ -28,8 +28,8 @@ public class ContentSizeAndRoundingCompatTest {
     @Test
     @DisplayName("rounding_rounds_content_size_with_cumulative_offset")
     void roundingRoundsContentSizeWithCumulativeOffset() {
-        // 这个测试专门验证“rounding pass”（RoundLayout）本身的累积坐标取整逻辑，
-        // 直接构造 unrounded layout，避免被 flex/block/grid 计算路径的其它细节影响。
+        // This test verifies cumulative rounding in RoundLayout directly,
+        // using an unrounded layout independent of other layout paths.
 
         TaffyTree tree = new TaffyTree();
 
@@ -41,7 +41,7 @@ public class ContentSizeAndRoundingCompatTest {
         rootStyle.display = TaffyDisplay.BLOCK;
         NodeId root = tree.newWithChildren(rootStyle, child);
 
-        // Root 的 unrounded layout（位置 0,0），用于提供累积坐标基准
+        // The root unrounded layout at (0, 0) provides the cumulative coordinate base.
         tree.setUnroundedLayout(
             root,
             new Layout(
@@ -56,7 +56,7 @@ public class ContentSizeAndRoundingCompatTest {
             )
         );
 
-        // Child 的 unrounded layout：location 有小数偏移，size/contentSize 有小数
+        // The child layout has fractional location, size, and content size values.
         tree.setUnroundedLayout(
             child,
             new Layout(

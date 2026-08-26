@@ -3,7 +3,7 @@ package dev.vfyjxf.taffy.util;
 /**
  * Utility class for math operations.
  */
-public final class TaffyMath {
+public class TaffyMath {
 
     private TaffyMath() {
     }

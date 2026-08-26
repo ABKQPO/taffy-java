@@ -18,7 +18,7 @@ public class ResolveTest {
 
     private static final float EPSILON = 0.001f;
 
-    // =============== MaybeResolve Dimension Tests ===============
+    // MaybeResolve dimension tests
     
     @Nested
     @DisplayName("maybe_resolve_dimension")
@@ -67,7 +67,7 @@ public class ResolveTest {
         }
     }
 
-    // =============== MaybeResolve Size<Dimension> Tests ===============
+    // MaybeResolve size tests
     
     @Nested
     @DisplayName("maybe_resolve_size_dimension")
@@ -122,7 +122,7 @@ public class ResolveTest {
         }
     }
 
-    // =============== ResolveOrZero Dimension Tests ===============
+    // ResolveOrZero dimension tests
 
     @Nested
     @DisplayName("resolve_or_zero_dimension_to_option_f32")
@@ -156,7 +156,7 @@ public class ResolveTest {
         }
     }
 
-    // =============== ResolveOrZero Rect<Dimension> to Rect Tests ===============
+    // ResolveOrZero rectangle tests
 
     @Nested
     @DisplayName("resolve_or_zero_rect_dimension_to_rect")
@@ -196,7 +196,7 @@ public class ResolveTest {
         }
     }
 
-    // =============== ResolveOrZero Rect<Dimension> to Rect<f32> via Option Tests ===============
+    // ResolveOrZero rectangle to float rectangle tests
 
     @Nested
     @DisplayName("resolve_or_zero_rect_dimension_to_rect_f32_via_option")
@@ -236,7 +236,7 @@ public class ResolveTest {
         }
     }
 
-    // =============== Helper Methods ===============
+    // Helper methods
 
     private void assertSizeEquals(FloatSize expected, FloatSize actual) {
         if (Float.isNaN(expected.getWidth())) {

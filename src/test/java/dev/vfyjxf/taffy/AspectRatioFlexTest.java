@@ -15,9 +15,9 @@ public class AspectRatioFlexTest {
 
     private static final float EPSILON = 0.1f;
 
-    // ========================
+    // Issue 804 regression coverage
     // Issue #804 regression test
-    // ========================
+    // WPT flex aspect-ratio coverage
 
     @Test
     @DisplayName("issue_804_aspect_ratio_flex_grow_row")
@@ -88,9 +88,7 @@ public class AspectRatioFlexTest {
         }
     }
 
-    // ========================
-    // WPT flex-aspect-ratio tests
-    // ========================
+    // WPT flex aspect-ratio tests
 
     @Test
     @DisplayName("wpt_flex_aspect_ratio_001_row_height_ar1")

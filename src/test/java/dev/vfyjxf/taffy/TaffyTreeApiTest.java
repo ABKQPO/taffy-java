@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class TaffyTreeApiTest {
 
-    // ==================== Capacity Tests ====================
+    // Capacity tests
 
     @Test
     @DisplayName("new_should_allocate_default_capacity")
@@ -42,7 +42,7 @@ public class TaffyTreeApiTest {
         assertNotNull(tree);
     }
 
-    // ==================== Leaf Node Tests ====================
+    // Leaf node tests
 
     @Test
     @DisplayName("test_new_leaf")
@@ -66,7 +66,7 @@ public class TaffyTreeApiTest {
         assertEquals(0, tree.childCount(node));
     }
 
-    // ==================== Children Management Tests ====================
+    // Children management tests
 
     @Test
     @DisplayName("test_new_with_children")
@@ -244,7 +244,7 @@ public class TaffyTreeApiTest {
         assertTrue(tree.getChildren(child0).isEmpty());
     }
 
-    // ==================== Remove Node Tests ====================
+    // Remove node tests
 
     @Test
     @DisplayName("remove_node_should_remove")
@@ -314,7 +314,7 @@ public class TaffyTreeApiTest {
         assertEquals(0, tree.childCount(child));
     }
 
-    // ==================== Style Tests ====================
+    // Style tests
 
     @Test
     @DisplayName("test_set_style")
@@ -347,7 +347,7 @@ public class TaffyTreeApiTest {
         assertEquals(FlexDirection.ROW_REVERSE, retrievedStyle.flexDirection);
     }
 
-    // ==================== Layout Tests ====================
+    // Layout tests
 
     @Test
     @DisplayName("test_layout")
@@ -519,7 +519,7 @@ public class TaffyTreeApiTest {
         assertEquals(child, tree.getChildren(newParent).get(0));
     }
 
-    // ==================== Measure Function Tests ====================
+    // Measure function tests
 
     @Test
     @DisplayName("set_measure")

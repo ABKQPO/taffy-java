@@ -22,6 +22,7 @@ import dev.vfyjxf.taffy.util.TaffyMath;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static java.lang.Float.NaN;
 
@@ -62,7 +63,7 @@ public class BlockComputer {
     /**
      * Result of performing final layout on in-flow children, including margin collapse info.
      */
-    private static final class InFlowLayoutResult {
+    private static class InFlowLayoutResult {
         private final float contentHeight;
         private final CollapsibleMarginSet firstChildTopMarginSet;
         private final CollapsibleMarginSet lastChildBottomMarginSet;
@@ -91,13 +92,13 @@ public class BlockComputer {
             InFlowLayoutResult that = (InFlowLayoutResult) o;
             return Float.compare(contentHeight, that.contentHeight) == 0
                 && allChildrenCanBeCollapsedThrough == that.allChildrenCanBeCollapsedThrough
-                && java.util.Objects.equals(firstChildTopMarginSet, that.firstChildTopMarginSet)
-                && java.util.Objects.equals(lastChildBottomMarginSet, that.lastChildBottomMarginSet);
+                && Objects.equals(firstChildTopMarginSet, that.firstChildTopMarginSet)
+                && Objects.equals(lastChildBottomMarginSet, that.lastChildBottomMarginSet);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(contentHeight, firstChildTopMarginSet,
+            return Objects.hash(contentHeight, firstChildTopMarginSet,
                 lastChildBottomMarginSet, allChildrenCanBeCollapsedThrough);
         }
 

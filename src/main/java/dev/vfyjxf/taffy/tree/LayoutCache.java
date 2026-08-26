@@ -10,7 +10,7 @@ import java.util.Arrays;
  * A cache for storing the results of layout computation.
  * Uses a multi-slot caching strategy based on known dimensions and available space constraints.
  */
-public final class LayoutCache {
+public class LayoutCache {
 
     private static final int CACHE_SIZE = 9;
 
@@ -29,6 +29,16 @@ public final class LayoutCache {
      * Tracks if all cache entries are empty
      */
     private boolean isEmpty = true;
+
+    /**
+     * Bit mask for measurement entries used since the eviction cursor visited them.
+     */
+    private int recentlyUsedEntries;
+
+    /**
+     * Cursor for the clock eviction policy.
+     */
+    private int nextMeasureEntry;
 
     /**
      * A single cache entry
@@ -124,12 +134,13 @@ public final class LayoutCache {
             return null;
         }
 
-        // For ComputeSize, check all measure cache entries
+        // For ComputeSize, check all measure cache entries.
         for (int i = 0; i < CACHE_SIZE; i++) {
             CacheEntry<FloatSize> entry = measureEntries[i];
             if (entry != null) {
                 FloatSize cachedSize = entry.content;
                 if (matchesSizeEntry(entry, cachedSize, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace)) {
+                    recentlyUsedEntries |= 1 << i;
                     return LayoutOutput.fromOuterSize(cachedSize);
                 }
             }
@@ -184,8 +195,28 @@ public final class LayoutCache {
         if (runMode == RunMode.PERFORM_LAYOUT) {
             finalLayoutEntry = new CacheEntry<>(knownDimensions, availableSpace, layoutOutput);
         } else {
-            int slot = computeCacheSlot(knownDimensions, availableSpace);
-            measureEntries[slot] = new CacheEntry<>(knownDimensions, availableSpace, layoutOutput.size());
+            if (layoutOutput.marginsCanCollapseThrough()
+                || !layoutOutput.topMargin().isZero()
+                || !layoutOutput.bottomMargin().isZero()) {
+                return;
+            }
+
+            for (int i = 0; i < CACHE_SIZE; i++) {
+                CacheEntry<FloatSize> entry = measureEntries[i];
+                if (entry != null && entry.matches(knownDimensions, availableSpace)) {
+                    entry.content = layoutOutput.size();
+                    recentlyUsedEntries |= 1 << i;
+                    return;
+                }
+            }
+
+            while ((recentlyUsedEntries & (1 << nextMeasureEntry)) != 0) {
+                recentlyUsedEntries &= ~(1 << nextMeasureEntry);
+                nextMeasureEntry = (nextMeasureEntry + 1) % CACHE_SIZE;
+            }
+            measureEntries[nextMeasureEntry] = new CacheEntry<>(knownDimensions, availableSpace, layoutOutput.size());
+            recentlyUsedEntries |= 1 << nextMeasureEntry;
+            nextMeasureEntry = (nextMeasureEntry + 1) % CACHE_SIZE;
         }
     }
 
@@ -198,6 +229,8 @@ public final class LayoutCache {
         boolean wasAlreadyEmpty = isEmpty;
         finalLayoutEntry = null;
         Arrays.fill(measureEntries, null);
+        recentlyUsedEntries = 0;
+        nextMeasureEntry = 0;
         isEmpty = true;
         return wasAlreadyEmpty;
     }

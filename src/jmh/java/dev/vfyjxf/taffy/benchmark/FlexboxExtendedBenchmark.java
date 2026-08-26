@@ -12,6 +12,8 @@ import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,7 +30,7 @@ public class FlexboxExtendedBenchmark {
 
     private static final long SEED = 12345L;
 
-    // ==================== Wide tree (100_000) ====================
+    // Wide tree (100_000)
 
     @State(Scope.Thread)
     public static class WideTreeLargeState {
@@ -52,7 +54,7 @@ public class FlexboxExtendedBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Deep tree (random size, 100_000) ====================
+    // Deep tree with random size (100_000)
 
     @State(Scope.Thread)
     public static class DeepRandomLargeState {
@@ -76,7 +78,7 @@ public class FlexboxExtendedBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Super deep (depth=1000) ====================
+    // Super deep tree (depth 1000)
 
     @State(Scope.Thread)
     public static class SuperDeep1000State {
@@ -96,7 +98,7 @@ public class FlexboxExtendedBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Helper Methods (copied/minimized from FlexboxBenchmark) ====================
+    // Helper methods
 
     private static NodeId buildDeepHierarchyRandom(TaffyTree tree, int maxNodes, int branchFactor, Random rng) {
         NodeId[] children = buildDeepTreeRandom(tree, maxNodes, branchFactor, rng);
@@ -124,7 +126,7 @@ public class FlexboxExtendedBenchmark {
 
     private static NodeId buildFlatHierarchy(TaffyTree tree, int targetNodeCount, Random rng) {
         int created = 0;
-        java.util.List<NodeId> children = new java.util.ArrayList<>();
+        List<NodeId> children = new ArrayList<>();
 
         while (created < targetNodeCount) {
             int count = 1 + rng.nextInt(4);

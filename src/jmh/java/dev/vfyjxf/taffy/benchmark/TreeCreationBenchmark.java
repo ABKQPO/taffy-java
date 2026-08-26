@@ -27,7 +27,7 @@ public class TreeCreationBenchmark {
 
     private static final long SEED = 12345L;
 
-    // ==================== Tree creation ====================
+    // Tree creation
     // Measures tree creation time without layout computation
 
     @State(Scope.Thread)
@@ -50,7 +50,7 @@ public class TreeCreationBenchmark {
         bh.consume(result[1]);
     }
 
-    // ==================== Helper Methods ====================
+    // Helper methods
 
     /**
      * Build a random leaf node

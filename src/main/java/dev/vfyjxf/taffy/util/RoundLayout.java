@@ -16,7 +16,7 @@ import java.util.List;
  * Utility class for rounding layout values to pixel boundaries.
  * This prevents anti-aliased "blurry" rendering that can occur with fractional pixel values.
  */
-public final class RoundLayout {
+public class RoundLayout {
 
     private RoundLayout() {
     }

@@ -9,7 +9,7 @@ import java.util.function.BiFunction;
  * A 2D point with x and y coordinates.
  * @param <T> The type of the coordinate values
  */
-public final class TaffyPoint<T> {
+public class TaffyPoint<T> {
     public T x;
     public T y;
 

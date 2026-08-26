@@ -34,7 +34,7 @@ public class GridBenchmark {
 
     private static final long SEED = 12345L;
 
-    // ==================== grid/wide ====================
+    // Grid wide tree
     // Rust: NxN grid where total cells = track_count²
     // Use a single benchmark with @Param (matches Rust bench group inputs)
 
@@ -61,7 +61,7 @@ public class GridBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== grid/deep ====================
+    // Grid deep tree
     // Rust: Nested NxN grids, various configurations
     // Configurations: [(2, 5), (3, 4), (2, 7)] = (tracks, levels)
 
@@ -94,7 +94,7 @@ public class GridBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== grid/superdeep ====================
+    // Grid super deep tree
     // Rust: Very deep 1x1 grid chain
     // Depths: [100, 1000]
 
@@ -122,7 +122,7 @@ public class GridBenchmark {
         bh.consume(state.tree.getLayout(state.root));
     }
 
-    // ==================== Helper Methods ====================
+    // Helper methods
 
     /**
      * Build a random leaf node (matching Rust's build_random_leaf)

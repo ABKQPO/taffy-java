@@ -1,6 +1,28 @@
 pluginManagement {
     repositories {
+        maven {
+            name = 'WagYourTail'
+            url = uri('https://maven.wagyourtail.xyz/releases')
+            mavenContent {
+                releasesOnly()
+            }
+        }
         gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'WagYourTail'
+            url = uri('https://maven.wagyourtail.xyz/releases')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+        maven { url = uri('https://jitpack.io') }
     }
 }
 

@@ -68,22 +68,26 @@ public class BlockComputer {
         private final CollapsibleMarginSet firstChildTopMarginSet;
         private final CollapsibleMarginSet lastChildBottomMarginSet;
         private final boolean allChildrenCanBeCollapsedThrough;
+        private final float firstVerticalBaseline;
 
         public InFlowLayoutResult(
             float contentHeight, CollapsibleMarginSet firstChildTopMarginSet,
             CollapsibleMarginSet lastChildBottomMarginSet,
-            boolean allChildrenCanBeCollapsedThrough
+            boolean allChildrenCanBeCollapsedThrough,
+            float firstVerticalBaseline
         ) {
             this.contentHeight = contentHeight;
             this.firstChildTopMarginSet = firstChildTopMarginSet;
             this.lastChildBottomMarginSet = lastChildBottomMarginSet;
             this.allChildrenCanBeCollapsedThrough = allChildrenCanBeCollapsedThrough;
+            this.firstVerticalBaseline = firstVerticalBaseline;
         }
 
         public float contentHeight() { return contentHeight; }
         public CollapsibleMarginSet firstChildTopMarginSet() { return firstChildTopMarginSet; }
         public CollapsibleMarginSet lastChildBottomMarginSet() { return lastChildBottomMarginSet; }
         public boolean allChildrenCanBeCollapsedThrough() { return allChildrenCanBeCollapsedThrough; }
+        public float firstVerticalBaseline() { return firstVerticalBaseline; }
 
         @Override
         public boolean equals(Object o) {
@@ -92,6 +96,7 @@ public class BlockComputer {
             InFlowLayoutResult that = (InFlowLayoutResult) o;
             return Float.compare(contentHeight, that.contentHeight) == 0
                 && allChildrenCanBeCollapsedThrough == that.allChildrenCanBeCollapsedThrough
+                && Float.compare(firstVerticalBaseline, that.firstVerticalBaseline) == 0
                 && Objects.equals(firstChildTopMarginSet, that.firstChildTopMarginSet)
                 && Objects.equals(lastChildBottomMarginSet, that.lastChildBottomMarginSet);
         }
@@ -99,7 +104,7 @@ public class BlockComputer {
         @Override
         public int hashCode() {
             return Objects.hash(contentHeight, firstChildTopMarginSet,
-                lastChildBottomMarginSet, allChildrenCanBeCollapsedThrough);
+                lastChildBottomMarginSet, allChildrenCanBeCollapsedThrough, firstVerticalBaseline);
         }
 
         @Override
@@ -107,7 +112,8 @@ public class BlockComputer {
             return "InFlowLayoutResult[contentHeight=" + contentHeight
                 + ", firstChildTopMarginSet=" + firstChildTopMarginSet
                 + ", lastChildBottomMarginSet=" + lastChildBottomMarginSet
-                + ", allChildrenCanBeCollapsedThrough=" + allChildrenCanBeCollapsedThrough + "]";
+                + ", allChildrenCanBeCollapsedThrough=" + allChildrenCanBeCollapsedThrough
+                + ", firstVerticalBaseline=" + firstVerticalBaseline + "]";
         }
     }
 
@@ -330,7 +336,7 @@ public class BlockComputer {
         return new LayoutOutput(
             finalOuterSize,
             contentSize,
-            new FloatPoint(NaN, NaN),
+            new FloatPoint(NaN, layoutResult.firstVerticalBaseline()),
             topMargin,
             bottomMargin,
             canBeCollapsedThrough
@@ -468,6 +474,7 @@ public class BlockComputer {
         CollapsibleMarginSet activeCollapsibleMarginSet = CollapsibleMarginSet.zero();
         boolean isCollapsingWithFirstMarginSet = true;
         boolean allChildrenCanBeCollapsedThrough = true;
+        float firstVerticalBaseline = NaN;
 
         // Check RTL once at the start
         boolean isRtl = direction != null && direction.isRtl();
@@ -633,6 +640,17 @@ public class BlockComputer {
 
             tree.setUnroundedLayout(item.nodeId, layout);
 
+            if (Float.isNaN(firstVerticalBaseline)) {
+                float childBaseline = itemOutput.firstBaselines().y;
+                if (item.overflow.y.isScrollContainer()) {
+                    childBaseline = Float.isNaN(childBaseline) ? finalSize.height : childBaseline;
+                    childBaseline = Math.max(0f, Math.min(childBaseline, finalSize.height));
+                }
+                if (!Float.isNaN(childBaseline)) {
+                    firstVerticalBaseline = y + childBaseline;
+                }
+            }
+
             // Update first_child_top_margin_set
             if (isCollapsingWithFirstMarginSet) {
                 if (item.canBeCollapsedThrough) {
@@ -671,7 +689,8 @@ public class BlockComputer {
             contentHeight,
             firstChildTopMarginSet,
             lastChildBottomMarginSet,
-            allChildrenCanBeCollapsedThrough
+            allChildrenCanBeCollapsedThrough,
+            firstVerticalBaseline
         );
     }
 

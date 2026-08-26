@@ -791,4 +791,58 @@ public class BlockflexTest {
         assertEquals(0.0f, node1Layout.location().y, "y of node1");
     }
 
+    @Test
+    @DisplayName("blockflex_baseline_overflow_hidden_clamp__border_box_ltr")
+    void blockflexBaselineOverflowHiddenClampBorderBoxLtr() {
+        TaffyTree tree = new TaffyTree();
+
+        TaffyStyle overflowingLeafStyle = new TaffyStyle();
+        overflowingLeafStyle.size = new TaffySize<>(TaffyDimension.length(10.0f), TaffyDimension.length(40.0f));
+        NodeId overflowingLeaf = tree.newLeaf(overflowingLeafStyle);
+
+        TaffyStyle overflowingFlexStyle = new TaffyStyle();
+        overflowingFlexStyle.display = TaffyDisplay.FLEX;
+        overflowingFlexStyle.size = new TaffySize<>(TaffyDimension.length(30.0f), TaffyDimension.AUTO);
+        NodeId overflowingFlex = tree.newWithChildren(overflowingFlexStyle, overflowingLeaf);
+
+        TaffyStyle scrollContainerStyle = new TaffyStyle();
+        scrollContainerStyle.display = TaffyDisplay.BLOCK;
+        scrollContainerStyle.overflow = new TaffyPoint<>(Overflow.HIDDEN, Overflow.HIDDEN);
+        scrollContainerStyle.size = new TaffySize<>(TaffyDimension.length(30.0f), TaffyDimension.length(30.0f));
+        NodeId scrollContainer = tree.newWithChildren(scrollContainerStyle, overflowingFlex);
+
+        TaffyStyle blockItemStyle = new TaffyStyle();
+        blockItemStyle.display = TaffyDisplay.BLOCK;
+        blockItemStyle.size = new TaffySize<>(TaffyDimension.length(40.0f), TaffyDimension.AUTO);
+        blockItemStyle.padding = TaffyRect.ltrb(
+            LengthPercentage.ZERO,
+            LengthPercentage.ZERO,
+            LengthPercentage.ZERO,
+            LengthPercentage.length(20.0f)
+        );
+        NodeId blockItem = tree.newWithChildren(blockItemStyle, scrollContainer);
+
+        TaffyStyle siblingStyle = new TaffyStyle();
+        siblingStyle.display = TaffyDisplay.BLOCK;
+        siblingStyle.size = new TaffySize<>(TaffyDimension.length(40.0f), TaffyDimension.length(80.0f));
+        NodeId sibling = tree.newLeaf(siblingStyle);
+
+        TaffyStyle rootStyle = new TaffyStyle();
+        rootStyle.display = TaffyDisplay.FLEX;
+        rootStyle.alignItems = AlignItems.BASELINE;
+        rootStyle.size = new TaffySize<>(TaffyDimension.length(200.0f), TaffyDimension.length(120.0f));
+        NodeId root = tree.newWithChildren(rootStyle, blockItem, sibling);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        Layout blockItemLayout = tree.getLayout(blockItem);
+        assertEquals(40.0f, blockItemLayout.size().width, "width of block item");
+        assertEquals(50.0f, blockItemLayout.size().height, "height of block item");
+        assertEquals(0.0f, blockItemLayout.location().x, "x of block item");
+        assertEquals(50.0f, blockItemLayout.location().y, "y of block item");
+        assertEquals(0.0f, tree.getLayout(scrollContainer).location().y, "y of scroll container");
+        assertEquals(30.0f, tree.getLayout(scrollContainer).size().height, "height of scroll container");
+        assertEquals(0.0f, tree.getLayout(sibling).location().y, "y of sibling");
+    }
+
 }

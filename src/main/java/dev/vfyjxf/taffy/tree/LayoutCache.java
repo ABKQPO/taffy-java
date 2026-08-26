@@ -46,17 +46,24 @@ public class LayoutCache {
     private static class CacheEntry<T> {
         FloatSize knownDimensions;
         TaffySize<AvailableSpace> availableSpace;
+        RequestedAxis axis;
         T content;
 
-        CacheEntry(FloatSize knownDimensions, TaffySize<AvailableSpace> availableSpace, T content) {
+        CacheEntry(FloatSize knownDimensions, TaffySize<AvailableSpace> availableSpace, RequestedAxis axis, T content) {
             this.knownDimensions = knownDimensions;
             this.availableSpace = availableSpace;
+            this.axis = axis;
             this.content = content;
         }
 
-        boolean matches(FloatSize knownDimensions, TaffySize<AvailableSpace> availableSpace) {
+        boolean matches(FloatSize knownDimensions, TaffySize<AvailableSpace> availableSpace, RequestedAxis axis) {
             return sizesEqual(this.knownDimensions, knownDimensions) &&
-                   this.availableSpace.equals(availableSpace);
+                   this.availableSpace.equals(availableSpace) &&
+                   isValidFor(axis);
+        }
+
+        boolean isValidFor(RequestedAxis requestedAxis) {
+            return axis == RequestedAxis.BOTH || axis == requestedAxis;
         }
 
         private static boolean sizesEqual(FloatSize a, FloatSize b) {
@@ -117,7 +124,8 @@ public class LayoutCache {
     public LayoutOutput get(
         FloatSize knownDimensions,
         TaffySize<AvailableSpace> availableSpace,
-        RunMode runMode
+        RunMode runMode,
+        RequestedAxis axis
     ) {
         if (isEmpty) return null;
 
@@ -128,7 +136,7 @@ public class LayoutCache {
         boolean hasKnownHeight = !Float.isNaN(kdHeight);
 
         if (runMode == RunMode.PERFORM_LAYOUT) {
-            if (finalLayoutEntry != null && matchesEntry(finalLayoutEntry, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace)) {
+            if (finalLayoutEntry != null && matchesEntry(finalLayoutEntry, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace, axis)) {
                 return finalLayoutEntry.content;
             }
             return null;
@@ -139,7 +147,7 @@ public class LayoutCache {
             CacheEntry<FloatSize> entry = measureEntries[i];
             if (entry != null) {
                 FloatSize cachedSize = entry.content;
-                if (matchesSizeEntry(entry, cachedSize, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace)) {
+                if (matchesSizeEntry(entry, cachedSize, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace, axis)) {
                     recentlyUsedEntries |= 1 << i;
                     return LayoutOutput.fromOuterSize(cachedSize);
                 }
@@ -149,7 +157,7 @@ public class LayoutCache {
         // Also check final layout entry for ComputeSize
         if (finalLayoutEntry != null) {
             FloatSize cachedSize = finalLayoutEntry.content.size();
-            if (matchesSizeEntry(finalLayoutEntry, cachedSize, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace)) {
+            if (matchesSizeEntry(finalLayoutEntry, cachedSize, kdWidth, kdHeight, hasKnownWidth, hasKnownHeight, availableSpace, axis)) {
                 return LayoutOutput.fromOuterSize(cachedSize);
             }
         }
@@ -158,20 +166,24 @@ public class LayoutCache {
     }
     
     private static boolean matchesEntry(CacheEntry<LayoutOutput> entry, float kdWidth, float kdHeight,
-                                        boolean hasKnownWidth, boolean hasKnownHeight, TaffySize<AvailableSpace> availableSpace) {
+                                        boolean hasKnownWidth, boolean hasKnownHeight, TaffySize<AvailableSpace> availableSpace,
+                                        RequestedAxis axis) {
         FloatSize cachedSize = entry.content.size();
         return (floatEquals(kdWidth, entry.knownDimensions.width) || floatEquals(kdWidth, cachedSize.width))
             && (floatEquals(kdHeight, entry.knownDimensions.height) || floatEquals(kdHeight, cachedSize.height))
             && (hasKnownWidth || entry.availableSpace.width.isRoughlyEqual(availableSpace.width))
-            && (hasKnownHeight || entry.availableSpace.height.isRoughlyEqual(availableSpace.height));
+            && (hasKnownHeight || entry.availableSpace.height.isRoughlyEqual(availableSpace.height))
+            && entry.isValidFor(axis);
     }
     
     private static <T> boolean matchesSizeEntry(CacheEntry<T> entry, FloatSize cachedSize, float kdWidth, float kdHeight,
-                                                boolean hasKnownWidth, boolean hasKnownHeight, TaffySize<AvailableSpace> availableSpace) {
+                                                boolean hasKnownWidth, boolean hasKnownHeight, TaffySize<AvailableSpace> availableSpace,
+                                                RequestedAxis axis) {
         return (floatEquals(kdWidth, entry.knownDimensions.width) || floatEquals(kdWidth, cachedSize.width))
             && (floatEquals(kdHeight, entry.knownDimensions.height) || floatEquals(kdHeight, cachedSize.height))
             && (hasKnownWidth || entry.availableSpace.width.isRoughlyEqual(availableSpace.width))
-            && (hasKnownHeight || entry.availableSpace.height.isRoughlyEqual(availableSpace.height));
+            && (hasKnownHeight || entry.availableSpace.height.isRoughlyEqual(availableSpace.height))
+            && entry.isValidFor(axis);
     }
 
     /**
@@ -188,12 +200,13 @@ public class LayoutCache {
         FloatSize knownDimensions,
         TaffySize<AvailableSpace> availableSpace,
         RunMode runMode,
+        RequestedAxis axis,
         LayoutOutput layoutOutput
     ) {
         isEmpty = false;
 
         if (runMode == RunMode.PERFORM_LAYOUT) {
-            finalLayoutEntry = new CacheEntry<>(knownDimensions, availableSpace, layoutOutput);
+            finalLayoutEntry = new CacheEntry<>(knownDimensions, availableSpace, axis, layoutOutput);
         } else {
             if (layoutOutput.marginsCanCollapseThrough()
                 || !layoutOutput.topMargin().isZero()
@@ -203,7 +216,7 @@ public class LayoutCache {
 
             for (int i = 0; i < CACHE_SIZE; i++) {
                 CacheEntry<FloatSize> entry = measureEntries[i];
-                if (entry != null && entry.matches(knownDimensions, availableSpace)) {
+                if (entry != null && entry.matches(knownDimensions, availableSpace, axis)) {
                     entry.content = layoutOutput.size();
                     recentlyUsedEntries |= 1 << i;
                     return;
@@ -214,7 +227,7 @@ public class LayoutCache {
                 recentlyUsedEntries &= ~(1 << nextMeasureEntry);
                 nextMeasureEntry = (nextMeasureEntry + 1) % CACHE_SIZE;
             }
-            measureEntries[nextMeasureEntry] = new CacheEntry<>(knownDimensions, availableSpace, layoutOutput.size());
+            measureEntries[nextMeasureEntry] = new CacheEntry<>(knownDimensions, availableSpace, axis, layoutOutput.size());
             recentlyUsedEntries |= 1 << nextMeasureEntry;
             nextMeasureEntry = (nextMeasureEntry + 1) % CACHE_SIZE;
         }

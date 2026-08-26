@@ -196,7 +196,8 @@ public class LayoutComputer {
             node,
             inputs.knownDimensions(),
             inputs.availableSpace(),
-            inputs.runMode()
+            inputs.runMode(),
+            inputs.axis()
         );
         if (cached != null) {
             return cached;
@@ -211,6 +212,7 @@ public class LayoutComputer {
             inputs.knownDimensions(),
             inputs.availableSpace(),
             inputs.runMode(),
+            inputs.axis(),
             output
         );
 

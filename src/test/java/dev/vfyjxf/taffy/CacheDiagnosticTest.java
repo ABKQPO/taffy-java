@@ -2,8 +2,13 @@ package dev.vfyjxf.taffy;
 
 import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffySize;
+import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.tree.LayoutCache;
+import dev.vfyjxf.taffy.tree.LayoutOutput;
+import dev.vfyjxf.taffy.tree.RequestedAxis;
+import dev.vfyjxf.taffy.tree.RunMode;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.Test;
@@ -17,6 +22,45 @@ import static org.junit.jupiter.api.Assertions.*;
  * Diagnostic test to understand caching behavior
  */
 public class CacheDiagnosticTest {
+
+    @Test
+    @DisplayName("single-axis cache entries do not satisfy another axis")
+    void singleAxisCacheEntriesDoNotSatisfyAnotherAxis() {
+        LayoutCache cache = new LayoutCache();
+        FloatSize knownDimensions = FloatSize.none();
+        TaffySize<AvailableSpace> availableSpace = TaffySize.maxContent();
+        LayoutOutput horizontalOutput = LayoutOutput.fromOuterSize(new FloatSize(100.0f, 0.0f));
+
+        cache.store(
+            knownDimensions,
+            availableSpace,
+            RunMode.COMPUTE_SIZE,
+            RequestedAxis.HORIZONTAL,
+            horizontalOutput
+        );
+
+        assertNull(cache.get(
+            knownDimensions,
+            availableSpace,
+            RunMode.COMPUTE_SIZE,
+            RequestedAxis.VERTICAL
+        ));
+
+        cache.store(
+            knownDimensions,
+            availableSpace,
+            RunMode.COMPUTE_SIZE,
+            RequestedAxis.BOTH,
+            LayoutOutput.fromOuterSize(new FloatSize(100.0f, 50.0f))
+        );
+
+        assertNotNull(cache.get(
+            knownDimensions,
+            availableSpace,
+            RunMode.COMPUTE_SIZE,
+            RequestedAxis.VERTICAL
+        ));
+    }
 
     @Test
     @DisplayName("simple_single_node_measure")

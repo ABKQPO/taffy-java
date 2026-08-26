@@ -2,6 +2,7 @@ package dev.vfyjxf.taffy;
 
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
+import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.TaffyStyle;
@@ -13,6 +14,8 @@ import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.tree.GridTestAdapter;
 import dev.vfyjxf.taffy.tree.TrackCounts;
+import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.tree.TaffyTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -445,5 +448,35 @@ public class GridExplicitGridTest {
             assertEquals(exp.min, actual.min.toString(), "Track " + i + " min");
             assertEquals(exp.max, actual.max.toString(), "Track " + i + " max");
         }
+    }
+
+    @Test
+    @DisplayName("grid_fr_content_proportion_sub_1_sum_minimum_zero")
+    void gridFrContentProportionSubOneSumMinimumZero() {
+        TaffyTree tree = new TaffyTree();
+
+        TaffyStyle contentStyle = new TaffyStyle();
+        contentStyle.size = new TaffySize<>(TaffyDimension.length(20f), TaffyDimension.length(100f));
+        NodeId content = tree.newLeaf(contentStyle);
+
+        TaffyStyle itemStyle = new TaffyStyle();
+        itemStyle.minSize = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(0f));
+        NodeId item = tree.newWithChildren(itemStyle, content);
+
+        TaffyStyle gridStyle = new TaffyStyle();
+        gridStyle.display = TaffyDisplay.GRID;
+        gridStyle.gridTemplateRows.add(TrackSizingFunction.fr(0.5f));
+        gridStyle.gridTemplateColumns.add(TrackSizingFunction.fixed(LengthPercentage.length(20f)));
+        NodeId grid = tree.newWithChildren(gridStyle, item);
+
+        TaffyStyle parentStyle = new TaffyStyle();
+        parentStyle.display = TaffyDisplay.FLEX;
+        parentStyle.alignItems = AlignItems.START;
+        parentStyle.size = new TaffySize<>(TaffyDimension.length(20f), TaffyDimension.length(150f));
+        NodeId parent = tree.newWithChildren(parentStyle, grid);
+
+        tree.computeLayout(parent, TaffySize.maxContent());
+
+        assertEquals(50f, tree.getLayout(grid).size().height, 0.1f);
     }
 }

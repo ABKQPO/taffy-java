@@ -135,6 +135,32 @@ public class GridComputer {
         Float minimumContributionHeight;
 
         /**
+         * Returns whether the item has an auto margin in the block axis.
+         */
+        boolean hasAutoBlockMargin() {
+            return rawMargin != null && (rawMargin.top.isAuto() || rawMargin.bottom.isAuto());
+        }
+
+        /**
+         * Returns whether percentage block sizing depends on intrinsic or flexible row sizing.
+         */
+        boolean hasCyclicBlockSizeDependency() {
+            return rawSize != null
+                && rawSize.height != null
+                && rawSize.height.isPercent()
+                && (crossesIntrinsicRow || crossesFlexibleRow);
+        }
+
+        /**
+         * Returns whether the item participates in baseline alignment.
+         */
+        boolean participatesInBaselineAlignment() {
+            return alignSelf == AlignItems.BASELINE
+                && !hasAutoBlockMargin()
+                && !hasCyclicBlockSizeDependency();
+        }
+
+        /**
          * Compute the item's resolved margins for size contributions.
          * Horizontal percentage margins always resolve to zero if the container size is indefinite
          * as otherwise this would introduce a cyclic dependency.
@@ -1054,7 +1080,7 @@ public class GridComputer {
         // Check if any items in this row are baseline aligned
         GridItem baselineItem = null;
         for (GridItem item : firstRowItems) {
-            if (item.alignSelf == AlignItems.BASELINE) {
+            if (item.participatesInBaselineAlignment()) {
                 baselineItem = item;
                 break;
             }
@@ -2971,15 +2997,50 @@ public class GridComputer {
                 // This is because flexible tracks will grow to fill available space in expand_flexible_tracks.
 
                 if (crossesFlexTrack) {
-                    // Item crosses a flex track - distribute only to flex tracks
-                    // Step 2.1, 2.2, 2.3 all distribute to flex tracks only
+                    // Scale the content contribution by the flex-factor sum of the crossed
+                    // flexible tracks. Inflexible tracks are covered first; the minimum
+                    // contribution remains a floor so definite-size items still open 0fr tracks.
                     if (!flexTracks.isEmpty()) {
+                        float inflexibleSize = 0f;
+                        float crossedFlexFactorSum = 0f;
+                        for (int c = col; c < col + span; c++) {
+                            if (flexTracks.contains(c)) {
+                                int frIndex = frTrackIndices.indexOf(c);
+                                if (frIndex >= 0) {
+                                    crossedFlexFactorSum += frValues.getFloat(frIndex);
+                                }
+                            } else {
+                                float trackSize = sizes.getFloat(c);
+                                if (!Float.isNaN(trackSize)) {
+                                    inflexibleSize += trackSize;
+                                }
+                            }
+                        }
+
+                        boolean intrinsicFlexSizing = availableGridSpace.width.isMinContent() || isMaxContentSizing;
+                        float targetContribution;
+                        if (intrinsicFlexSizing) {
+                            float scale = Math.min(crossedFlexFactorSum, 1f);
+                            float scaledExcess = Math.max(itemMaxContent - inflexibleSize, 0f) * scale;
+                            targetContribution = Math.max(minimumContribution, inflexibleSize + scaledExcess);
+                        } else {
+                            targetContribution = itemMaxContent;
+                        }
                         float currentSpannedSize = getCurrentSpannedSize.get();
-                        float extraNeeded = itemMaxContent - currentSpannedSize;
+                        float extraNeeded = targetContribution - currentSpannedSize;
                         if (extraNeeded > 0) {
-                            float extraPerTrack = extraNeeded / flexTracks.size();
-                            for (int c : flexTracks) {
-                                sizes.set(c, sizes.getFloat(c) + extraPerTrack);
+                            if (crossedFlexFactorSum > 0f) {
+                                for (int c : flexTracks) {
+                                    int frIndex = frTrackIndices.indexOf(c);
+                                    float factor = frIndex >= 0 ? frValues.getFloat(frIndex) : 0f;
+                                    float share = extraNeeded * factor / crossedFlexFactorSum;
+                                    sizes.set(c, sizes.getFloat(c) + share);
+                                }
+                            } else {
+                                float extraPerTrack = extraNeeded / flexTracks.size();
+                                for (int c : flexTracks) {
+                                    sizes.set(c, sizes.getFloat(c) + extraPerTrack);
+                                }
                             }
                         }
                     }
@@ -3488,7 +3549,7 @@ public class GridComputer {
         // Check if there are any baseline-aligned items
         boolean hasBaselineItem = false;
         for (GridItem item : items) {
-            if (item.alignSelf == AlignItems.BASELINE) {
+            if (item.participatesInBaselineAlignment()) {
                 hasBaselineItem = true;
                 break;
             }
@@ -3522,7 +3583,7 @@ public class GridComputer {
             // Count how many items in this row are baseline aligned
             int baselineItemCount = 0;
             for (GridItem item : rowItems) {
-                if (item.alignSelf == AlignItems.BASELINE) {
+                if (item.participatesInBaselineAlignment()) {
                     baselineItemCount++;
                 }
             }
@@ -3844,7 +3905,11 @@ public class GridComputer {
                                 usedByNonFr += !Float.isNaN(value) ? value : 0f;
                             }
                         }
-                        float leftover = contentHeight - usedByNonFr;
+                        float minimumContribution = !Float.isNaN(item.minSize.height) ? item.minSize.height : 0f;
+                        float scale = Math.min(itemFrSum, 1f);
+                        float scaledExcess = Math.max(contentHeight - usedByNonFr, 0f) * scale;
+                        float targetContribution = Math.max(minimumContribution, usedByNonFr + scaledExcess);
+                        float leftover = targetContribution - usedByNonFr;
                         if (leftover > 0 && itemFrSum > 0) {
                             float itemFr = leftover / itemFrSum;
                             flexFraction = Math.max(flexFraction, itemFr);

@@ -2,6 +2,7 @@ package dev.vfyjxf.taffy;
 
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
+import dev.vfyjxf.taffy.style.LengthPercentage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,17 @@ public class IntrinsicSizingKeywordsTest {
     @Nested
     @DisplayName("Dimension Tests")
     class DimensionTests {
+
+        @Test
+        @DisplayName("fitContent accepts a length limit")
+        void fitContentAcceptsLengthLimit() {
+            TaffyDimension dimension = TaffyDimension.fitContent(LengthPercentage.length(120.0f));
+
+            assertTrue(dimension.isFitContent());
+            assertEquals(LengthPercentage.length(120.0f), dimension.getFitContentLimit());
+            assertEquals("fit-content(120.0px)", dimension.toString());
+            assertNotEquals(dimension, TaffyDimension.fitContent(LengthPercentage.length(80.0f)));
+        }
         
         @Test
         @DisplayName("minContent() creates MIN_CONTENT type")

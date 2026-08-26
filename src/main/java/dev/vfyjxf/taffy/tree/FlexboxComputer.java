@@ -701,6 +701,15 @@ public class FlexboxComputer {
                 } else if (mainIsFitContent) {
                     // fit-content behaves like max-content but clamped by available space
                     mainAvailSpace = isRow ? availableSpace.width : availableSpace.height;
+                    LengthPercentage fitContentLimit = mainDim.getFitContentLimit();
+                    if (fitContentLimit != null) {
+                        float limit = fitContentLimit.maybeResolve(isRow ? nodeInnerSize.width : nodeInnerSize.height);
+                        if (!Float.isNaN(limit)) {
+                            mainAvailSpace = mainAvailSpace.isDefinite()
+                                ? mainAvailSpace.maybeMin(limit)
+                                : AvailableSpace.definite(limit);
+                        }
+                    }
                     if (mainAvailSpace.isMaxContent() || mainAvailSpace.isMinContent()) {
                         mainAvailSpace = AvailableSpace.maxContent();
                     }

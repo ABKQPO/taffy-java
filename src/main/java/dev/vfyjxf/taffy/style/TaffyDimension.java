@@ -55,17 +55,27 @@ public class TaffyDimension {
     private final Type type;
     private final float value;
     private final CalcExpression calcExpression;
+    private final LengthPercentage fitContentLimit;
 
     private TaffyDimension(Type type, float value) {
         this.type = type;
         this.value = value;
         this.calcExpression = null;
+        this.fitContentLimit = null;
     }
     
     private TaffyDimension(CalcExpression calcExpression) {
         this.type = Type.CALC;
         this.value = 0;
         this.calcExpression = calcExpression;
+        this.fitContentLimit = null;
+    }
+
+    private TaffyDimension(LengthPercentage fitContentLimit) {
+        this.type = Type.FIT_CONTENT;
+        this.value = 0;
+        this.calcExpression = null;
+        this.fitContentLimit = fitContentLimit;
     }
 
     /**
@@ -120,6 +130,11 @@ public class TaffyDimension {
      */
     public static TaffyDimension fitContent() {
         return FIT_CONTENT;
+    }
+
+    /** Creates a fit-content value with a length or percentage limit. */
+    public static TaffyDimension fitContent(LengthPercentage limit) {
+        return new TaffyDimension(limit);
     }
     
     /**
@@ -185,7 +200,8 @@ public class TaffyDimension {
             case CALC: return calc(lpa.getCalcExpression());
             case MIN_CONTENT: return MIN_CONTENT;
             case MAX_CONTENT: return MAX_CONTENT;
-            case FIT_CONTENT: return FIT_CONTENT;
+            case FIT_CONTENT:
+                return lpa.getFitContentLimit() == null ? FIT_CONTENT : fitContent(lpa.getFitContentLimit());
             case STRETCH: return STRETCH;
             default: throw new IllegalStateException("Unexpected: " + lpa.getType());
         }
@@ -210,6 +226,10 @@ public class TaffyDimension {
      */
     public CalcExpression getCalcExpression() {
         return calcExpression;
+    }
+
+    public LengthPercentage getFitContentLimit() {
+        return fitContentLimit;
     }
 
     /**
@@ -327,9 +347,10 @@ public class TaffyDimension {
         TaffyDimension that = (TaffyDimension) o;
         if (type != that.type) return false;
         // For singleton types, type equality is sufficient
-        if (type == Type.AUTO || type == Type.MIN_CONTENT || type == Type.MAX_CONTENT || 
-            type == Type.FIT_CONTENT || type == Type.STRETCH || type == Type.CONTENT) return true;
+        if (type == Type.AUTO || type == Type.MIN_CONTENT || type == Type.MAX_CONTENT ||
+            type == Type.STRETCH || type == Type.CONTENT) return true;
         if (type == Type.CALC) return Objects.equals(calcExpression, that.calcExpression);
+        if (type == Type.FIT_CONTENT) return Objects.equals(fitContentLimit, that.fitContentLimit);
         return Float.compare(value, that.value) == 0;
     }
 
@@ -337,6 +358,9 @@ public class TaffyDimension {
     public int hashCode() {
         if (type == Type.CALC) {
             return Objects.hash(type, calcExpression);
+        }
+        if (type == Type.FIT_CONTENT) {
+            return Objects.hash(type, fitContentLimit);
         }
         return Objects.hash(type, value);
     }
@@ -350,7 +374,7 @@ public class TaffyDimension {
             case CALC: return "calc(...)";
             case MIN_CONTENT: return "min-content";
             case MAX_CONTENT: return "max-content";
-            case FIT_CONTENT: return "fit-content";
+            case FIT_CONTENT: return fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
             case STRETCH: return "stretch";
             case CONTENT: return "content";
             default: throw new IllegalStateException("Unexpected: " + type);

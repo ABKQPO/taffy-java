@@ -51,17 +51,27 @@ public class LengthPercentageAuto {
     private final Type type;
     private final float value;
     private final CalcExpression calcExpression;
+    private final LengthPercentage fitContentLimit;
 
     private LengthPercentageAuto(Type type, float value) {
         this.type = type;
         this.value = value;
         this.calcExpression = null;
+        this.fitContentLimit = null;
     }
     
     private LengthPercentageAuto(CalcExpression calcExpression) {
         this.type = Type.CALC;
         this.value = 0;
         this.calcExpression = calcExpression;
+        this.fitContentLimit = null;
+    }
+
+    private LengthPercentageAuto(LengthPercentage fitContentLimit) {
+        this.type = Type.FIT_CONTENT;
+        this.value = 0;
+        this.calcExpression = null;
+        this.fitContentLimit = fitContentLimit;
     }
 
     /**
@@ -116,6 +126,11 @@ public class LengthPercentageAuto {
      */
     public static LengthPercentageAuto fitContent() {
         return FIT_CONTENT;
+    }
+
+    /** Creates a fit-content value with a length or percentage limit. */
+    public static LengthPercentageAuto fitContent(LengthPercentage limit) {
+        return new LengthPercentageAuto(limit);
     }
     
     /**
@@ -179,6 +194,10 @@ public class LengthPercentageAuto {
      */
     public CalcExpression getCalcExpression() {
         return calcExpression;
+    }
+
+    public LengthPercentage getFitContentLimit() {
+        return fitContentLimit;
     }
 
     /**
@@ -306,9 +325,10 @@ public class LengthPercentageAuto {
         LengthPercentageAuto that = (LengthPercentageAuto) o;
         if (type != that.type) return false;
         // For singleton types, type equality is sufficient
-        if (type == Type.AUTO || type == Type.MIN_CONTENT || type == Type.MAX_CONTENT || 
-            type == Type.FIT_CONTENT || type == Type.STRETCH) return true;
+        if (type == Type.AUTO || type == Type.MIN_CONTENT || type == Type.MAX_CONTENT ||
+            type == Type.STRETCH) return true;
         if (type == Type.CALC) return Objects.equals(calcExpression, that.calcExpression);
+        if (type == Type.FIT_CONTENT) return Objects.equals(fitContentLimit, that.fitContentLimit);
         return Float.compare(value, that.value) == 0;
     }
 
@@ -316,6 +336,9 @@ public class LengthPercentageAuto {
     public int hashCode() {
         if (type == Type.CALC) {
             return Objects.hash(type, calcExpression);
+        }
+        if (type == Type.FIT_CONTENT) {
+            return Objects.hash(type, fitContentLimit);
         }
         return Objects.hash(type, value);
     }
@@ -336,7 +359,7 @@ public class LengthPercentageAuto {
             case MAX_CONTENT:
                 return "max-content";
             case FIT_CONTENT:
-                return "fit-content";
+                return fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
             case STRETCH:
                 return "stretch";
             default:

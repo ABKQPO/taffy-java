@@ -381,6 +381,9 @@ public class FlexboxComputer {
         }
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
+        if (style.contain.suppressesBaseline()) {
+            firstVerticalBaseline = NaN;
+        }
         return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, firstVerticalBaseline));
     }
 

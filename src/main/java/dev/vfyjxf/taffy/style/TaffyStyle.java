@@ -50,6 +50,11 @@ public class TaffyStyle {
     public TaffyPoint<Overflow> overflow = new TaffyPoint<>(Overflow.VISIBLE, Overflow.VISIBLE);
 
     /**
+     * The layout-affecting containment modes applied to this node.
+     */
+    public Contain contain = Contain.NONE;
+
+    /**
      * How much space should be reserved for scrollbars
      */
     public float scrollbarWidth = 0;

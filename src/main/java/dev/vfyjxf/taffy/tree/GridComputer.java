@@ -1012,7 +1012,7 @@ public class GridComputer {
         }
 
         // Calculate container baseline
-        float containerBaseline = calculateContainerBaseline(items);
+        float containerBaseline = style.contain.suppressesBaseline() ? NaN : calculateContainerBaseline(items);
 
         FloatSize contentSize = computeContentSizeFromChildren(node);
 

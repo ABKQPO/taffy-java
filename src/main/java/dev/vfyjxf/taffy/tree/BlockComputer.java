@@ -165,6 +165,7 @@ public class BlockComputer {
             verticalMarginsAreCollapsible.start &&
             !style.getOverflow().x.isScrollContainer() &&
             !style.getOverflow().y.isScrollContainer() &&
+            !style.contain.establishesIndependentFormattingContext() &&
             style.getPosition() == TaffyPosition.RELATIVE &&
             padding.top == 0 &&
             border.top == 0;
@@ -173,6 +174,7 @@ public class BlockComputer {
             verticalMarginsAreCollapsible.end &&
             !style.getOverflow().x.isScrollContainer() &&
             !style.getOverflow().y.isScrollContainer() &&
+            !style.contain.establishesIndependentFormattingContext() &&
             style.getPosition() == TaffyPosition.RELATIVE &&
             padding.bottom == 0 &&
             border.bottom == 0 &&
@@ -185,6 +187,7 @@ public class BlockComputer {
             !style.isBlock() ||
             style.getOverflow().x.isScrollContainer() ||
             style.getOverflow().y.isScrollContainer() ||
+            style.contain.establishesIndependentFormattingContext() ||
             style.getPosition() == TaffyPosition.ABSOLUTE ||
             (!Float.isNaN(style.getAspectRatio())) ||
             padding.top > 0 ||
@@ -333,10 +336,13 @@ public class BlockComputer {
             bottomMargin = CollapsibleMarginSet.fromMargin(marginBottom);
         }
 
+        float firstVerticalBaseline = style.contain.suppressesBaseline()
+            ? NaN
+            : layoutResult.firstVerticalBaseline();
         return new LayoutOutput(
             finalOuterSize,
             contentSize,
-            new FloatPoint(NaN, layoutResult.firstVerticalBaseline()),
+            new FloatPoint(NaN, firstVerticalBaseline),
             topMargin,
             bottomMargin,
             canBeCollapsedThrough

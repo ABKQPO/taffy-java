@@ -3,6 +3,7 @@ package dev.vfyjxf.taffy;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import dev.vfyjxf.taffy.style.Contain;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
@@ -16,6 +17,39 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FlexContainerBaselineTest {
+
+    @Test
+    @DisplayName("Layout containment suppresses a flex container baseline")
+    void layoutContainmentSuppressesFlexContainerBaseline() {
+        TaffyStyle firstLeafStyle = new TaffyStyle();
+        firstLeafStyle.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(30.0f));
+
+        TaffyStyle firstItemStyle = new TaffyStyle();
+        firstItemStyle.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(60.0f));
+
+        TaffyStyle secondLeafStyle = new TaffyStyle();
+        secondLeafStyle.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(10.0f));
+
+        TaffyStyle containedItemStyle = new TaffyStyle();
+        containedItemStyle.contain = Contain.LAYOUT;
+        containedItemStyle.size = new TaffySize<>(TaffyDimension.length(50.0f), TaffyDimension.length(20.0f));
+
+        TaffyStyle rootStyle = new TaffyStyle();
+        rootStyle.alignItems = AlignItems.BASELINE;
+        rootStyle.size = new TaffySize<>(TaffyDimension.length(200.0f), TaffyDimension.AUTO);
+
+        TaffyTree tree = new TaffyTree();
+        NodeId firstLeaf = tree.newLeaf(firstLeafStyle);
+        NodeId firstItem = tree.newWithChildren(firstItemStyle, firstLeaf);
+        NodeId secondLeaf = tree.newLeaf(secondLeafStyle);
+        NodeId containedItem = tree.newWithChildren(containedItemStyle, secondLeaf);
+        NodeId root = tree.newWithChildren(rootStyle, firstItem, containedItem);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(0.0f, tree.getLayout(firstItem).location().y, 0.01f);
+        assertEquals(10.0f, tree.getLayout(containedItem).location().y, 0.01f);
+    }
 
     @Test
     @DisplayName("Column-reverse container baseline comes from its visual start item")

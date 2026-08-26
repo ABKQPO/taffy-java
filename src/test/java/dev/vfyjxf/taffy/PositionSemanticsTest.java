@@ -140,6 +140,30 @@ public class PositionSemanticsTest {
     }
 
     @Test
+    void absoluteDescendantStretchesBetweenInsetsInItsPositionedAncestor() {
+        TaffyStyle absoluteStyle = new TaffyStyle();
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.length(15f),
+            LengthPercentageAuto.length(7f),
+            LengthPercentageAuto.length(13f));
+
+        TaffyStyle staticParentStyle = sizedStyle(30f, 30f);
+        TaffyStyle containingBlockStyle = sizedStyle(100f, 100f);
+        containingBlockStyle.position = TaffyPosition.RELATIVE;
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId staticParent = tree.newWithChildren(staticParentStyle, absolute);
+        NodeId containingBlock = tree.newWithChildren(containingBlockStyle, staticParent);
+        tree.computeLayout(containingBlock, TaffySize.maxContent());
+
+        assertEquals(80f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(80f, tree.getLayout(absolute).size().height, 0.01f);
+    }
+
+    @Test
     void staticAncestorsBubbleOutOfFlowCandidatesToTheirContainingBlock() {
         TaffyStyle absoluteStyle = sizedStyle(10f, 10f);
         absoluteStyle.position = TaffyPosition.ABSOLUTE;

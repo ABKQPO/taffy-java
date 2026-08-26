@@ -48,6 +48,34 @@ public class PositionSemanticsTest {
         assertFalse(TaffyPosition.RELATIVE.isOutOfFlow());
     }
 
+    @Test
+    void fixedDescendantUsesTheRootContainingBlock() {
+        TaffyStyle fixedStyle = sizedStyle(10f, 10f);
+        fixedStyle.position = TaffyPosition.FIXED;
+        fixedStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.length(5f),
+            LengthPercentageAuto.AUTO);
+
+        TaffyStyle parentStyle = sizedStyle(50f, 50f);
+        parentStyle.position = TaffyPosition.RELATIVE;
+        parentStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.length(50f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.length(50f),
+            LengthPercentageAuto.AUTO);
+
+        TaffyTree tree = new TaffyTree();
+        NodeId fixedItem = tree.newLeaf(fixedStyle);
+        NodeId parent = tree.newWithChildren(parentStyle, fixedItem);
+        NodeId root = tree.newWithChildren(sizedStyle(200f, 200f), parent);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(5f, accumulatedY(tree, fixedItem), 0.01f);
+    }
+
     private static TaffyStyle itemStyle() {
         TaffyStyle style = new TaffyStyle();
         style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10f));
@@ -57,5 +85,21 @@ public class PositionSemanticsTest {
             LengthPercentageAuto.length(10f),
             LengthPercentageAuto.AUTO);
         return style;
+    }
+
+    private static TaffyStyle sizedStyle(float width, float height) {
+        TaffyStyle style = new TaffyStyle();
+        style.size = new TaffySize<>(TaffyDimension.length(width), TaffyDimension.length(height));
+        return style;
+    }
+
+    private static float accumulatedY(TaffyTree tree, NodeId node) {
+        float y = 0f;
+        NodeId current = node;
+        while (current != null) {
+            y += tree.getLayout(current).location().y;
+            current = tree.getParent(current);
+        }
+        return y;
     }
 }

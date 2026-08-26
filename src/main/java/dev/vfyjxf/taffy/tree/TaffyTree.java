@@ -1,11 +1,13 @@
 package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.FloatSize;
+import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyStyle;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 import dev.vfyjxf.taffy.util.RoundLayout;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -751,6 +753,7 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         // For now, delegate to the LayoutComputer
         LayoutComputer computer = new LayoutComputer(this, defaultMeasureFunc);
         computer.computeLayout(rootNode, availableSpace);
+        repositionOutOfFlowDescendants(rootNode);
         
         // Round layouts if enabled
         if (useRounding) {
@@ -793,6 +796,55 @@ public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to write tree", exception);
         }
+    }
+
+    private void repositionOutOfFlowDescendants(NodeId rootNode) {
+        for (Long id : nodes.keySet()) {
+            NodeId node = new NodeId(id);
+            TaffyStyle style = getStyle(node);
+            if (style.getPosition() != TaffyPosition.FIXED) {
+                continue;
+            }
+
+            NodeId parent = getParent(node);
+            if (parent == null) {
+                continue;
+            }
+
+            NodeId containingBlock = rootNode;
+            Layout containingLayout = getUnroundedLayout(containingBlock);
+            float width = containingLayout.size().width - containingLayout.border().left - containingLayout.border().right;
+            float height = containingLayout.size().height - containingLayout.border().top - containingLayout.border().bottom;
+            float left = style.getInset().left.maybeResolve(width);
+            float top = style.getInset().top.maybeResolve(height);
+            if (Float.isNaN(left) && Float.isNaN(top)) {
+                continue;
+            }
+
+            FloatPoint containingOrigin = accumulatedLocation(containingBlock);
+            FloatPoint parentOrigin = accumulatedLocation(parent);
+            Layout layout = getUnroundedLayout(node).copy();
+            if (!Float.isNaN(left)) {
+                layout.location().x = containingOrigin.x + containingLayout.border().left + left - parentOrigin.x;
+            }
+            if (!Float.isNaN(top)) {
+                layout.location().y = containingOrigin.y + containingLayout.border().top + top - parentOrigin.y;
+            }
+            setUnroundedLayout(node, layout);
+        }
+    }
+
+    private FloatPoint accumulatedLocation(NodeId node) {
+        float x = 0f;
+        float y = 0f;
+        NodeId current = node;
+        while (current != null) {
+            Layout layout = getUnroundedLayout(current);
+            x += layout.location().x;
+            y += layout.location().y;
+            current = getParent(current);
+        }
+        return new FloatPoint(x, y);
     }
 
     /** Write a debug tree representation to an arbitrary character sink. */

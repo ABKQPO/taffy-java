@@ -68,6 +68,8 @@ public class FlexboxComputer {
         FloatRect border;
         float flexBasis;
         float innerFlexBasis;
+        boolean flexBasisIsDefinite;
+        boolean crossSizeStyleIsStretch;
         float violation;
         boolean frozen;
         float contentFlexFraction;
@@ -139,6 +141,23 @@ public class FlexboxComputer {
 
         FloatSize styledBasedKnownDimensions = orChain(knownDimensions, minMaxDefiniteSize, clampedStyleSize);
         styledBasedKnownDimensions = maybeMax(styledBasedKnownDimensions, paddingBorderSize);
+
+        boolean hasDefiniteMainSize = hasDefiniteAxisSize(
+            knownDimensions,
+            inputs.knownDimensionsAreDefinite(),
+            minMaxDefiniteSize,
+            clampedStyleSize,
+            isRow
+        );
+        boolean hasDefiniteCrossSize = hasDefiniteAxisSize(
+            knownDimensions,
+            inputs.knownDimensionsAreDefinite(),
+            minMaxDefiniteSize,
+            clampedStyleSize,
+            !isRow
+        );
+        AvailableSpace outerCrossAvailableSpace = isRow ? availableSpace.height : availableSpace.width;
+        boolean crossAxisAvailableSpaceIsDefinite = hasDefiniteCrossSize || outerCrossAvailableSpace.isDefinite();
 
         // Detect AR-derived dimensions: auto dimension filled by aspect-ratio, not explicitly specified.
         // These should act as preferred/minimum values, not hard constraints — content can exceed them.
@@ -238,7 +257,14 @@ public class FlexboxComputer {
         }
 
         // Determine flex base size and hypothetical main size
-        determineFlexBaseSize(items, nodeInnerSize, innerAvailableSpace, flexDirection);
+        determineFlexBaseSize(
+            items,
+            nodeInnerSize,
+            innerAvailableSpace,
+            flexDirection,
+            isWrap,
+            hasDefiniteCrossSize
+        );
 
         // Collect items into flex lines (use innerAvailableSpace for wrapping, matching Rust)
         float innerMainSize = isRow ? nodeInnerSize.width : nodeInnerSize.height;
@@ -296,12 +322,28 @@ public class FlexboxComputer {
         // 9.4. Cross Size Determination
         // 7. Determine the hypothetical cross size of each item
         for (FlexLine line : flexLines) {
-            determineHypotheticalCrossSize(line, flexDirection, innerMainSize, nodeInnerSize, innerAvailableSpace, isWrap);
+            determineHypotheticalCrossSize(
+                line,
+                flexDirection,
+                innerMainSize,
+                nodeInnerSize,
+                innerAvailableSpace,
+                isWrap,
+                hasDefiniteMainSize,
+                crossAxisAvailableSpaceIsDefinite
+            );
         }
 
         // Calculate children baselines (for baseline alignment support)
         // This needs to be before calculateCrossSize since baseline affects line cross size
-        calculateChildrenBaselines(flexLines, nodeInnerSize, innerAvailableSpace, flexDirection);
+        calculateChildrenBaselines(
+            flexLines,
+            nodeInnerSize,
+            innerAvailableSpace,
+            flexDirection,
+            hasDefiniteMainSize,
+            crossAxisAvailableSpaceIsDefinite
+        );
 
         // Calculate cross size
         calculateCrossSize(flexLines, nodeInnerSize, innerAvailableSpace, flexDirection, style, minSize, maxSize, contentBoxInset, crossIsArDerived);
@@ -372,7 +414,19 @@ public class FlexboxComputer {
         alignItemsOnCrossAxis(flexLines, flexDirection, isWrapReverse);
 
         // Perform final layout and get container baseline
-        float firstVerticalBaseline = performFinalLayout(flexLines, node, containerSize, contentBoxInset, gap, style, flexDirection, direction, isWrapReverse);
+        float firstVerticalBaseline = performFinalLayout(
+            flexLines,
+            node,
+            containerSize,
+            contentBoxInset,
+            gap,
+            style,
+            flexDirection,
+            direction,
+            isWrapReverse,
+            hasDefiniteMainSize,
+            crossAxisAvailableSpaceIsDefinite
+        );
 
         // Layout hidden children (display: none)
         List<NodeId> children = tree.getChildren(node);
@@ -396,6 +450,46 @@ public class FlexboxComputer {
             firstVerticalBaseline = NaN;
         }
         return LayoutOutput.fromSizesAndBaselines(containerSize, contentSize, new FloatPoint(NaN, firstVerticalBaseline));
+    }
+
+    private static boolean hasDefiniteAxisSize(
+        FloatSize knownDimensions,
+        TaffySize<Boolean> knownDimensionsAreDefinite,
+        FloatSize minMaxDefiniteSize,
+        FloatSize clampedStyleSize,
+        boolean horizontalAxis) {
+        float knownDimension = horizontalAxis ? knownDimensions.width : knownDimensions.height;
+        boolean knownDimensionIsDefinite = horizontalAxis
+            ? Boolean.TRUE.equals(knownDimensionsAreDefinite.width)
+            : Boolean.TRUE.equals(knownDimensionsAreDefinite.height);
+        if (!isNaN(knownDimension)) {
+            return knownDimensionIsDefinite;
+        }
+
+        float minMaxDimension = horizontalAxis ? minMaxDefiniteSize.width : minMaxDefiniteSize.height;
+        float styleDimension = horizontalAxis ? clampedStyleSize.width : clampedStyleSize.height;
+        return !isNaN(minMaxDimension) || !isNaN(styleDimension);
+    }
+
+    private static TaffySize<Boolean> itemKnownDimensionDefiniteness(
+        FlexItem item,
+        FlexDirection flexDirection,
+        boolean hasDefiniteMainSize,
+        boolean crossAxisAvailableSpaceIsDefinite) {
+        boolean isRow = flexDirection.isRow();
+        boolean mainIsDefinite = hasDefiniteMainSize || item.flexBasisIsDefinite;
+        boolean crossStartAuto = isRow ? item.marginIsAuto.top : item.marginIsAuto.left;
+        boolean crossEndAuto = isRow ? item.marginIsAuto.bottom : item.marginIsAuto.right;
+        float crossSize = isRow ? item.size.height : item.size.width;
+        boolean isStretched = !crossStartAuto && !crossEndAuto
+            && (item.crossSizeStyleIsStretch || (item.alignSelf == AlignSelf.STRETCH && isNaN(crossSize)));
+        boolean crossIsDefinite = isStretched
+            || !isNaN(crossSize)
+            || (flexDirection.isColumn() && crossAxisAvailableSpaceIsDefinite);
+
+        return isRow
+            ? new TaffySize<>(mainIsDefinite, crossIsDefinite)
+            : new TaffySize<>(crossIsDefinite, mainIsDefinite);
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {
@@ -475,10 +569,12 @@ public class FlexboxComputer {
             // Handle width/height: stretch - in flexbox context, stretch on main axis 
             // behaves like flex-grow: 1 (filling available space)
             TaffyDimension mainDim = isRow ? childStyle.getSize().width : childStyle.getSize().height;
+            TaffyDimension crossDim = isRow ? childStyle.getSize().height : childStyle.getSize().width;
             boolean mainIsStretch = mainDim != null && mainDim.isStretch();
 
             item.flexGrow = mainIsStretch && childStyle.getFlexGrow() == 0f ? 1f : childStyle.getFlexGrow();
             item.flexShrink = childStyle.getFlexShrink();
+            item.crossSizeStyleIsStretch = crossDim != null && crossDim.isStretch();
 
             AlignItems selfAlignItems = childStyle.getAlignSelf();
             AlignItems effectiveAlignItems = (selfAlignItems != null && selfAlignItems != AlignItems.AUTO)
@@ -602,7 +698,9 @@ public class FlexboxComputer {
         List<FlexItem> items,
         FloatSize nodeInnerSize,
         TaffySize<AvailableSpace> availableSpace,
-        FlexDirection flexDirection) {
+        FlexDirection flexDirection,
+        boolean isWrap,
+        boolean hasDefiniteCrossSize) {
 
         boolean isRow = flexDirection.isRow();
 
@@ -639,6 +737,7 @@ public class FlexboxComputer {
 
             // Determine flex basis
             TaffyDimension flexBasis = childStyle.getFlexBasis();
+            Float childAspectRatio = childStyle.getAspectRatio();
             float mainSize = isRow ? item.size.width : item.size.height;
             float crossSize = isRow ? item.size.height : item.size.width;
 
@@ -652,6 +751,7 @@ public class FlexboxComputer {
             // available space as known dimension. This allows nested flex containers to 
             // know their width when parent is flex-direction: column.
             float childKnownCross = crossSize;
+            boolean childCrossSizeIsDefinite = !isNaN(childKnownCross);
 
             if (item.alignSelf == AlignSelf.STRETCH && isNaN(childKnownCross)) {
                 boolean crossStartAuto = isRow ? item.marginIsAuto.top : item.marginIsAuto.left;
@@ -664,6 +764,9 @@ public class FlexboxComputer {
                                             ? (item.margin.top + item.margin.bottom)
                                             : (item.margin.left + item.margin.right);
                         childKnownCross = crossAvailValue - marginCross;
+                        childCrossSizeIsDefinite = !isWrap
+                            && hasDefiniteCrossSize
+                            && !isNaN(crossAxisParentSize);
                     }
                 }
             }
@@ -689,10 +792,16 @@ public class FlexboxComputer {
             if (!isNaN(resolvedFlexBasis)) {
                 // A. If the item has a definite used flex basis, that's the flex base size.
                 basis = resolvedFlexBasis;
+                item.flexBasisIsDefinite = true;
             } else if (!isNaN(mainSize) && !flexBasis.isContent()) {
                 // B/A. If flex basis is auto, and there's a definite main size, use that.
                 // Skip this path for flex-basis: content (always use content measurement).
                 basis = mainSize;
+                item.flexBasisIsDefinite = true;
+            } else if (childCrossSizeIsDefinite && !isNaN(childKnownCross)
+                && childAspectRatio != null && !isNaN(childAspectRatio)) {
+                basis = isRow ? childKnownCross * childAspectRatio : childKnownCross / childAspectRatio;
+                item.flexBasisIsDefinite = true;
             } else {
                 // E. Otherwise, size the item into the available space using its used flex basis
                 //    in place of its main size, treating a value of content as max-content.
@@ -1562,7 +1671,9 @@ public class FlexboxComputer {
         float innerMainSize,
         FloatSize nodeInnerSize,
         TaffySize<AvailableSpace> availableSpace,
-        boolean isWrap) {
+        boolean isWrap,
+        boolean hasDefiniteMainSize,
+        boolean crossAxisAvailableSpaceIsDefinite) {
 
         boolean isRow = flexDirection.isRow();
 
@@ -1622,6 +1733,12 @@ public class FlexboxComputer {
                 FloatSize measuredSize = layoutComputer.measureChildSize(
                     item.nodeId,
                     knownDims,
+                    itemKnownDimensionDefiniteness(
+                        item,
+                        flexDirection,
+                        hasDefiniteMainSize,
+                        crossAxisAvailableSpaceIsDefinite
+                    ),
                     nodeInnerSize,
                     childAvailSpace,
                     SizingMode.CONTENT_SIZE,
@@ -1657,7 +1774,9 @@ public class FlexboxComputer {
         List<FlexLine> flexLines,
         FloatSize nodeInnerSize,
         TaffySize<AvailableSpace> availableSpace,
-        FlexDirection flexDirection) {
+        FlexDirection flexDirection,
+        boolean hasDefiniteMainSize,
+        boolean crossAxisAvailableSpaceIsDefinite) {
 
         boolean isRow = flexDirection.isRow();
 
@@ -1714,6 +1833,12 @@ public class FlexboxComputer {
                 LayoutOutput output = layoutComputer.performChildLayout(
                     item.nodeId,
                     knownDimensions,
+                    itemKnownDimensionDefiniteness(
+                        item,
+                        flexDirection,
+                        hasDefiniteMainSize,
+                        crossAxisAvailableSpaceIsDefinite
+                    ),
                     nodeInnerSize,
                     childAvailableSpace,
                     SizingMode.CONTENT_SIZE,
@@ -2563,7 +2688,9 @@ public class FlexboxComputer {
         TaffyStyle containerStyle,
         FlexDirection flexDirection,
         TaffyDirection direction,
-        boolean isWrapReverse) {
+        boolean isWrapReverse,
+        boolean hasDefiniteMainSize,
+        boolean crossAxisAvailableSpaceIsDefinite) {
 
         LayoutPartialTree tree = layoutComputer.getTree();
         boolean isRow = flexDirection.isRow();
@@ -2674,6 +2801,12 @@ public class FlexboxComputer {
                 LayoutOutput output = layoutComputer.performChildLayout(
                     item.nodeId,
                     knownDimensions,
+                    itemKnownDimensionDefiniteness(
+                        item,
+                        flexDirection,
+                        hasDefiniteMainSize,
+                        crossAxisAvailableSpaceIsDefinite
+                    ),
                     nodeInnerSize,
                     new TaffySize<>(AvailableSpace.definite(containerSize.width), AvailableSpace.definite(containerSize.height)),
                     SizingMode.CONTENT_SIZE,

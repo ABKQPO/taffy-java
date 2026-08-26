@@ -320,14 +320,21 @@ public class BlockComputer {
             return LayoutOutput.fromOuterSize(styledBasedKnownDimensions);
         }
 
-        // Compute container content box size (inner size for resolving child percentages)
+        // Compute container content box size for resolving child percentages.
+        // A supplied block height is a percentage basis only when the caller marks it definite.
+        boolean percentageHeightIsDefinite = !Float.isNaN(knownDimensions.height)
+            ? Boolean.TRUE.equals(inputs.knownDimensionsAreDefinite().height)
+            : !Float.isNaN(minMaxDefiniteSize.height) || !Float.isNaN(clampedStyleSize.height);
+        float percentageBasisHeight = percentageHeightIsDefinite
+            ? styledBasedKnownDimensions.height
+            : Float.NaN;
         float contentBoxInsetWidth = padding.left + padding.right + border.left + border.right
                                      + scrollbarGutter.left + scrollbarGutter.right;
         float contentBoxInsetHeight = padding.top + padding.bottom + border.top + border.bottom
-                                      + scrollbarGutter.top + scrollbarGutter.bottom;
+                                     + scrollbarGutter.top + scrollbarGutter.bottom;
         FloatSize containerContentBoxSize = new FloatSize(
             !Float.isNaN(styledBasedKnownDimensions.width) ? styledBasedKnownDimensions.width - contentBoxInsetWidth : NaN,
-            !Float.isNaN(styledBasedKnownDimensions.height) ? styledBasedKnownDimensions.height - contentBoxInsetHeight : NaN
+            !Float.isNaN(percentageBasisHeight) ? percentageBasisHeight - contentBoxInsetHeight : NaN
         );
 
         // Generate item list

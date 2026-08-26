@@ -142,13 +142,35 @@ public class LayoutComputer {
         TaffySize<AvailableSpace> availableSpace,
         SizingMode sizingMode,
         TaffyLine<Boolean> verticalMarginsAreCollapsible) {
+        return performChildLayout(
+            node,
+            knownDimensions,
+            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
+            parentSize,
+            availableSpace,
+            sizingMode,
+            verticalMarginsAreCollapsible
+        );
+    }
+
+    /**
+     * Performs layout for a child node with explicit CSS definiteness metadata.
+     */
+    public LayoutOutput performChildLayout(
+        NodeId node,
+        FloatSize knownDimensions,
+        TaffySize<Boolean> knownDimensionsAreDefinite,
+        FloatSize parentSize,
+        TaffySize<AvailableSpace> availableSpace,
+        SizingMode sizingMode,
+        TaffyLine<Boolean> verticalMarginsAreCollapsible) {
 
         LayoutInput inputs = new LayoutInput(
             RunMode.PERFORM_LAYOUT,
             sizingMode,
             RequestedAxis.BOTH,
             knownDimensions,
-            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
+            knownDimensionsAreDefinite,
             parentSize,
             availableSpace,
             verticalMarginsAreCollapsible
@@ -170,13 +192,35 @@ public class LayoutComputer {
         TaffySize<AvailableSpace> availableSpace,
         SizingMode sizingMode,
         TaffyLine<Boolean> verticalMarginsAreCollapsible) {
+        return measureChildSize(
+            node,
+            knownDimensions,
+            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
+            parentSize,
+            availableSpace,
+            sizingMode,
+            verticalMarginsAreCollapsible
+        );
+    }
+
+    /**
+     * Measures a child node with explicit CSS definiteness metadata.
+     */
+    public FloatSize measureChildSize(
+        NodeId node,
+        FloatSize knownDimensions,
+        TaffySize<Boolean> knownDimensionsAreDefinite,
+        FloatSize parentSize,
+        TaffySize<AvailableSpace> availableSpace,
+        SizingMode sizingMode,
+        TaffyLine<Boolean> verticalMarginsAreCollapsible) {
 
         LayoutInput inputs = new LayoutInput(
             RunMode.COMPUTE_SIZE,
             sizingMode,
             RequestedAxis.BOTH,
             knownDimensions,
-            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
+            knownDimensionsAreDefinite,
             parentSize,
             availableSpace,
             verticalMarginsAreCollapsible

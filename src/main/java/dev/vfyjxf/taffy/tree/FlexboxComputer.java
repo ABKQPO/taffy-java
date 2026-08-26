@@ -1624,7 +1624,7 @@ public class FlexboxComputer {
             float lineCrossSize = innerCrossSize;
             lineCrossSize = Math.max(lineCrossSize, 0);
 
-            var first = lines.get(0);
+            FlexLine first = lines.get(0);
             first.crossSize = lineCrossSize;
 
             // Still need to calculate each item's cross size for layout
@@ -1892,42 +1892,60 @@ public class FlexboxComputer {
                 // Note: For RTL, we DON'T adjust START/END here.
                 // RTL coordinate transformation happens in performFinalLayout.
                 switch (effectiveJustify) {
-                    case START -> initialOffset = 0;
-                    case SPACE_BETWEEN -> initialOffset = 0;
-                    case FLEX_START -> initialOffset = isReverse ? freeSpace : 0;
-                    case END -> initialOffset = freeSpace;
-                    case FLEX_END -> initialOffset = isReverse ? 0 : freeSpace;
-                    case CENTER -> initialOffset = freeSpace / 2;
-                    case SPACE_AROUND -> {
+                    case START:
+                        initialOffset = 0;
+                        break;
+                    case SPACE_BETWEEN:
+                        initialOffset = 0;
+                        break;
+                    case FLEX_START:
+                        initialOffset = isReverse ? freeSpace : 0;
+                        break;
+                    case END:
+                        initialOffset = freeSpace;
+                        break;
+                    case FLEX_END:
+                        initialOffset = isReverse ? 0 : freeSpace;
+                        break;
+                    case CENTER:
+                        initialOffset = freeSpace / 2;
+                        break;
+                    case SPACE_AROUND:
                         if (freeSpace >= 0) {
                             initialOffset = (freeSpace / itemCount) / 2;
                         } else {
                             initialOffset = freeSpace / 2;
                         }
-                    }
-                    case SPACE_EVENLY -> {
+                        break;
+                    case SPACE_EVENLY:
                         if (freeSpace >= 0) {
                             initialOffset = freeSpace / (itemCount + 1);
                         } else {
                             initialOffset = freeSpace / 2;
                         }
-                    }
+                        break;
+                    default:
+                        break;
                 }
 
                 // Calculate between offset (for subsequent items) - only for positive space
                 float effectiveFreeSpace = Math.max(freeSpace, 0);
                 switch (effectiveJustify) {
-                    case SPACE_BETWEEN -> {
+                    case SPACE_BETWEEN:
                         if (itemCount > 1) {
                             betweenOffset = effectiveFreeSpace / (itemCount - 1);
                         }
-                    }
-                    case SPACE_AROUND -> {
+                        break;
+                    case SPACE_AROUND:
                         if (itemCount > 0) {
                             betweenOffset = effectiveFreeSpace / itemCount;
                         }
-                    }
-                    case SPACE_EVENLY -> betweenOffset = effectiveFreeSpace / (itemCount + 1);
+                        break;
+                    case SPACE_EVENLY:
+                        betweenOffset = effectiveFreeSpace / (itemCount + 1);
+                        break;
+                    default:
+                        break;
                 }
 
                 // Set offsetMain for each item
@@ -2071,7 +2089,7 @@ public class FlexboxComputer {
                 float innerContainerCross = isRow
                                             ? containerSize.height - contentBoxInset.top - contentBoxInset.bottom
                                             : containerSize.width - contentBoxInset.left - contentBoxInset.right;
-                var first = lines.get(0);
+                FlexLine first = lines.get(0);
                 float freeSpace = innerContainerCross - first.crossSize;
                 if (freeSpace > 0) {
                     first.crossSize += freeSpace;
@@ -2114,17 +2132,19 @@ public class FlexboxComputer {
 
         if (numLines <= 1 || freeSpace <= 0) {
             switch (alignContent) {
-                case STRETCH, SPACE_BETWEEN -> {
+                case STRETCH:
+                case SPACE_BETWEEN:
                     alignContent = AlignContent.FLEX_START;
                     isSafe = true;
-                }
-                case SPACE_AROUND, SPACE_EVENLY -> {
+                    break;
+                case SPACE_AROUND:
+                case SPACE_EVENLY:
                     alignContent = AlignContent.CENTER;
                     isSafe = true;
-                }
-                default -> {
+                    break;
+                default:
                     // no-op
-                }
+                    break;
             }
         }
 
@@ -2138,38 +2158,59 @@ public class FlexboxComputer {
         // so we accumulate into a cursor here.
         float initialOffset;
         switch (alignContent) {
-            case START, SPACE_BETWEEN -> initialOffset = 0;
-            case FLEX_START -> initialOffset = isWrapReverse ? freeSpace : 0;
-            case END -> initialOffset = freeSpace;
-            case FLEX_END -> initialOffset = isWrapReverse ? 0 : freeSpace;
-            case CENTER -> initialOffset = freeSpace / 2;
-            case STRETCH -> initialOffset = 0;
-            case SPACE_AROUND -> {
+            case START:
+            case SPACE_BETWEEN:
+                initialOffset = 0;
+                break;
+            case FLEX_START:
+                initialOffset = isWrapReverse ? freeSpace : 0;
+                break;
+            case END:
+                initialOffset = freeSpace;
+                break;
+            case FLEX_END:
+                initialOffset = isWrapReverse ? 0 : freeSpace;
+                break;
+            case CENTER:
+                initialOffset = freeSpace / 2;
+                break;
+            case STRETCH:
+                initialOffset = 0;
+                break;
+            case SPACE_AROUND:
                 if (freeSpace >= 0) {
                     initialOffset = (freeSpace / numLines) / 2;
                 } else {
                     initialOffset = freeSpace / 2;
                 }
-            }
-            case SPACE_EVENLY -> {
+                break;
+            case SPACE_EVENLY:
                 if (freeSpace >= 0) {
                     initialOffset = freeSpace / (numLines + 1);
                 } else {
                     initialOffset = freeSpace / 2;
                 }
-            }
-            default -> initialOffset = 0;
+                break;
+            default:
+                initialOffset = 0;
+                break;
         }
 
         float effectiveFreeSpace = Math.max(freeSpace, 0);
         float betweenExtra = 0;
         switch (alignContent) {
-            case SPACE_BETWEEN -> betweenExtra = effectiveFreeSpace / (numLines - 1);
-            case SPACE_AROUND -> betweenExtra = effectiveFreeSpace / numLines;
-            case SPACE_EVENLY -> betweenExtra = effectiveFreeSpace / (numLines + 1);
-            default -> {
+            case SPACE_BETWEEN:
+                betweenExtra = effectiveFreeSpace / (numLines - 1);
+                break;
+            case SPACE_AROUND:
+                betweenExtra = effectiveFreeSpace / numLines;
+                break;
+            case SPACE_EVENLY:
+                betweenExtra = effectiveFreeSpace / (numLines + 1);
+                break;
+            default:
                 // no-op
-            }
+                break;
         }
 
         // Apply offsets to lines in the same order that `performFinalLayout` will consume them.
@@ -2809,24 +2850,36 @@ public class FlexboxComputer {
         } else {
             // Use justify-content to position
             JustifyContent jc = justifyContent != null ? justifyContent : JustifyContent.START;
-            return switch (jc) {
-                case SPACE_BETWEEN, START -> contentBoxMainStart + marginMainStart;
-                case FLEX_START, STRETCH -> {
-                    // FLEX_START behaves like START normally, like END when wrap-reverse
-                    // STRETCH has no effect on main axis in flexbox, treat as FLEX_START
-                    if (isWrapReverse) yield containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
-                    yield contentBoxMainStart + marginMainStart;
-                }
-                case END -> containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
-                case FLEX_END -> {
-                    if (isWrapReverse) yield contentBoxMainStart + marginMainStart;
-                    yield containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
-                }
-                case SPACE_EVENLY, SPACE_AROUND, CENTER ->
-                    (containerMain + contentBoxMainStart - contentBoxMainEnd - finalMain
-                     + marginMainStart - marginMainEnd) / 2.0f;
-            };
+            return resolveAbsoluteMainOffsetByJustify(jc, containerMain, finalMain,
+                contentBoxMainStart, contentBoxMainEnd, marginMainStart, marginMainEnd, isWrapReverse);
         }
+    }
+
+    private static float resolveAbsoluteMainOffsetByJustify(JustifyContent jc, float containerMain, float finalMain,
+                                                            float contentBoxMainStart, float contentBoxMainEnd,
+                                                            float marginMainStart, float marginMainEnd, boolean isWrapReverse) {
+        switch (jc) {
+            case SPACE_BETWEEN:
+            case START:
+                return contentBoxMainStart + marginMainStart;
+            case FLEX_START:
+            case STRETCH:
+                // FLEX_START behaves like START normally, like END when wrap-reverse
+                // STRETCH has no effect on main axis in flexbox, treat as FLEX_START
+                if (isWrapReverse) return containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
+                return contentBoxMainStart + marginMainStart;
+            case END:
+                return containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
+            case FLEX_END:
+                if (isWrapReverse) return contentBoxMainStart + marginMainStart;
+                return containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
+            case SPACE_EVENLY:
+            case SPACE_AROUND:
+            case CENTER:
+                return (containerMain + contentBoxMainStart - contentBoxMainEnd - finalMain
+                        + marginMainStart - marginMainEnd) / 2.0f;
+        }
+        throw new IllegalStateException("Unexpected: " + jc);
     }
 
     private float computeAbsoluteCrossOffset(float startCross, float endCross, FloatSize finalSize,
@@ -2851,19 +2904,29 @@ public class FlexboxComputer {
             // Use align-self to position
             // Stretch does not apply to absolutely positioned items, treat as flex-start
             // AlignSelf enum: AUTO, FLEX_START, FLEX_END, CENTER, BASELINE, STRETCH
-            return switch (alignSelf) {
-                case AUTO, BASELINE, STRETCH, FLEX_START -> {
-                    if (isWrapReverse) yield containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
-                    yield contentBoxCrossStart + marginCrossStart;
-                }
-                case FLEX_END -> {
-                    if (isWrapReverse) yield contentBoxCrossStart + marginCrossStart;
-                    yield containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
-                }
-                case CENTER -> (containerCross + contentBoxCrossStart - contentBoxCrossEnd - finalCross
-                                + marginCrossStart - marginCrossEnd) / 2.0f;
-                default -> contentBoxCrossStart + marginCrossStart;
-            };
+            return resolveAbsoluteCrossOffsetByAlignSelf(alignSelf, containerCross, finalCross,
+                contentBoxCrossStart, contentBoxCrossEnd, marginCrossStart, marginCrossEnd, isWrapReverse);
+        }
+    }
+
+    private static float resolveAbsoluteCrossOffsetByAlignSelf(AlignSelf alignSelf, float containerCross, float finalCross,
+                                                               float contentBoxCrossStart, float contentBoxCrossEnd,
+                                                               float marginCrossStart, float marginCrossEnd, boolean isWrapReverse) {
+        switch (alignSelf) {
+            case AUTO:
+            case BASELINE:
+            case STRETCH:
+            case FLEX_START:
+                if (isWrapReverse) return containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
+                return contentBoxCrossStart + marginCrossStart;
+            case FLEX_END:
+                if (isWrapReverse) return contentBoxCrossStart + marginCrossStart;
+                return containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
+            case CENTER:
+                return (containerCross + contentBoxCrossStart - contentBoxCrossEnd - finalCross
+                        + marginCrossStart - marginCrossEnd) / 2.0f;
+            default:
+                return contentBoxCrossStart + marginCrossStart;
         }
     }
 

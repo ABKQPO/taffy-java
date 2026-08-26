@@ -1039,7 +1039,7 @@ public class GridComputer {
         });
 
         // Get the first row index
-        var firstItem = sortedItems.get(0);
+        GridItem firstItem = sortedItems.get(0);
         int firstRow = firstItem.rowStart != null ? firstItem.rowStart : 0;
 
         // Find all items in the first row
@@ -1232,7 +1232,49 @@ public class GridComputer {
      * @param startIndex null means auto
      * @param endIndex   null means auto
      */
-    private record GridPlacementResult(Integer startIndex, Integer endIndex, int span) {}
+    private static final class GridPlacementResult {
+        private final Integer startIndex;
+        private final Integer endIndex;
+        private final int span;
+
+        GridPlacementResult(Integer startIndex, Integer endIndex, int span) {
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
+            this.span = span;
+        }
+
+        Integer startIndex() {
+            return startIndex;
+        }
+
+        Integer endIndex() {
+            return endIndex;
+        }
+
+        int span() {
+            return span;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            GridPlacementResult that = (GridPlacementResult) o;
+            return span == that.span
+                && java.util.Objects.equals(startIndex, that.startIndex)
+                && java.util.Objects.equals(endIndex, that.endIndex);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(startIndex, endIndex, span);
+        }
+
+        @Override
+        public String toString() {
+            return "GridPlacementResult[startIndex=" + startIndex + ", endIndex=" + endIndex + ", span=" + span + "]";
+        }
+    }
 
     /**
      * Parse grid placement from start and end values.
@@ -1447,7 +1489,49 @@ public class GridComputer {
      * @param trackCount          Number of auto-fit tracks
      * @param tracksPerRepetition Number of tracks per repetition (for multi-track auto-fit)
      */
-    private record AutoFitInfo(int startIndex, int trackCount, int tracksPerRepetition) {}
+    private static final class AutoFitInfo {
+        private final int startIndex;
+        private final int trackCount;
+        private final int tracksPerRepetition;
+
+        AutoFitInfo(int startIndex, int trackCount, int tracksPerRepetition) {
+            this.startIndex = startIndex;
+            this.trackCount = trackCount;
+            this.tracksPerRepetition = tracksPerRepetition;
+        }
+
+        int startIndex() {
+            return startIndex;
+        }
+
+        int trackCount() {
+            return trackCount;
+        }
+
+        int tracksPerRepetition() {
+            return tracksPerRepetition;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            AutoFitInfo that = (AutoFitInfo) o;
+            return startIndex == that.startIndex
+                && trackCount == that.trackCount
+                && tracksPerRepetition == that.tracksPerRepetition;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(startIndex, trackCount, tracksPerRepetition);
+        }
+
+        @Override
+        public String toString() {
+            return "AutoFitInfo[startIndex=" + startIndex + ", trackCount=" + trackCount + ", tracksPerRepetition=" + tracksPerRepetition + "]";
+        }
+    }
 
     /**
      * Check if a grid template uses auto-fit and return information about it.
@@ -5000,24 +5084,30 @@ public class GridComputer {
         }
 
         // For negative space, only CENTER and END can have non-zero offset
-        return switch (alignment) {
-            case CENTER -> freeSpace / 2;  // Works for both positive and negative space
-            case END, FLEX_END -> freeSpace;  // Works for both positive and negative space
-            case SPACE_AROUND -> {
+        return contentAlignmentOffsetFor(alignment, freeSpace, numTracks);
+    }
+
+    private static float contentAlignmentOffsetFor(AlignContent alignment, float freeSpace, int numTracks) {
+        switch (alignment) {
+            case CENTER:
+                return freeSpace / 2;  // Works for both positive and negative space
+            case END:
+            case FLEX_END:
+                return freeSpace;  // Works for both positive and negative space
+            case SPACE_AROUND:
                 // Only apply when positive space
                 if (freeSpace > 0) {
-                    yield freeSpace / (numTracks * 2);
+                    return freeSpace / (numTracks * 2);
                 }
-                yield 0;
-            }
-            case SPACE_EVENLY -> {
+                return 0;
+            case SPACE_EVENLY:
                 if (freeSpace > 0) {
-                    yield freeSpace / (numTracks + 1);
+                    return freeSpace / (numTracks + 1);
                 }
-                yield 0;
-            }
-            default -> 0;
-        };
+                return 0;
+            default:
+                return 0;
+        }
     }
 
     /**
@@ -5028,26 +5118,36 @@ public class GridComputer {
             return 0;
         }
 
-        return switch (alignment) {
-            case CENTER -> freeSpace / 2;
-            case END, FLEX_END -> freeSpace;
-            case SPACE_AROUND -> {
+        return contentAlignmentOffsetFor(alignment, freeSpace, numTracks);
+    }
+
+    private static float contentAlignmentOffsetFor(JustifyContent alignment, float freeSpace, int numTracks) {
+        switch (alignment) {
+            case CENTER:
+                return freeSpace / 2;
+            case END:
+            case FLEX_END:
+                return freeSpace;
+            case SPACE_AROUND:
                 if (freeSpace > 0) {
-                    yield freeSpace / (numTracks * 2);
+                    return freeSpace / (numTracks * 2);
                 }
-                yield 0;
-            }
-            case SPACE_EVENLY -> {
+                return 0;
+            case SPACE_EVENLY:
                 if (freeSpace > 0) {
-                    yield freeSpace / (numTracks + 1);
+                    return freeSpace / (numTracks + 1);
                 }
-                yield 0;
-            }
+                return 0;
             // STRETCH, START, FLEX_START, SPACE_BETWEEN: offset is 0 (content starts at the beginning)
             // Per CSS Grid spec: stretch distributes space to tracks, not to gutters
             // SPACE_BETWEEN also has offset 0 (first item at start, last at end)
-            case STRETCH, START, FLEX_START, SPACE_BETWEEN -> 0;
-        };
+            case STRETCH:
+            case START:
+            case FLEX_START:
+            case SPACE_BETWEEN:
+                return 0;
+        }
+        throw new IllegalStateException("Unexpected: " + alignment);
     }
 
     /**
@@ -5058,19 +5158,24 @@ public class GridComputer {
             return originalGap;
         }
 
-        return switch (alignment) {
-            case SPACE_BETWEEN ->
+        return adjustedGapFor(alignment, freeSpace, numTracks, originalGap);
+    }
+
+    private static float adjustedGapFor(AlignContent alignment, float freeSpace, int numTracks, float originalGap) {
+        switch (alignment) {
+            case SPACE_BETWEEN:
                 // All free space goes between tracks
-                originalGap + freeSpace / (numTracks - 1);
-            case SPACE_AROUND ->
+                return originalGap + freeSpace / (numTracks - 1);
+            case SPACE_AROUND:
                 // Each track gets freeSpace/(numTracks*2) on each side
                 // Gap between = original + 2 * (freeSpace / (numTracks*2)) = original + freeSpace/numTracks
-                originalGap + freeSpace / numTracks;
-            case SPACE_EVENLY ->
+                return originalGap + freeSpace / numTracks;
+            case SPACE_EVENLY:
                 // Equal space between all
-                originalGap + freeSpace / (numTracks + 1);
-            default -> originalGap;
-        };
+                return originalGap + freeSpace / (numTracks + 1);
+            default:
+                return originalGap;
+        }
     }
 
     /**
@@ -5081,13 +5186,27 @@ public class GridComputer {
             return originalGap;
         }
 
-        return switch (alignment) {
-            case SPACE_BETWEEN -> originalGap + freeSpace / (numTracks - 1);
-            case SPACE_AROUND -> originalGap + freeSpace / numTracks;
-            case SPACE_EVENLY -> originalGap + freeSpace / (numTracks + 1);
+        return adjustedGapFor(alignment, freeSpace, numTracks, originalGap);
+    }
+
+    private static float adjustedGapFor(JustifyContent alignment, float freeSpace, int numTracks, float originalGap) {
+        switch (alignment) {
+            case SPACE_BETWEEN:
+                return originalGap + freeSpace / (numTracks - 1);
+            case SPACE_AROUND:
+                return originalGap + freeSpace / numTracks;
+            case SPACE_EVENLY:
+                return originalGap + freeSpace / (numTracks + 1);
             // STRETCH, START, END, etc: no gap adjustment (space is distributed to tracks, not gutters)
-            case STRETCH, START, END, FLEX_START, FLEX_END, CENTER -> originalGap;
-        };
+            case STRETCH:
+            case START:
+            case END:
+            case FLEX_START:
+            case FLEX_END:
+            case CENTER:
+                return originalGap;
+        }
+        throw new IllegalStateException("Unexpected: " + alignment);
     }
 
     /**
@@ -5348,9 +5467,107 @@ public class GridComputer {
     // production code.
     // ---------------------------------------------------------------------
 
-    record DebugPlacedItem(int index, int columnStart, int columnEnd, int rowStart, int rowEnd) {}
+    static final class DebugPlacedItem {
+        private final int index;
+        private final int columnStart;
+        private final int columnEnd;
+        private final int rowStart;
+        private final int rowEnd;
 
-    record DebugPlacementResult(TrackCounts columnCounts, TrackCounts rowCounts, List<DebugPlacedItem> items) {}
+        DebugPlacedItem(int index, int columnStart, int columnEnd, int rowStart, int rowEnd) {
+            this.index = index;
+            this.columnStart = columnStart;
+            this.columnEnd = columnEnd;
+            this.rowStart = rowStart;
+            this.rowEnd = rowEnd;
+        }
+
+        public int index() {
+            return index;
+        }
+
+        public int columnStart() {
+            return columnStart;
+        }
+
+        public int columnEnd() {
+            return columnEnd;
+        }
+
+        public int rowStart() {
+            return rowStart;
+        }
+
+        public int rowEnd() {
+            return rowEnd;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DebugPlacedItem that = (DebugPlacedItem) o;
+            return index == that.index
+                && columnStart == that.columnStart
+                && columnEnd == that.columnEnd
+                && rowStart == that.rowStart
+                && rowEnd == that.rowEnd;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(index, columnStart, columnEnd, rowStart, rowEnd);
+        }
+
+        @Override
+        public String toString() {
+            return "DebugPlacedItem[index=" + index + ", columnStart=" + columnStart + ", columnEnd=" + columnEnd + ", rowStart=" + rowStart + ", rowEnd=" + rowEnd + "]";
+        }
+    }
+
+    static final class DebugPlacementResult {
+        private final TrackCounts columnCounts;
+        private final TrackCounts rowCounts;
+        private final List<DebugPlacedItem> items;
+
+        DebugPlacementResult(TrackCounts columnCounts, TrackCounts rowCounts, List<DebugPlacedItem> items) {
+            this.columnCounts = columnCounts;
+            this.rowCounts = rowCounts;
+            this.items = items;
+        }
+
+        public TrackCounts columnCounts() {
+            return columnCounts;
+        }
+
+        public TrackCounts rowCounts() {
+            return rowCounts;
+        }
+
+        public List<DebugPlacedItem> items() {
+            return items;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DebugPlacementResult that = (DebugPlacementResult) o;
+            return java.util.Objects.equals(columnCounts, that.columnCounts)
+                && java.util.Objects.equals(rowCounts, that.rowCounts)
+                && java.util.Objects.equals(items, that.items);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(columnCounts, rowCounts, items);
+        }
+
+        @Override
+        public String toString() {
+            return "DebugPlacementResult[columnCounts=" + columnCounts + ", rowCounts=" + rowCounts + ", items=" + items + "]";
+        }
+    }
 
     static DebugPlacementResult debugRunPlacementForTest(
         int explicitColumnCount,

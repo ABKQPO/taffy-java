@@ -3,6 +3,8 @@ package dev.vfyjxf.taffy.tree;
 import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.geometry.FloatRect;
 import dev.vfyjxf.taffy.geometry.FloatSize;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * The final result of a layout algorithm for a single node.
@@ -17,16 +19,20 @@ import dev.vfyjxf.taffy.geometry.FloatSize;
  * @param padding       The size of the padding of the node
  * @param margin        The size of the margin of the node
  */
-public record Layout(
-    int order,
-    FloatPoint location,
-    FloatSize size,
-    FloatSize contentSize,
-    FloatSize scrollbarSize,
-    FloatRect border,
-    FloatRect padding,
-    FloatRect margin
-) {
+@Value
+@Accessors(fluent = true)
+// 本类另有无参 / 单参便捷构造器，@Value 因此不会自动生成全字段构造器，显式补上以供 8 参调用方使用。
+@lombok.AllArgsConstructor
+public class Layout {
+
+    private final int order;
+    private final FloatPoint location;
+    private final FloatSize size;
+    private final FloatSize contentSize;
+    private final FloatSize scrollbarSize;
+    private final FloatRect border;
+    private final FloatRect padding;
+    private final FloatRect margin;
 
     /**
      * Creates a new zero-Layout
@@ -116,10 +122,4 @@ public record Layout(
                            - size.height + border.bottom);
     }
 
-    // === Getter methods ===
-
-    @Override
-    public String toString() {
-        return "Layout{order=" + order + ", location=" + location + ", size=" + size + "}";
-    }
 }

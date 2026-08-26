@@ -4,6 +4,8 @@ import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * A struct containing the input constraints/hints for laying out a node, which are passed in by the parent.
@@ -16,15 +18,17 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
  * @param availableSpace                Available space represents an amount of space to layout into, and is used as a soft constraint for wrapping.
  * @param verticalMarginsAreCollapsible Specific to CSS Block layout. Used for correctly computing margin collapsing.
  */
-public record LayoutInput(
-    RunMode runMode,
-    SizingMode sizingMode,
-    RequestedAxis axis,
-    FloatSize knownDimensions,
-    FloatSize parentSize,
-    TaffySize<AvailableSpace> availableSpace,
-    TaffyLine<Boolean> verticalMarginsAreCollapsible
-) {
+@Value
+@Accessors(fluent = true)
+public class LayoutInput {
+
+    RunMode runMode;
+    SizingMode sizingMode;
+    RequestedAxis axis;
+    FloatSize knownDimensions;
+    FloatSize parentSize;
+    TaffySize<AvailableSpace> availableSpace;
+    TaffyLine<Boolean> verticalMarginsAreCollapsible;
 
     /**
      * Create a LayoutInput for hidden layout
@@ -76,11 +80,5 @@ public record LayoutInput(
             availableSpace,
             this.verticalMarginsAreCollapsible
         );
-    }
-
-    @Override
-    public String toString() {
-        return "LayoutInput{runMode=" + runMode + ", knownDimensions=" + knownDimensions +
-               ", availableSpace=" + availableSpace + "}";
     }
 }

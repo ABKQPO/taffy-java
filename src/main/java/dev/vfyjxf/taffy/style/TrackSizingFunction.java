@@ -284,12 +284,18 @@ public final class TrackSizingFunction {
      * This is used to determine which items need their min-content contribution tracked for re-run detection.
      */
     public boolean hasIntrinsicSizingFunction() {
-        return switch (type) {
-            case MIN_CONTENT, MAX_CONTENT, AUTO, FIT_CONTENT -> true;
-            case MINMAX -> (minFunc != null && minFunc.hasIntrinsicSizingFunction()) ||
-                           (maxFunc != null && maxFunc.hasIntrinsicSizingFunction());
-            default -> false;
-        };
+        switch (type) {
+            case MIN_CONTENT:
+            case MAX_CONTENT:
+            case AUTO:
+            case FIT_CONTENT:
+                return true;
+            case MINMAX:
+                return (minFunc != null && minFunc.hasIntrinsicSizingFunction()) ||
+                       (maxFunc != null && maxFunc.hasIntrinsicSizingFunction());
+            default:
+                return false;
+        }
     }
 
     /**
@@ -298,13 +304,17 @@ public final class TrackSizingFunction {
      * A track has a fixed component if it's a fixed length/percentage or a minmax where either min or max is fixed.
      */
     public boolean hasFixedComponent() {
-        return switch (type) {
-            case FIXED -> lengthValue != null;
-            case MINMAX -> (minFunc != null && minFunc.hasFixedComponent()) ||
-                           (maxFunc != null && maxFunc.hasFixedComponent());
-            case FIT_CONTENT -> lengthValue != null;  // fit-content has a fixed limit
-            default -> false;  // MIN_CONTENT, MAX_CONTENT, AUTO, FLEX are not fixed
-        };
+        switch (type) {
+            case FIXED:
+                return lengthValue != null;
+            case MINMAX:
+                return (minFunc != null && minFunc.hasFixedComponent()) ||
+                       (maxFunc != null && maxFunc.hasFixedComponent());
+            case FIT_CONTENT:
+                return lengthValue != null;  // fit-content has a fixed limit
+            default:
+                return false;  // MIN_CONTENT, MAX_CONTENT, AUTO, FLEX are not fixed
+        }
     }
 
     /**
@@ -312,23 +322,25 @@ public final class TrackSizingFunction {
      * Used for calculating auto-fill/auto-fit repetition counts.
      */
     public float getDefiniteValue(float parentSize) {
-        return switch (type) {
-            case FIXED -> {
-                if (lengthValue == null) yield Float.NaN;
-                yield lengthValue.maybeResolve(parentSize);
+        switch (type) {
+            case FIXED: {
+                if (lengthValue == null) return Float.NaN;
+                return lengthValue.maybeResolve(parentSize);
             }
-            case MINMAX -> {
+            case MINMAX: {
                 // Use max if definite, otherwise min
                 float maxVal = maxFunc != null ? maxFunc.getDefiniteValue(parentSize) : Float.NaN;
                 float minVal = minFunc != null ? minFunc.getDefiniteValue(parentSize) : Float.NaN;
                 if (!Float.isNaN(maxVal)) {
-                    yield !Float.isNaN(minVal) ? Math.max(maxVal, minVal) : maxVal;
+                    return !Float.isNaN(minVal) ? Math.max(maxVal, minVal) : maxVal;
                 }
-                yield minVal;
+                return minVal;
             }
-            case FIT_CONTENT -> lengthValue != null ? lengthValue.maybeResolve(parentSize) : Float.NaN;
-            default -> Float.NaN;
-        };
+            case FIT_CONTENT:
+                return lengthValue != null ? lengthValue.maybeResolve(parentSize) : Float.NaN;
+            default:
+                return Float.NaN;
+        }
     }
 
     /**
@@ -336,25 +348,38 @@ public final class TrackSizingFunction {
      * This is used to determine if column/row sizing needs to be re-run after initial sizing.
      */
     public boolean usesPercentage() {
-        return switch (type) {
-            case FIXED, FIT_CONTENT -> lengthValue != null && lengthValue.isPercent();
-            case MINMAX -> (minFunc != null && minFunc.usesPercentage()) ||
-                           (maxFunc != null && maxFunc.usesPercentage());
-            default -> false;
-        };
+        switch (type) {
+            case FIXED:
+            case FIT_CONTENT:
+                return lengthValue != null && lengthValue.isPercent();
+            case MINMAX:
+                return (minFunc != null && minFunc.usesPercentage()) ||
+                       (maxFunc != null && maxFunc.usesPercentage());
+            default:
+                return false;
+        }
     }
 
     @Override
     public String toString() {
-        return switch (type) {
-            case FIXED -> lengthValue.toString();
-            case MIN_CONTENT -> "min-content";
-            case MAX_CONTENT -> "max-content";
-            case FIT_CONTENT -> "fit-content(" + lengthValue + ")";
-            case AUTO -> "auto";
-            case FLEX -> flexValue + "fr";
-            case MINMAX -> "minmax(" + minFunc + ", " + maxFunc + ")";
-        };
+        switch (type) {
+            case FIXED:
+                return lengthValue.toString();
+            case MIN_CONTENT:
+                return "min-content";
+            case MAX_CONTENT:
+                return "max-content";
+            case FIT_CONTENT:
+                return "fit-content(" + lengthValue + ")";
+            case AUTO:
+                return "auto";
+            case FLEX:
+                return flexValue + "fr";
+            case MINMAX:
+                return "minmax(" + minFunc + ", " + maxFunc + ")";
+            default:
+                throw new IllegalStateException("Unexpected: " + type);
+        }
     }
 
     @Override

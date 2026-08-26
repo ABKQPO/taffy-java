@@ -22,26 +22,44 @@ public enum AlignSelf {
      */
     public static AlignSelf fromAlignItems(AlignItems alignItems) {
         if (alignItems == null || alignItems == AlignItems.AUTO) return STRETCH;
-        return switch (alignItems) {
-            case FLEX_START, START -> FLEX_START;
-            case FLEX_END, END -> FLEX_END;
-            case CENTER -> CENTER;
-            case BASELINE -> BASELINE;
-            case STRETCH -> STRETCH;
-            case AUTO -> STRETCH; // defensive (handled above)
-        };
+        return mapFromAlignItems(alignItems);
+    }
+
+    private static AlignSelf mapFromAlignItems(AlignItems alignItems) {
+        switch (alignItems) {
+            case FLEX_START:
+            case START:
+                return FLEX_START;
+            case FLEX_END:
+            case END:
+                return FLEX_END;
+            case CENTER:
+                return CENTER;
+            case BASELINE:
+                return BASELINE;
+            case STRETCH:
+                return STRETCH;
+            case AUTO:
+                return STRETCH; // defensive (handled above)
+        }
+        throw new IllegalStateException("Unexpected: " + alignItems);
     }
 
     /**
      * Converts to AlignItems.
      */
     public AlignItems toAlignItems() {
-        return switch (this) {
-            case FLEX_START -> AlignItems.FLEX_START;
-            case FLEX_END -> AlignItems.FLEX_END;
-            case CENTER -> AlignItems.CENTER;
-            case BASELINE -> AlignItems.BASELINE;
-            default -> AlignItems.STRETCH;
-        };
+        switch (this) {
+            case FLEX_START:
+                return AlignItems.FLEX_START;
+            case FLEX_END:
+                return AlignItems.FLEX_END;
+            case CENTER:
+                return AlignItems.CENTER;
+            case BASELINE:
+                return AlignItems.BASELINE;
+            default:
+                return AlignItems.STRETCH;
+        }
     }
 }

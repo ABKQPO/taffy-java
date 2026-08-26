@@ -757,7 +757,9 @@ public class TaffyTree {
         NodeData data = nodes.get(node.getId());
         if (data == null) return;
         
-        String indent = "  ".repeat(depth);
+        StringBuilder indentSb = new StringBuilder();
+        for (int i = 0; i < depth; i++) indentSb.append("  ");
+        String indent = indentSb.toString();
         Layout layout = getLayout(node);
         
         System.out.printf("%s[%s] %s%n", indent, getDebugLabel(node), 

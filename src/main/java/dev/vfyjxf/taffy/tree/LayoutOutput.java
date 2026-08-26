@@ -2,6 +2,8 @@ package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.FloatPoint;
 import dev.vfyjxf.taffy.geometry.FloatSize;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * A struct containing the result of laying a single node, which is returned up to the parent node.
@@ -13,20 +15,16 @@ import dev.vfyjxf.taffy.geometry.FloatSize;
  * @param bottomMargin              Bottom margin that can be collapsed with. Used for CSS block layout margin collapsing.
  * @param marginsCanCollapseThrough Whether margins can be collapsed through this node. Used for CSS block layout.
  */
-public record LayoutOutput(
-    FloatSize size,
-    FloatSize contentSize,
-    FloatPoint firstBaselines,
-    CollapsibleMarginSet topMargin,
-    CollapsibleMarginSet bottomMargin,
-    boolean marginsCanCollapseThrough
-) {
+@Value
+@Accessors(fluent = true)
+public class LayoutOutput {
 
-    /**
-     * Create a new LayoutOutput
-     */
-    public LayoutOutput {
-    }
+    private final FloatSize size;
+    private final FloatSize contentSize;
+    private final FloatPoint firstBaselines;
+    private final CollapsibleMarginSet topMargin;
+    private final CollapsibleMarginSet bottomMargin;
+    private final boolean marginsCanCollapseThrough;
 
     /**
      * An all-zero LayoutOutput for hidden nodes
@@ -46,8 +44,6 @@ public record LayoutOutput(
     public static LayoutOutput hidden() {
         return HIDDEN;
     }
-
-    // === Getters ===
 
     /**
      * A blank layout output
@@ -84,10 +80,5 @@ public record LayoutOutput(
      */
     public static LayoutOutput fromOuterSize(FloatSize size) {
         return fromSizes(size, FloatSize.zero());
-    }
-
-    @Override
-    public String toString() {
-        return "LayoutOutput{size=" + size + ", contentSize=" + contentSize + "}";
     }
 }

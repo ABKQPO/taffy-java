@@ -62,11 +62,53 @@ public class BlockComputer {
     /**
      * Result of performing final layout on in-flow children, including margin collapse info.
      */
-    private record InFlowLayoutResult(
-        float contentHeight, CollapsibleMarginSet firstChildTopMarginSet,
-        CollapsibleMarginSet lastChildBottomMarginSet,
-        boolean allChildrenCanBeCollapsedThrough
-    ) {}
+    private static final class InFlowLayoutResult {
+        private final float contentHeight;
+        private final CollapsibleMarginSet firstChildTopMarginSet;
+        private final CollapsibleMarginSet lastChildBottomMarginSet;
+        private final boolean allChildrenCanBeCollapsedThrough;
+
+        public InFlowLayoutResult(
+            float contentHeight, CollapsibleMarginSet firstChildTopMarginSet,
+            CollapsibleMarginSet lastChildBottomMarginSet,
+            boolean allChildrenCanBeCollapsedThrough
+        ) {
+            this.contentHeight = contentHeight;
+            this.firstChildTopMarginSet = firstChildTopMarginSet;
+            this.lastChildBottomMarginSet = lastChildBottomMarginSet;
+            this.allChildrenCanBeCollapsedThrough = allChildrenCanBeCollapsedThrough;
+        }
+
+        public float contentHeight() { return contentHeight; }
+        public CollapsibleMarginSet firstChildTopMarginSet() { return firstChildTopMarginSet; }
+        public CollapsibleMarginSet lastChildBottomMarginSet() { return lastChildBottomMarginSet; }
+        public boolean allChildrenCanBeCollapsedThrough() { return allChildrenCanBeCollapsedThrough; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            InFlowLayoutResult that = (InFlowLayoutResult) o;
+            return Float.compare(contentHeight, that.contentHeight) == 0
+                && allChildrenCanBeCollapsedThrough == that.allChildrenCanBeCollapsedThrough
+                && java.util.Objects.equals(firstChildTopMarginSet, that.firstChildTopMarginSet)
+                && java.util.Objects.equals(lastChildBottomMarginSet, that.lastChildBottomMarginSet);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(contentHeight, firstChildTopMarginSet,
+                lastChildBottomMarginSet, allChildrenCanBeCollapsedThrough);
+        }
+
+        @Override
+        public String toString() {
+            return "InFlowLayoutResult[contentHeight=" + contentHeight
+                + ", firstChildTopMarginSet=" + firstChildTopMarginSet
+                + ", lastChildBottomMarginSet=" + lastChildBottomMarginSet
+                + ", allChildrenCanBeCollapsedThrough=" + allChildrenCanBeCollapsedThrough + "]";
+        }
+    }
 
     /**
      * Computes block layout for a node.

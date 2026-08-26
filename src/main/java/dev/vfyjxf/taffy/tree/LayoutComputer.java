@@ -235,12 +235,20 @@ public class LayoutComputer {
             return computeLeafLayout(node, inputs, style);
         }
 
-        return switch (display) {
-            case BLOCK -> computeBlockLayout(node, inputs, style);
-            case FLEX -> computeFlexboxLayout(node, inputs, style);
-            case GRID -> computeGridLayout(node, inputs, style);
-            default -> computeLeafLayout(node, inputs, style);
-        };
+        return dispatchByDisplay(display, node, inputs, style);
+    }
+
+    private LayoutOutput dispatchByDisplay(TaffyDisplay display, NodeId node, LayoutInput inputs, TaffyStyle style) {
+        switch (display) {
+            case BLOCK:
+                return computeBlockLayout(node, inputs, style);
+            case FLEX:
+                return computeFlexboxLayout(node, inputs, style);
+            case GRID:
+                return computeGridLayout(node, inputs, style);
+            default:
+                return computeLeafLayout(node, inputs, style);
+        }
     }
 
     /**

@@ -542,18 +542,34 @@ public final class TaffyStyle {
         // AlignContent.AUTO (and legacy null) represent an unspecified value.
         // In flexbox, justify-content defaults to FLEX_START.
         if (justifyContent == null || justifyContent == AlignContent.AUTO) return JustifyContent.FLEX_START;
-        return switch (justifyContent) {
-            case FLEX_START -> JustifyContent.FLEX_START;
-            case FLEX_END -> JustifyContent.FLEX_END;
-            case CENTER -> JustifyContent.CENTER;
-            case SPACE_BETWEEN -> JustifyContent.SPACE_BETWEEN;
-            case SPACE_AROUND -> JustifyContent.SPACE_AROUND;
-            case SPACE_EVENLY -> JustifyContent.SPACE_EVENLY;
-            case START -> JustifyContent.START;
-            case END -> JustifyContent.END;
-            case STRETCH -> JustifyContent.STRETCH;
-            case AUTO -> JustifyContent.FLEX_START; // defensive (handled above)
-        };
+        return mapJustifyContent(justifyContent);
+    }
+
+    private static JustifyContent mapJustifyContent(AlignContent justifyContent) {
+        switch (justifyContent) {
+            case FLEX_START:
+                return JustifyContent.FLEX_START;
+            case FLEX_END:
+                return JustifyContent.FLEX_END;
+            case CENTER:
+                return JustifyContent.CENTER;
+            case SPACE_BETWEEN:
+                return JustifyContent.SPACE_BETWEEN;
+            case SPACE_AROUND:
+                return JustifyContent.SPACE_AROUND;
+            case SPACE_EVENLY:
+                return JustifyContent.SPACE_EVENLY;
+            case START:
+                return JustifyContent.START;
+            case END:
+                return JustifyContent.END;
+            case STRETCH:
+                return JustifyContent.STRETCH;
+            case AUTO:
+                return JustifyContent.FLEX_START; // defensive (handled above)
+            default:
+                throw new IllegalStateException("Unexpected: " + justifyContent);
+        }
     }
 
     public TaffySize<LengthPercentage> getGap() {return gap;}

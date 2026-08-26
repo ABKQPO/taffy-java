@@ -162,27 +162,33 @@ public final class TaffyDimension {
      * Convert from LengthPercentage
      */
     public static TaffyDimension from(LengthPercentage lp) {
-        return switch (lp.getType()) {
-            case LENGTH -> length(lp.getValue());
-            case PERCENT -> percent(lp.getValue());
-            case CALC -> calc(lp.getCalcExpression());
-        };
+        switch (lp.getType()) {
+            case LENGTH:
+                return length(lp.getValue());
+            case PERCENT:
+                return percent(lp.getValue());
+            case CALC:
+                return calc(lp.getCalcExpression());
+            default:
+                throw new IllegalStateException("Unexpected: " + lp.getType());
+        }
     }
 
     /**
      * Convert from LengthPercentageAuto
      */
     public static TaffyDimension from(LengthPercentageAuto lpa) {
-        return switch (lpa.getType()) {
-            case LENGTH -> length(lpa.getValue());
-            case PERCENT -> percent(lpa.getValue());
-            case AUTO -> AUTO;
-            case CALC -> calc(lpa.getCalcExpression());
-            case MIN_CONTENT -> MIN_CONTENT;
-            case MAX_CONTENT -> MAX_CONTENT;
-            case FIT_CONTENT -> FIT_CONTENT;
-            case STRETCH -> STRETCH;
-        };
+        switch (lpa.getType()) {
+            case LENGTH: return length(lpa.getValue());
+            case PERCENT: return percent(lpa.getValue());
+            case AUTO: return AUTO;
+            case CALC: return calc(lpa.getCalcExpression());
+            case MIN_CONTENT: return MIN_CONTENT;
+            case MAX_CONTENT: return MAX_CONTENT;
+            case FIT_CONTENT: return FIT_CONTENT;
+            case STRETCH: return STRETCH;
+            default: throw new IllegalStateException("Unexpected: " + lpa.getType());
+        }
     }
 
     /**
@@ -292,12 +298,18 @@ public final class TaffyDimension {
      * to compute their actual value based on content.
      */
     public float maybeResolve(float context) {
-        return switch (type) {
-            case LENGTH -> value;
-            case PERCENT -> Float.isNaN(context) ? Float.NaN : context * value;
-            case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH, CONTENT -> Float.NaN;
-            case CALC -> Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
-        };
+        switch (type) {
+            case LENGTH: return value;
+            case PERCENT: return Float.isNaN(context) ? Float.NaN : context * value;
+            case AUTO:
+            case MIN_CONTENT:
+            case MAX_CONTENT:
+            case FIT_CONTENT:
+            case STRETCH:
+            case CONTENT: return Float.NaN;
+            case CALC: return Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
+            default: throw new IllegalStateException("Unexpected: " + type);
+        }
     }
 
     /**
@@ -331,16 +343,17 @@ public final class TaffyDimension {
 
     @Override
     public String toString() {
-        return switch (type) {
-            case LENGTH -> value + "px";
-            case PERCENT -> (value * 100) + "%";
-            case AUTO -> "auto";
-            case CALC -> "calc(...)";
-            case MIN_CONTENT -> "min-content";
-            case MAX_CONTENT -> "max-content";
-            case FIT_CONTENT -> "fit-content";
-            case STRETCH -> "stretch";
-            case CONTENT -> "content";
-        };
+        switch (type) {
+            case LENGTH: return value + "px";
+            case PERCENT: return (value * 100) + "%";
+            case AUTO: return "auto";
+            case CALC: return "calc(...)";
+            case MIN_CONTENT: return "min-content";
+            case MAX_CONTENT: return "max-content";
+            case FIT_CONTENT: return "fit-content";
+            case STRETCH: return "stretch";
+            case CONTENT: return "content";
+            default: throw new IllegalStateException("Unexpected: " + type);
+        }
     }
 }

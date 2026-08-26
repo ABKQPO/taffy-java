@@ -202,12 +202,19 @@ public final class GridPlacement {
 
     @Override
     public String toString() {
-        return switch (type) {
-            case AUTO -> "auto";
-            case LINE -> String.valueOf(value);
-            case NAMED_LINE -> nthIndex == 1 ? lineName : lineName + " " + nthIndex;
-            case SPAN -> "span " + value;
-            case NAMED_SPAN -> "span " + lineName + " " + value;
-        };
+        switch (type) {
+            case AUTO:
+                return "auto";
+            case LINE:
+                return String.valueOf(value);
+            case NAMED_LINE:
+                return nthIndex == 1 ? lineName : lineName + " " + nthIndex;
+            case SPAN:
+                return "span " + value;
+            case NAMED_SPAN:
+                return "span " + lineName + " " + value;
+            default:
+                throw new IllegalStateException("Unexpected: " + type);
+        }
     }
 }

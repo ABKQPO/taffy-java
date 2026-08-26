@@ -22,6 +22,7 @@ import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -522,7 +523,7 @@ public class RealisticBenchmark {
             cols.add(TrackSizingFunction.fr(1f));
         }
         gridStyle.gridTemplateColumns = cols;
-        gridStyle.gridAutoRows = List.of(TrackSizingFunction.minmax(
+        gridStyle.gridAutoRows = Collections.singletonList(TrackSizingFunction.minmax(
             TrackSizingFunction.fixed(150f),
             TrackSizingFunction.auto()
         ));

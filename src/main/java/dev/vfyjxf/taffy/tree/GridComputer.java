@@ -4806,123 +4806,71 @@ public class GridComputer {
         float scrollbarGutterX,
         float scrollbarGutterY) {
 
-        // Resolve column placement
-        Integer colStart = resolveAbsoluteGridLine(gridCol.start, gridCol.end, colCounts, true);
-        Integer colEnd = resolveAbsoluteGridLine(gridCol.end, gridCol.start, colCounts, false);
-
-        // Resolve row placement
-        Integer rowStart = resolveAbsoluteGridLine(gridRow.start, gridRow.end, rowCounts, true);
-        Integer rowEnd = resolveAbsoluteGridLine(gridRow.end, gridRow.start, rowCounts, false);
+        TaffyLine<Integer> columns = resolveAbsoluteGridLines(gridCol, colCounts);
+        TaffyLine<Integer> rows = resolveAbsoluteGridLines(gridRow, rowCounts);
 
         // Get offset values, falling back to border edges
-        float left = colStart != null && colStart >= 0 && colStart < columnOffsets.size()
-                     ? columnOffsets.getFloat(colStart)
+        float left = columns.start != null && columns.start >= 0 && columns.start < columnOffsets.size()
+                     ? columnOffsets.getFloat(columns.start)
                      : border.left;
-        float right = colEnd != null && colEnd >= 0 && colEnd < columnOffsets.size()
-                      ? columnOffsets.getFloat(colEnd)
+        float right = columns.end != null && columns.end >= 0 && columns.end < columnOffsets.size()
+                      ? columnOffsets.getFloat(columns.end)
                       : containerSize.width - border.right - scrollbarGutterX;
-        float top = rowStart != null && rowStart >= 0 && rowStart < rowOffsets.size()
-                    ? rowOffsets.getFloat(rowStart)
+        float top = rows.start != null && rows.start >= 0 && rows.start < rowOffsets.size()
+                    ? rowOffsets.getFloat(rows.start)
                     : border.top;
-        float bottom = rowEnd != null && rowEnd >= 0 && rowEnd < rowOffsets.size()
-                       ? rowOffsets.getFloat(rowEnd)
+        float bottom = rows.end != null && rows.end >= 0 && rows.end < rowOffsets.size()
+                       ? rowOffsets.getFloat(rows.end)
                        : containerSize.height - border.bottom - scrollbarGutterY;
 
         return new FloatRect(left, right, top, bottom);
     }
 
-    /**
-     * Resolve a grid line for absolute positioning.
-     * Returns the track index, or null if the line should default to the container edge.
-     */
-    private Integer resolveAbsoluteGridLine(
-        GridPlacement placement,
-        GridPlacement otherPlacement,
-        TrackCounts trackCounts,
-        boolean isStart) {
+    /** Resolve and normalize a placement before treating out-of-grid lines as auto. */
+    private TaffyLine<Integer> resolveAbsoluteGridLines(
+        TaffyLine<GridPlacement> placement,
+        TrackCounts trackCounts) {
+        GridPlacement startPlacement = placement == null ? null : placement.start;
+        GridPlacement endPlacement = placement == null ? null : placement.end;
+        Integer start = resolveAbsoluteOriginZeroLine(startPlacement, trackCounts);
+        Integer end = resolveAbsoluteOriginZeroLine(endPlacement, trackCounts);
 
-        if (placement == null || placement.isAuto()) {
-            // Auto placement - use container edge
-            // But if other is a line and this is start, we could compute from span
-            // For now, just return null (use container edge)
-            return null;
-        }
-
-        if (placement.isLine()) {
-            int lineNum = placement.getValue();
-            // Convert to origin-zero (CSS uses 1-based lines)
-            int originZero;
-            if (lineNum > 0) {
-                originZero = lineNum - 1;
-            } else if (lineNum < 0) {
-                // Negative line: -1 is last line = explicitTrackCount
-                originZero = trackCounts.explicit + 1 + lineNum;
+        if (start != null && end != null) {
+            if (start.equals(end)) {
+                end++;
             } else {
-                return null; // line(0) is invalid
+                int lower = Math.min(start, end);
+                int upper = Math.max(start, end);
+                start = lower;
+                end = upper;
             }
-
-            // If the other placement is also a line, resolve ordering and the "equal lines" quirk.
-            if (otherPlacement != null && otherPlacement.isLine()) {
-                int otherLineNum = otherPlacement.getValue();
-                if (otherLineNum == 0) {
-                    return null;
-                }
-                int otherOriginZero = otherLineNum > 0
-                                     ? otherLineNum - 1
-                                     : trackCounts.explicit + 1 + otherLineNum;
-
-                // Per Rust resolve_absolutely_positioned_grid_tracks:
-                // - if equal: end = start + 1
-                // - else: start=min, end=max
-                if (originZero == otherOriginZero) {
-                    if (!isStart) {
-                        originZero = originZero + 1;
-                    }
-                } else {
-                    originZero = isStart ? Math.min(originZero, otherOriginZero) : Math.max(originZero, otherOriginZero);
-                }
-            }
-
-            // Check bounds
-            int minOz = -trackCounts.negativeImplicit;
-            int maxOz = trackCounts.explicit + trackCounts.positiveImplicit;
-            if (originZero < minOz || originZero > maxOz) {
-                return null; // Out of bounds, treat as auto for absolutely positioned items
-            }
-
-            // Map OriginZero line to index in our offsets vector (which includes implicit tracks)
-            return originZero + trackCounts.negativeImplicit;
+        } else if (start != null && endPlacement != null && endPlacement.isSpan()) {
+            end = start + endPlacement.getValue();
+        } else if (end != null && startPlacement != null && startPlacement.isSpan()) {
+            start = end - startPlacement.getValue();
         }
 
-        if (placement.isSpan()) {
-            // Span combined with a line on the other side
-            if (otherPlacement != null && otherPlacement.isLine()) {
-                int otherLine = otherPlacement.getValue();
-                if (otherLine == 0) {
-                    return null;
-                }
-                int otherOriginZero = otherLine > 0 ? otherLine - 1 : trackCounts.explicit + 1 + otherLine;
-                int span = placement.getValue();
+        return new TaffyLine<>(
+            resolveAbsoluteGridLineIndex(start, trackCounts),
+            resolveAbsoluteGridLineIndex(end, trackCounts));
+    }
 
-                if (isStart) {
-                    int originZero = otherOriginZero - span;
-                    int minOz = -trackCounts.negativeImplicit;
-                    int maxOz = trackCounts.explicit + trackCounts.positiveImplicit;
-                    if (originZero < minOz || originZero > maxOz) return null;
-                    return originZero + trackCounts.negativeImplicit;
-                } else {
-                    int originZero = otherOriginZero + span;
-                    int minOz = -trackCounts.negativeImplicit;
-                    int maxOz = trackCounts.explicit + trackCounts.positiveImplicit;
-                    if (originZero < minOz || originZero > maxOz) return null;
-                    return originZero + trackCounts.negativeImplicit;
-                }
-            }
-            // Span without a definite line on the other side - use container edge
+    private Integer resolveAbsoluteOriginZeroLine(GridPlacement placement, TrackCounts trackCounts) {
+        if (placement == null || !placement.isLine() || placement.getValue() == 0) {
             return null;
         }
+        return placement.getValue() > 0
+            ? placement.getValue() - 1
+            : trackCounts.explicit + 1 + placement.getValue();
+    }
 
-        return null;
+    private Integer resolveAbsoluteGridLineIndex(Integer originZeroLine, TrackCounts trackCounts) {
+        if (originZeroLine == null
+            || originZeroLine < -trackCounts.negativeImplicit
+            || originZeroLine > trackCounts.implicitEndLine()) {
+            return null;
+        }
+        return originZeroLine + trackCounts.negativeImplicit;
     }
 
     /**

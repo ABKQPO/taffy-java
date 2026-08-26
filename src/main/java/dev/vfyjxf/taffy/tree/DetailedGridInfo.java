@@ -116,8 +116,8 @@ public class DetailedGridInfo {
         TaffyLine<GridPlacement> placement) {
         GridPlacement start = placement == null ? null : placement.start;
         GridPlacement end = placement == null ? null : placement.end;
-        Integer startLine = tracks.resolveLine(start);
-        Integer endLine = tracks.resolveLine(end);
+        Integer startLine = tracks.resolveOriginZeroLine(start);
+        Integer endLine = tracks.resolveOriginZeroLine(end);
 
         if (startLine != null && endLine != null) {
             if (startLine.equals(endLine)) endLine++;
@@ -133,10 +133,9 @@ public class DetailedGridInfo {
             startLine = endLine - start.getValue();
         }
 
-        int lineCount = tracks.positions().size();
-        if (startLine != null && (startLine < 0 || startLine > lineCount)) startLine = null;
-        if (endLine != null && (endLine < 0 || endLine > lineCount)) endLine = null;
-        return new TaffyLine<>(startLine, endLine);
+        return new TaffyLine<>(
+            tracks.resolveLineIndex(startLine),
+            tracks.resolveLineIndex(endLine));
     }
 
     private static FloatLine resolveLinePair(

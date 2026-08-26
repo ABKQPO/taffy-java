@@ -115,4 +115,32 @@ public class DetailedGridInfoTest {
         assertEquals(60f, absoluteArea.left, 0.01f);
         assertEquals(100f, absoluteArea.right, 0.01f);
     }
+
+    @Test
+    void detailedGridAreaNormalizesUnknownNamedLineBeforeBoundsFallback() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(200f), TaffyDimension.length(150f));
+        grid.gridTemplateColumns.add(TrackSizingFunction.fixed(40f));
+        grid.gridTemplateColumns.add(TrackSizingFunction.fixed(60f));
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(20f));
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(50f));
+        NodeId child = tree.newLeaf(new TaffyStyle());
+        NodeId root = tree.newWithChildren(grid, child);
+
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(200f), AvailableSpace.definite(150f)));
+
+        DetailedGridInfo details = tree.getDetailedLayoutInfo(root).grid();
+        FloatRect area = details.resolveAbsoluteGridArea(
+            new TaffyLine<>(GridPlacement.namedLine("missing"), GridPlacement.line(3)),
+            new TaffyLine<>(GridPlacement.namedLine("missing"), GridPlacement.line(3)),
+            TaffyDirection.LTR,
+            FloatRect.ltrb(0f, 0f, 200f, 150f));
+
+        assertEquals(100f, area.left, 0.01f);
+        assertEquals(70f, area.top, 0.01f);
+        assertEquals(200f, area.right, 0.01f);
+        assertEquals(150f, area.bottom, 0.01f);
+    }
 }

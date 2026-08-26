@@ -105,12 +105,19 @@ public class DetailedGridTracksInfo {
         return positions.get(index);
     }
 
-    Integer resolveLine(GridPlacement placement) {
+    Integer resolveOriginZeroLine(GridPlacement placement) {
         if (placement == null || placement.isAuto() || !placement.isLine()) return null;
         int line = placement.getValue();
-        int originZero = line > 0 ? line - 1 : line < 0 ? counts.explicit + 1 + line : Integer.MIN_VALUE;
-        if (originZero < -counts.negativeImplicit || originZero > counts.implicitEndLine()) return null;
-        return originZero + counts.negativeImplicit;
+        return line > 0 ? line - 1 : line < 0 ? counts.explicit + 1 + line : null;
+    }
+
+    Integer resolveLineIndex(Integer originZeroLine) {
+        if (originZeroLine == null
+            || originZeroLine < -counts.negativeImplicit
+            || originZeroLine > counts.implicitEndLine()) {
+            return null;
+        }
+        return originZeroLine + counts.negativeImplicit;
     }
 
     float startLinePosition(Integer index, float fallbackStart, float fallbackEnd, boolean reversed) {

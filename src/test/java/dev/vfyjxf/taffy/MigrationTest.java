@@ -1,6 +1,7 @@
 package dev.vfyjxf.taffy;
 
 import com.google.gson.Gson;
+import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AlignItems;
@@ -10,11 +11,13 @@ import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
 import dev.vfyjxf.taffy.style.LengthPercentage;
+import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.style.TrackSizingFunction;
 import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
+import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -599,5 +602,91 @@ public class MigrationTest {
 
         Layout rootLayout = tree.getLayout(root);
         assertEquals(100, rootLayout.size().height, 0.01f); // Two lines of 50px each
+    }
+
+    @Test
+    @DisplayName("Flexbox: max-content preserves negative margins with zero shrink basis")
+    void testFlexboxMaxContentNegativeMargins() {
+        TaffyStyle rootStyle = new TaffyStyle();
+        rootStyle.display = TaffyDisplay.FLEX;
+        rootStyle.flexDirection = FlexDirection.COLUMN;
+        rootStyle.alignItems = AlignItems.FLEX_START;
+
+        TaffyStyle firstChildStyle = new TaffyStyle();
+        firstChildStyle.display = TaffyDisplay.FLEX;
+        firstChildStyle.flexDirection = FlexDirection.COLUMN;
+        firstChildStyle.flexShrink = 0.0f;
+        firstChildStyle.size = new TaffySize<>(TaffyDimension.length(100.0f), TaffyDimension.AUTO);
+
+        TaffyStyle firstLeafStyle = new TaffyStyle();
+        firstLeafStyle.flexShrink = 0.0f;
+        firstLeafStyle.size = new TaffySize<>(TaffyDimension.length(20.0f), TaffyDimension.length(10.0f));
+        firstLeafStyle.margin = TaffyRect.ltrb(LengthPercentageAuto.ZERO, LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.ZERO, LengthPercentageAuto.length(-0.5f));
+
+        TaffyStyle secondLeafStyle = new TaffyStyle();
+        secondLeafStyle.flexShrink = 0.0f;
+        secondLeafStyle.size = new TaffySize<>(TaffyDimension.length(20.0f), TaffyDimension.length(20.0f));
+        secondLeafStyle.margin = TaffyRect.ltrb(LengthPercentageAuto.ZERO, LengthPercentageAuto.length(-5.0f),
+            LengthPercentageAuto.ZERO, LengthPercentageAuto.ZERO);
+
+        TaffyTree tree = new TaffyTree();
+        NodeId firstLeaf = tree.newLeaf(firstLeafStyle);
+        NodeId secondLeaf = tree.newLeaf(secondLeafStyle);
+        NodeId firstChild = tree.newWithChildren(firstChildStyle, firstLeaf, secondLeaf);
+
+        TaffyStyle secondChildStyle = new TaffyStyle();
+        secondChildStyle.display = TaffyDisplay.FLEX;
+        secondChildStyle.flexDirection = FlexDirection.ROW;
+        secondChildStyle.flexShrink = 0.0f;
+        TaffyStyle thirdLeafStyle = new TaffyStyle();
+        thirdLeafStyle.flexShrink = 0.0f;
+        thirdLeafStyle.size = new TaffySize<>(TaffyDimension.length(10.0f), TaffyDimension.length(20.0f));
+        thirdLeafStyle.margin = TaffyRect.ltrb(LengthPercentageAuto.ZERO, LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.length(-0.5f), LengthPercentageAuto.ZERO);
+        TaffyStyle fourthLeafStyle = new TaffyStyle();
+        fourthLeafStyle.flexShrink = 0.0f;
+        fourthLeafStyle.size = new TaffySize<>(TaffyDimension.length(20.0f), TaffyDimension.length(20.0f));
+        fourthLeafStyle.margin = TaffyRect.ltrb(LengthPercentageAuto.length(-5.0f), LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.ZERO, LengthPercentageAuto.ZERO);
+        NodeId thirdLeaf = tree.newLeaf(thirdLeafStyle);
+        NodeId fourthLeaf = tree.newLeaf(fourthLeafStyle);
+        NodeId secondChild = tree.newWithChildren(secondChildStyle, thirdLeaf, fourthLeaf);
+
+        TaffyStyle measuredChildStyle = new TaffyStyle();
+        measuredChildStyle.display = TaffyDisplay.FLEX;
+        measuredChildStyle.flexDirection = FlexDirection.ROW;
+        measuredChildStyle.flexShrink = 0.0f;
+        TaffyStyle measuredLeafStyle = new TaffyStyle();
+        measuredLeafStyle.flexGrow = 1.0f;
+        measuredLeafStyle.flexShrink = 0.0f;
+        measuredLeafStyle.margin = TaffyRect.ltrb(LengthPercentageAuto.length(-5.0f), LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.ZERO, LengthPercentageAuto.ZERO);
+        MeasureFunc measuredLeaf = (knownDimensions, availableSpace) -> new FloatSize(40.0f, 10.0f);
+        NodeId measuredLeafId = tree.newLeafWithMeasure(measuredLeafStyle, measuredLeaf);
+        NodeId measuredChild = tree.newWithChildren(measuredChildStyle, measuredLeafId);
+
+        TaffyStyle wrappedChildStyle = new TaffyStyle();
+        wrappedChildStyle.display = TaffyDisplay.FLEX;
+        wrappedChildStyle.flexDirection = FlexDirection.ROW;
+        wrappedChildStyle.flexWrap = FlexWrap.WRAP;
+        wrappedChildStyle.flexShrink = 0.0f;
+        wrappedChildStyle.size = new TaffySize<>(TaffyDimension.maxContent(), TaffyDimension.AUTO);
+        TaffyStyle wideLeafStyle = new TaffyStyle();
+        wideLeafStyle.size = new TaffySize<>(TaffyDimension.length(100.0f), TaffyDimension.AUTO);
+        TaffyStyle zeroLeafStyle = new TaffyStyle();
+        zeroLeafStyle.size = new TaffySize<>(TaffyDimension.length(0.0f), TaffyDimension.AUTO);
+        zeroLeafStyle.margin = TaffyRect.ltrb(LengthPercentageAuto.length(-10.0f), LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.ZERO, LengthPercentageAuto.ZERO);
+        NodeId wideLeaf = tree.newLeaf(wideLeafStyle);
+        NodeId zeroLeaf = tree.newLeaf(zeroLeafStyle);
+        NodeId wrappedChild = tree.newWithChildren(wrappedChildStyle, wideLeaf, zeroLeaf);
+
+        NodeId root = tree.newWithChildren(rootStyle, firstChild, secondChild, measuredChild, wrappedChild);
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        Layout rootLayout = tree.getLayout(root);
+        assertEquals(100.0f, rootLayout.size().width, 0.01f);
+        assertEquals(55.0f, rootLayout.size().height, 0.01f);
     }
 }

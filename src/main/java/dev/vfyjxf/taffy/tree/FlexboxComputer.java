@@ -1049,7 +1049,7 @@ public class FlexboxComputer {
                     if (diff > 0.0f) {
                         item.contentFlexFraction = diff / Math.max(1.0f, item.flexGrow);
                     } else if (diff < 0.0f) {
-                        float scaledShrinkFactor = Math.max(1.0f, item.flexShrink * item.innerFlexBasis);
+                        float scaledShrinkFactor = Math.max(1.0f, item.flexShrink) * item.innerFlexBasis;
                         item.contentFlexFraction = diff / scaledShrinkFactor;
                     } else {
                         item.contentFlexFraction = 0.0f;
@@ -1069,7 +1069,7 @@ public class FlexboxComputer {
                         flexContribution = Math.max(1.0f, item.flexGrow) * flexFraction;
                     } else if (item.contentFlexFraction < 0.0f) {
                         float scaledShrinkFactor = Math.max(1.0f, item.flexShrink) * item.innerFlexBasis;
-                        flexContribution = scaledShrinkFactor * flexFraction;
+                        flexContribution = scaledShrinkFactor == 0.0f ? 0.0f : scaledShrinkFactor * flexFraction;
                     } else {
                         flexContribution = 0.0f;
                     }

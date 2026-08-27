@@ -546,6 +546,7 @@ public class BlockComputer {
 
     private float determineContentBasedContainerWidth(List<BlockItem> items, AvailableSpace availableWidth) {
         float maxChildWidth = 0f;
+        FloatIntrinsicWidthCalculator floatContribution = new FloatIntrinsicWidthCalculator(availableWidth);
 
         for (BlockItem item : items) {
             if (item.position.isOutOfFlow()) continue;
@@ -570,10 +571,14 @@ public class BlockComputer {
                 width = output.size().width + marginSum;
             }
             width = Math.max(width, item.paddingBorderSum.width);
+            if (item.floatMode != null && item.floatMode.isFloated()) {
+                floatContribution.addFloat(width, item.floatMode.floatDirection(), item.clear);
+                continue;
+            }
             maxChildWidth = Math.max(maxChildWidth, width);
         }
 
-        return maxChildWidth;
+        return Math.max(maxChildWidth, floatContribution.result());
     }
 
     private InFlowLayoutResult performFinalLayoutOnChildren(

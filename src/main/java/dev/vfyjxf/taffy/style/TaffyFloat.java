@@ -13,6 +13,15 @@ public enum TaffyFloat {
         return this != NONE;
     }
 
+    /** Converts this value to a resolved direction, or null for {@link #NONE}. */
+    public FloatDirection floatDirection() {
+        switch (this) {
+            case LEFT: return FloatDirection.LEFT;
+            case RIGHT: return FloatDirection.RIGHT;
+            default: return null;
+        }
+    }
+
     /** Parse the CSS {@code float} property. */
     public static TaffyFloat parse(String value) {
         if (value == null || value.trim().isEmpty()) {

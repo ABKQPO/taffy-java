@@ -2,6 +2,7 @@ package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import dev.vfyjxf.taffy.util.RoundLayout;
 
 /** Standalone low-level entry points corresponding to Rust Taffy's compute module. */
 public class LayoutAlgorithms {
@@ -17,6 +18,11 @@ public class LayoutAlgorithms {
 
     public static LayoutOutput computeCachedLayout(LayoutPartialTree tree, NodeId node, LayoutInput inputs) {
         return new LayoutComputer(tree, null).computeChildLayout(node, inputs);
+    }
+
+    /** Round unrounded layouts for a fully traversable tree. */
+    public static void roundLayout(RoundTree tree, NodeId node) {
+        RoundLayout.roundLayout(tree, node);
     }
 
     public static LayoutOutput computeHiddenLayout(LayoutPartialTree tree, NodeId node) {

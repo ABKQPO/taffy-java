@@ -24,7 +24,6 @@ import dev.vfyjxf.taffy.tree.SizingMode;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import dev.vfyjxf.taffy.tree.TreePrinter;
 import dev.vfyjxf.taffy.util.MeasureFunc;
-import dev.vfyjxf.taffy.util.RoundLayout;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -92,7 +91,7 @@ public class LowLevelLayoutApiTest {
             FloatRect.ltrb(-2f, -1f, 12f, 13f),
             baselines));
 
-        RoundLayout.roundLayout(tree, root);
+        LayoutAlgorithms.roundLayout(tree, root);
 
         assertEquals(FloatRect.ltrb(-2f, -1f, 12f, 13f), tree.getFinalLayout(root).scrollableOverflowRect());
         assertEquals(baselines, tree.getFinalLayout(root).baselines());

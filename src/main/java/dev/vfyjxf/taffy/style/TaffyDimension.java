@@ -15,6 +15,11 @@ import java.util.Objects;
  * </ul>
  */
 public class TaffyDimension {
+
+    /** Parse a CSS dimension value. */
+    public static TaffyDimension parse(String value) {
+        return CssParser.parseDimension(value);
+    }
     
     /** The type of dimension value */
     public enum Type {

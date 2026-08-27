@@ -43,4 +43,9 @@ public enum TaffyPosition {
     public boolean isPositioned() {
         return this != STATIC;
     }
+
+    /** Parse a CSS position keyword. */
+    public static TaffyPosition parse(String value) {
+        return CssParser.parsePosition(value);
+    }
 }

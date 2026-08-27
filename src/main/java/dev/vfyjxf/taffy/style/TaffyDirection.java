@@ -73,4 +73,9 @@ public enum TaffyDirection {
     public TaffyDirection opposite() {
         return this == LTR ? RTL : LTR;
     }
+
+    /** Parse a CSS direction keyword. */
+    public static TaffyDirection parse(String value) {
+        return CssParser.parseDirection(value);
+    }
 }

@@ -14,6 +14,11 @@ import java.util.Objects;
  * - NamedSpan(S, u16)
  */
 public class GridPlacement {
+
+    /** Parse a CSS grid placement value. */
+    public static GridPlacement parse(String value) {
+        return CssParser.parseGridPlacement(value);
+    }
     
     /** The type of grid placement */
     public enum Type {
@@ -95,10 +100,9 @@ public class GridPlacement {
     /**
      * Creates a named span placement spanning until the nth line with the given name.
      * @param name The name of the line to span to
-     * @param count The number of lines with this name to span (1-based)
+     * @param count The number of lines with this name to span
      */
     public static GridPlacement namedSpan(String name, int count) {
-        if (count < 1) count = 1;
         return new GridPlacement(Type.NAMED_SPAN, count, name, 0);
     }
 

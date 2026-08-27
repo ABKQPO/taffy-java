@@ -15,6 +15,11 @@ import java.util.Objects;
  * </ul>
  */
 public class LengthPercentageAuto {
+
+    /** Parse a CSS length-percentage-auto value. */
+    public static LengthPercentageAuto parse(String value) {
+        return CssParser.parseLengthPercentageAuto(value);
+    }
     
     /** The type of length value */
     public enum Type {

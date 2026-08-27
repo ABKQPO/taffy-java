@@ -20,4 +20,9 @@ public enum BoxSizing {
      * (the size excluding padding/border/margin)
      */
     CONTENT_BOX;
+
+    /** Parse a CSS box-sizing keyword. */
+    public static BoxSizing parse(String value) {
+        return CssParser.parseBoxSizing(value);
+    }
 }

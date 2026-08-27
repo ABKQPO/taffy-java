@@ -36,4 +36,9 @@ public enum GridAutoFlow {
     public boolean isDense() {
         return this == ROW_DENSE || this == COLUMN_DENSE;
     }
+
+    /** Parse a CSS grid-auto-flow value. */
+    public static GridAutoFlow parse(String value) {
+        return CssParser.parseGridAutoFlow(value);
+    }
 }

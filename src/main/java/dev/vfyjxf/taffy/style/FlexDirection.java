@@ -57,4 +57,9 @@ public enum FlexDirection {
     public AbsoluteAxis crossAxis() {
         return isRow() ? AbsoluteAxis.VERTICAL : AbsoluteAxis.HORIZONTAL;
     }
+
+    /** Parse a CSS flex-direction keyword. */
+    public static FlexDirection parse(String value) {
+        return CssParser.parseFlexDirection(value);
+    }
 }

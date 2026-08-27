@@ -27,4 +27,9 @@ public enum TextAlign {
     
     /** Justify all lines including the last one */
     JUSTIFY_ALL;
+
+    /** Parse a CSS text-align keyword. */
+    public static TextAlign parse(String value) {
+        return CssParser.parseTextAlign(value);
+    }
 }

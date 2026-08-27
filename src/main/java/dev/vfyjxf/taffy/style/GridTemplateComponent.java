@@ -9,6 +9,20 @@ import java.util.List;
  * Can be either a single TrackSizingFunction or a repeat() function.
  */
 public class GridTemplateComponent {
+
+    /** Parse one CSS grid-template component. */
+    public static GridTemplateComponent parse(String value) {
+        List<GridTemplateComponent> components = CssParser.parseGridTemplateComponents(value);
+        if (components.size() != 1) {
+            throw new IllegalArgumentException("Expected one grid-template component: " + value);
+        }
+        return components.get(0);
+    }
+
+    /** Parse a CSS grid-template component list. */
+    public static List<GridTemplateComponent> parseList(String value) {
+        return CssParser.parseGridTemplateComponents(value);
+    }
     
     public enum Type {
         /** A single track sizing function */

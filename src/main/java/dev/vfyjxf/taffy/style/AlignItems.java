@@ -43,4 +43,9 @@ public enum AlignItems {
     
     /** Stretch to fill the container */
     STRETCH;
+
+    /** Parse a CSS align-items keyword. */
+    public static AlignItems parse(String value) {
+        return CssParser.parseAlignItems(value);
+    }
 }

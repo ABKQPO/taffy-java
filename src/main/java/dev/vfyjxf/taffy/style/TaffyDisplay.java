@@ -21,4 +21,9 @@ public enum TaffyDisplay {
 
     /** The default Display mode */
     public static final TaffyDisplay DEFAULT = FLEX;
+
+    /** Parse a CSS display keyword. */
+    public static TaffyDisplay parse(String value) {
+        return CssParser.parseDisplay(value);
+    }
 }

@@ -46,4 +46,9 @@ public enum Overflow {
     public Float maybeIntoAutomaticMinSize() {
         return isScrollContainer() ? 0.0f : null;
     }
+
+    /** Parse a CSS overflow keyword. */
+    public static Overflow parse(String value) {
+        return CssParser.parseOverflow(value);
+    }
 }

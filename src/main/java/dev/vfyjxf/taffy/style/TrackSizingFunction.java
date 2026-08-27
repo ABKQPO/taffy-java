@@ -8,6 +8,11 @@ import java.util.Objects;
  */
 public class TrackSizingFunction {
 
+    /** Parse a CSS track sizing function. */
+    public static TrackSizingFunction parse(String value) {
+        return CssParser.parseTrackSizingFunction(value);
+    }
+
     /**
      * The type of track sizing function
      */

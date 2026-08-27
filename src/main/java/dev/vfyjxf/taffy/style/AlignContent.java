@@ -58,4 +58,9 @@ public enum AlignContent {
      * The gaps are distributed evenly in proportion to these ratios.
      */
     SPACE_AROUND;
+
+    /** Parse a CSS align-content keyword. */
+    public static AlignContent parse(String value) {
+        return CssParser.parseAlignContent(value);
+    }
 }

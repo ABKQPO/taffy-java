@@ -7,6 +7,11 @@ import java.util.Objects;
  */
 public class LengthPercentage {
 
+    /** Parse a CSS length-percentage value. */
+    public static LengthPercentage parse(String value) {
+        return CssParser.parseLengthPercentage(value);
+    }
+
     /**
      * The type of length value
      */

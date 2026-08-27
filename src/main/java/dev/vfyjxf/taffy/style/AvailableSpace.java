@@ -11,6 +11,11 @@ import static java.lang.Float.NaN;
  * This is used to communicate sizing constraints from parent to child during layout.
  */
 public class AvailableSpace {
+
+    /** Parse a CSS available-space value. */
+    public static AvailableSpace parse(String value) {
+        return CssParser.parseAvailableSpace(value);
+    }
     
     /** The type of available space constraint */
     public enum Type {

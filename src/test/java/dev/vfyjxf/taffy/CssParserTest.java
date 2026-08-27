@@ -3,6 +3,8 @@ package dev.vfyjxf.taffy;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.AlignItemsKeyword;
+import dev.vfyjxf.taffy.style.AlignContentKeyword;
 import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -108,7 +110,20 @@ public class CssParserTest {
         assertEquals(AlignItems.CENTER, CssParser.parseAlignItems("center"));
         assertEquals(AlignContent.SPACE_EVENLY, CssParser.parseAlignContent("space-evenly"));
         assertThrows(IllegalArgumentException.class, () -> CssParser.parseDisplay("flex none"));
-        assertThrows(IllegalArgumentException.class, () -> CssParser.parseAlignItems("safe center"));
+        assertEquals(AlignItems.SAFE_CENTER, CssParser.parseAlignItems("safe center"));
+        assertEquals(AlignItems.SAFE_SELF_END, CssParser.parseAlignItems("SAFE self-end"));
+        assertEquals(AlignContent.SAFE_FLEX_START, CssParser.parseAlignContent("safe flex-start"));
+        assertEquals(AlignItems.SELF_START, CssParser.parseAlignItems("self-start"));
+        assertEquals(AlignItems.CENTER, CssParser.parseAlignItems("unsafe center"));
+        assertEquals(AlignContent.SPACE_BETWEEN, CssParser.parseAlignContent("space-between"));
+        assertEquals(AlignItemsKeyword.SELF_END, AlignItems.SAFE_SELF_END.keyword());
+        assertEquals(AlignContentKeyword.FLEX_START, AlignContent.SAFE_FLEX_START.keyword());
+        assertTrue(AlignItems.SAFE_CENTER.isSafe());
+        assertTrue(AlignItems.SAFE_SELF_END.isSelfRelative());
+        assertEquals(AlignItems.START, AlignItems.SAFE_START.withoutSafety());
+        assertEquals(AlignContent.CENTER, AlignContent.SAFE_CENTER.withoutSafety());
+        assertThrows(IllegalArgumentException.class, () -> CssParser.parseAlignItems("safe stretch"));
+        assertThrows(IllegalArgumentException.class, () -> CssParser.parseAlignContent("unsafe space-between"));
     }
 
     @Test

@@ -1313,16 +1313,16 @@ public class GridComputer {
             AlignItems parentAlignItems = containerStyle.getAlignItems();
             AlignItems parentJustifyItems = containerStyle.justifyItems;
             AlignItems resolvedAlignItems = (parentAlignItems != null && parentAlignItems != AlignItems.AUTO)
-                                            ? parentAlignItems
+                                            ? parentAlignItems.withoutSafety()
                                             : AlignItems.STRETCH;
             AlignItems resolvedJustifyItems = (parentJustifyItems != null && parentJustifyItems != AlignItems.AUTO)
-                                              ? parentJustifyItems
+                                              ? parentJustifyItems.withoutSafety()
                                               : AlignItems.STRETCH;
 
             AlignItems rawAlignSelf = childStyle.getAlignSelf();
             AlignItems rawJustifySelf = childStyle.justifySelf;
-            item.alignSelf = (rawAlignSelf != null && rawAlignSelf != AlignItems.AUTO) ? rawAlignSelf : resolvedAlignItems;
-            item.justifySelf = (rawJustifySelf != null && rawJustifySelf != AlignItems.AUTO) ? rawJustifySelf : resolvedJustifyItems;
+            item.alignSelf = (rawAlignSelf != null && rawAlignSelf != AlignItems.AUTO) ? rawAlignSelf.withoutSafety() : resolvedAlignItems;
+            item.justifySelf = (rawJustifySelf != null && rawJustifySelf != AlignItems.AUTO) ? rawJustifySelf.withoutSafety() : resolvedJustifyItems;
 
             // Grid placement - properly handle LINE, SPAN, NAMED_LINE, NAMED_SPAN, and AUTO
             GridPlacement colStart = childStyle.getGridColumnStart();
@@ -3454,6 +3454,7 @@ public class GridComputer {
                     // using axis_available_space_for_expansion (which is inner_node_size when definite).
                     // This is NOT the remaining space from PHASE 1 - it's a fresh calculation.
                     AlignContent justifyContent = style.justifyContent;  // AUTO/null means default = STRETCH for Grid
+                    if (justifyContent != null) justifyContent = justifyContent.withoutSafety();
                     boolean shouldStretch = (justifyContent == null || justifyContent == AlignContent.AUTO || justifyContent == AlignContent.STRETCH);
                     if (!Float.isNaN(nodeInnerSize.width) && shouldStretch) {
                         // Recalculate free space for stretch (not using remainingSpace from PHASE 1)
@@ -4269,6 +4270,8 @@ public class GridComputer {
         // Default alignment from container
         AlignItems defaultAlignItems = containerStyle.getAlignItems();
         AlignItems defaultJustifyItems = containerStyle.justifyItems;
+        if (defaultAlignItems != null) defaultAlignItems = defaultAlignItems.withoutSafety();
+        if (defaultJustifyItems != null) defaultJustifyItems = defaultJustifyItems.withoutSafety();
 
         // Calculate total track sizes (only non-collapsed tracks contribute to used space)
         float totalColumnSize = 0;
@@ -4292,7 +4295,9 @@ public class GridComputer {
 
         // Calculate content alignment offsets (use non-collapsed track counts)
         float contentOffsetX = calculateContentAlignmentOffset(containerStyle.getJustifyContent(), freeSpaceWidth, nonCollapsedColumns);
-        float contentOffsetY = calculateContentAlignmentOffset(containerStyle.getAlignContent(), freeSpaceHeight, nonCollapsedRows);
+        AlignContent contentAlignment = containerStyle.getAlignContent();
+        if (contentAlignment != null) contentAlignment = contentAlignment.withoutSafety();
+        float contentOffsetY = calculateContentAlignmentOffset(contentAlignment, freeSpaceHeight, nonCollapsedRows);
 
         // In RTL, 'start' and 'end' for justify-content are flipped along the inline axis.
         // For RTL, we need to adjust contentOffsetX:
@@ -4313,7 +4318,7 @@ public class GridComputer {
 
         // Calculate gap adjustments for space-between, space-around, space-evenly (use non-collapsed track counts)
         float adjustedGapX = calculateAdjustedGap(containerStyle.getJustifyContent(), freeSpaceWidth, nonCollapsedColumns, gap.width);
-        float adjustedGapY = calculateAdjustedGap(containerStyle.getAlignContent(), freeSpaceHeight, nonCollapsedRows, gap.height);
+        float adjustedGapY = calculateAdjustedGap(contentAlignment, freeSpaceHeight, nonCollapsedRows, gap.height);
 
         for (int i = 0; i < items.size(); i++) {
             GridItem item = items.get(i);

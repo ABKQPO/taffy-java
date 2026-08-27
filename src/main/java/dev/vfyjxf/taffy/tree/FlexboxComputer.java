@@ -2369,6 +2369,7 @@ public class FlexboxComputer {
 
             // For STRETCH with single line no-wrap, still distribute extra space to line
             AlignContent alignContent = style.getAlignContent();
+            if (alignContent != null) alignContent = alignContent.withoutSafety();
             if (alignContent == null || alignContent == AlignContent.AUTO) {
                 alignContent = AlignContent.STRETCH;
             }
@@ -2399,6 +2400,7 @@ public class FlexboxComputer {
         // This matches Rust where line stretching is handled by `handle_align_content_stretch`
         // and line offsets are computed later using a potentially-fallback alignment mode.
         AlignContent rawAlignContent = style.getAlignContent();
+        if (rawAlignContent != null) rawAlignContent = rawAlignContent.withoutSafety();
         if (rawAlignContent == null || rawAlignContent == AlignContent.AUTO) {
             rawAlignContent = AlignContent.STRETCH;
         }

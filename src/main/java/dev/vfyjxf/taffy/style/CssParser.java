@@ -123,35 +123,74 @@ public class CssParser {
     }
 
     public static AlignItems parseAlignItems(String input) {
-        String value = singleKeyword(input, "align-items");
-        switch (value) {
-            case "auto": return AlignItems.AUTO;
-            case "start": return AlignItems.START;
-            case "end": return AlignItems.END;
-            case "flex-start": return AlignItems.FLEX_START;
-            case "flex-end": return AlignItems.FLEX_END;
-            case "center": return AlignItems.CENTER;
-            case "baseline": return AlignItems.BASELINE;
-            case "stretch": return AlignItems.STRETCH;
-            default: throw invalidKeyword("align-items", value);
+        String[] values = alignmentKeywords(input, "align-items");
+        if (values.length == 1) {
+            switch (values[0]) {
+                case "auto": return AlignItems.AUTO;
+                case "start": return AlignItems.START;
+                case "end": return AlignItems.END;
+                case "flex-start": return AlignItems.FLEX_START;
+                case "flex-end": return AlignItems.FLEX_END;
+                case "self-start": return AlignItems.SELF_START;
+                case "self-end": return AlignItems.SELF_END;
+                case "center": return AlignItems.CENTER;
+                case "baseline": return AlignItems.BASELINE;
+                case "stretch": return AlignItems.STRETCH;
+                default: throw invalidKeyword("align-items", values[0]);
+            }
         }
+        if (values.length == 2 && ("safe".equals(values[0]) || "unsafe".equals(values[0]))) {
+            boolean safe = "safe".equals(values[0]);
+            switch (values[1]) {
+                case "start": return safe ? AlignItems.SAFE_START : AlignItems.START;
+                case "end": return safe ? AlignItems.SAFE_END : AlignItems.END;
+                case "flex-start": return safe ? AlignItems.SAFE_FLEX_START : AlignItems.FLEX_START;
+                case "flex-end": return safe ? AlignItems.SAFE_FLEX_END : AlignItems.FLEX_END;
+                case "self-start": return safe ? AlignItems.SAFE_SELF_START : AlignItems.SELF_START;
+                case "self-end": return safe ? AlignItems.SAFE_SELF_END : AlignItems.SELF_END;
+                case "center": return safe ? AlignItems.SAFE_CENTER : AlignItems.CENTER;
+                default: throw invalidKeyword("align-items", values[1]);
+            }
+        }
+        throw new IllegalArgumentException("Invalid align-items value: " + input);
     }
 
     public static AlignContent parseAlignContent(String input) {
-        String value = singleKeyword(input, "align-content");
-        switch (value) {
-            case "auto": return AlignContent.AUTO;
-            case "start": return AlignContent.START;
-            case "end": return AlignContent.END;
-            case "flex-start": return AlignContent.FLEX_START;
-            case "flex-end": return AlignContent.FLEX_END;
-            case "center": return AlignContent.CENTER;
-            case "stretch": return AlignContent.STRETCH;
-            case "space-between": return AlignContent.SPACE_BETWEEN;
-            case "space-evenly": return AlignContent.SPACE_EVENLY;
-            case "space-around": return AlignContent.SPACE_AROUND;
-            default: throw invalidKeyword("align-content", value);
+        String[] values = alignmentKeywords(input, "align-content");
+        if (values.length == 1) {
+            switch (values[0]) {
+                case "auto": return AlignContent.AUTO;
+                case "start": return AlignContent.START;
+                case "end": return AlignContent.END;
+                case "flex-start": return AlignContent.FLEX_START;
+                case "flex-end": return AlignContent.FLEX_END;
+                case "center": return AlignContent.CENTER;
+                case "stretch": return AlignContent.STRETCH;
+                case "space-between": return AlignContent.SPACE_BETWEEN;
+                case "space-evenly": return AlignContent.SPACE_EVENLY;
+                case "space-around": return AlignContent.SPACE_AROUND;
+                default: throw invalidKeyword("align-content", values[0]);
+            }
         }
+        if (values.length == 2 && ("safe".equals(values[0]) || "unsafe".equals(values[0]))) {
+            boolean safe = "safe".equals(values[0]);
+            switch (values[1]) {
+                case "start": return safe ? AlignContent.SAFE_START : AlignContent.START;
+                case "end": return safe ? AlignContent.SAFE_END : AlignContent.END;
+                case "flex-start": return safe ? AlignContent.SAFE_FLEX_START : AlignContent.FLEX_START;
+                case "flex-end": return safe ? AlignContent.SAFE_FLEX_END : AlignContent.FLEX_END;
+                case "center": return safe ? AlignContent.SAFE_CENTER : AlignContent.CENTER;
+                default: throw invalidKeyword("align-content", values[1]);
+            }
+        }
+        throw new IllegalArgumentException("Invalid align-content value: " + input);
+    }
+
+    private static String[] alignmentKeywords(String input, String property) {
+        if (input == null) throw new IllegalArgumentException(property + " value must not be null");
+        String value = input.trim().toLowerCase(Locale.ROOT);
+        if (value.isEmpty()) throw new IllegalArgumentException("Invalid " + property + " value: " + input);
+        return value.split("\\s+");
     }
 
     private static String singleKeyword(String input, String property) {

@@ -575,6 +575,7 @@ public class TaffyStyle {
     }
 
     private static JustifyContent mapJustifyContent(AlignContent justifyContent) {
+        justifyContent = justifyContent.withoutSafety();
         switch (justifyContent) {
             case FLEX_START:
                 return JustifyContent.FLEX_START;

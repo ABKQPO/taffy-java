@@ -26,12 +26,16 @@ public enum AlignSelf {
     }
 
     private static AlignSelf mapFromAlignItems(AlignItems alignItems) {
-        switch (alignItems) {
+        switch (alignItems.keyword()) {
             case FLEX_START:
             case START:
                 return FLEX_START;
             case FLEX_END:
             case END:
+                return FLEX_END;
+            case SELF_START:
+                return FLEX_START;
+            case SELF_END:
                 return FLEX_END;
             case CENTER:
                 return CENTER;
@@ -39,8 +43,6 @@ public enum AlignSelf {
                 return BASELINE;
             case STRETCH:
                 return STRETCH;
-            case AUTO:
-                return STRETCH; // defensive (handled above)
         }
         throw new IllegalStateException("Unexpected: " + alignItems);
     }

@@ -48,6 +48,15 @@ public class FloatContext {
         return false;
     }
 
+    /** Returns the lowest placed float bottom edge, or negative infinity when no float exists. */
+    public float maxBottom() {
+        float bottom = Float.NEGATIVE_INFINITY;
+        for (PlacedFloatedBox placed : floats) {
+            bottom = Math.max(bottom, placed.bottom());
+        }
+        return bottom;
+    }
+
     /** Sets the width of the containing block. */
     public void setWidth(float availableWidth) {
         this.availableWidth = Math.max(0f, availableWidth);

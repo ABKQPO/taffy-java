@@ -189,6 +189,43 @@ public class LayoutComputer {
     }
 
     /**
+     * Performs child layout while preserving an inherited block formatting context for ordinary
+     * block descendants. Other display modes continue through the normal dispatcher.
+     */
+    public LayoutOutput performBlockChildLayout(
+        NodeId node,
+        FloatSize knownDimensions,
+        FloatSize parentSize,
+        TaffySize<AvailableSpace> availableSpace,
+        SizingMode sizingMode,
+        TaffyLine<Boolean> verticalMarginsAreCollapsible,
+        BlockContext blockContext) {
+        TaffyStyle childStyle = tree.getStyle(node);
+        TaffyDisplay display = childStyle.getDisplay();
+        if (tree.childCount(node) > 0 && (display == TaffyDisplay.BLOCK || display == TaffyDisplay.FLOW_ROOT)) {
+            LayoutInput inputs = new LayoutInput(
+                RunMode.PERFORM_LAYOUT,
+                sizingMode,
+                RequestedAxis.BOTH,
+                knownDimensions,
+                new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
+                parentSize,
+                availableSpace,
+                verticalMarginsAreCollapsible
+            );
+            return new BlockComputer(this).compute(node, inputs, childStyle, blockContext);
+        }
+        return performChildLayout(
+            node,
+            knownDimensions,
+            parentSize,
+            availableSpace,
+            sizingMode,
+            verticalMarginsAreCollapsible
+        );
+    }
+
+    /**
      * Measures a child node's size without performing full layout.
      * Uses COMPUTE_SIZE run mode which doesn't set unrounded layout.
      * This should be used during sizing calculations (like flex base size)

@@ -607,6 +607,13 @@ public class FlexboxComputer {
             AlignItems effectiveAlignItems = (selfAlignItems != null && selfAlignItems != AlignItems.AUTO)
                                              ? selfAlignItems
                                              : defaultAlign;
+            if (effectiveAlignItems != null && effectiveAlignItems.isSelfRelative()) {
+                effectiveAlignItems = effectiveAlignItems.resolveSelfRelative(
+                    layoutComputer.resolveDirection(childId),
+                    layoutComputer.resolveDirection(node),
+                    !isRow
+                );
+            }
             item.alignSelf = AlignSelf.fromAlignItems(effectiveAlignItems);
 
             // If cross size is auto in style and the item is stretched on the cross axis, do not let aspect-ratio
@@ -2152,12 +2159,12 @@ public class FlexboxComputer {
 
                 // Apply alignment fallback following CSS spec and Rust implementation
                 // https://www.w3.org/TR/css-align-3/ and https://github.com/w3c/csswg-drafts/issues/10154
-                JustifyContent effectiveJustify = justify;
-                boolean isSafe = false;
+                JustifyContent effectiveJustify = justify == null ? JustifyContent.FLEX_START : justify.withoutSafety();
+                boolean isSafe = justify != null && justify.isSafe();
 
                 // 1. If there is only a single item or negative free space, fallback distributed alignments
                 if (itemCount <= 1 || freeSpace <= 0) {
-                    switch (justify) {
+                    switch (effectiveJustify) {
                         case SPACE_BETWEEN:
                             effectiveJustify = JustifyContent.FLEX_START;
                             isSafe = true;
@@ -2413,14 +2420,16 @@ public class FlexboxComputer {
         // This matches Rust where line stretching is handled by `handle_align_content_stretch`
         // and line offsets are computed later using a potentially-fallback alignment mode.
         AlignContent rawAlignContent = style.getAlignContent();
-        if (rawAlignContent != null) rawAlignContent = rawAlignContent.withoutSafety();
         if (rawAlignContent == null || rawAlignContent == AlignContent.AUTO) {
             rawAlignContent = AlignContent.STRETCH;
         }
 
+        boolean requestedSafeAlignment = rawAlignContent.isSafe();
+        AlignContent baseAlignContent = rawAlignContent.withoutSafety();
+
         // Handle `align-content: stretch` by increasing each line's cross size equally.
         // This consumes the free space so subsequent offset alignment sees freeSpace == 0.
-        if (rawAlignContent == AlignContent.STRETCH && freeSpace > 0) {
+        if (baseAlignContent == AlignContent.STRETCH && freeSpace > 0) {
             float extraPerLine = freeSpace / numLines;
             for (FlexLine line : lines) {
                 line.crossSize += extraPerLine;
@@ -2430,8 +2439,8 @@ public class FlexboxComputer {
 
         // Apply alignment fallback per Rust `apply_alignment_fallback`
         // https://www.w3.org/TR/css-align-3/ and https://github.com/w3c/csswg-drafts/issues/10154
-        AlignContent alignContent = rawAlignContent;
-        boolean isSafe = false;
+        AlignContent alignContent = baseAlignContent;
+        boolean isSafe = requestedSafeAlignment;
 
         if (numLines <= 1 || freeSpace <= 0) {
             switch (alignContent) {
@@ -3180,6 +3189,10 @@ public class FlexboxComputer {
         } else {
             // Use justify-content to position
             JustifyContent jc = justifyContent != null ? justifyContent : JustifyContent.START;
+            float freeSpace = containerMain - contentBoxMainStart - contentBoxMainEnd - finalMain
+                - marginMainStart - marginMainEnd;
+            if (jc.isSafe() && freeSpace < 0) jc = JustifyContent.START;
+            else jc = jc.withoutSafety();
             return resolveAbsoluteMainOffsetByJustify(jc, containerMain, finalMain,
                 contentBoxMainStart, contentBoxMainEnd, marginMainStart, marginMainEnd, isWrapReverse);
         }
@@ -3242,19 +3255,27 @@ public class FlexboxComputer {
     private static float resolveAbsoluteCrossOffsetByAlignSelf(AlignSelf alignSelf, float containerCross, float finalCross,
                                                                float contentBoxCrossStart, float contentBoxCrossEnd,
                                                                float marginCrossStart, float marginCrossEnd, boolean isWrapReverse) {
-        switch (alignSelf) {
-            case AUTO:
-            case BASELINE:
+        AlignSelf safeAlignSelf = alignSelf == null ? AlignSelf.AUTO : alignSelf;
+        float freeSpace = containerCross - contentBoxCrossStart - contentBoxCrossEnd - finalCross
+            - marginCrossStart - marginCrossEnd;
+        AlignItemsKeyword keyword = safeAlignSelf.keyword();
+        if (safeAlignSelf.isSafe() && freeSpace < 0) keyword = AlignItemsKeyword.START;
+        switch (keyword) {
+            case START:
             case STRETCH:
             case FLEX_START:
+            case SELF_START:
                 if (isWrapReverse) return containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
                 return contentBoxCrossStart + marginCrossStart;
+            case END:
             case FLEX_END:
+            case SELF_END:
                 if (isWrapReverse) return contentBoxCrossStart + marginCrossStart;
                 return containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
             case CENTER:
                 return (containerCross + contentBoxCrossStart - contentBoxCrossEnd - finalCross
                         + marginCrossStart - marginCrossEnd) / 2.0f;
+            case BASELINE:
             default:
                 return contentBoxCrossStart + marginCrossStart;
         }

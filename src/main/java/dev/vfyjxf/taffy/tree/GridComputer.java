@@ -4297,7 +4297,6 @@ public class GridComputer {
         // Calculate content alignment offsets (use non-collapsed track counts)
         float contentOffsetX = calculateContentAlignmentOffset(containerStyle.getJustifyContent(), freeSpaceWidth, nonCollapsedColumns);
         AlignContent contentAlignment = containerStyle.getAlignContent();
-        if (contentAlignment != null) contentAlignment = contentAlignment.withoutSafety();
         float contentOffsetY = calculateContentAlignmentOffset(contentAlignment, freeSpaceHeight, nonCollapsedRows);
 
         // In RTL, 'start' and 'end' for justify-content are flipped along the inline axis.
@@ -4838,6 +4837,14 @@ public class GridComputer {
             // Get alignment styles
             AlignItems justifySelf = childStyle.justifySelf;
             AlignItems alignSelf = childStyle.getAlignSelf();
+            TaffyDirection childDirection = layoutComputer.resolveDirection(childId);
+            TaffyDirection containerDirection = layoutComputer.resolveDirection(node);
+            if (justifySelf != null && justifySelf.isSelfRelative()) {
+                justifySelf = justifySelf.resolveSelfRelative(childDirection, containerDirection, true);
+            }
+            if (alignSelf != null && alignSelf.isSelfRelative()) {
+                alignSelf = alignSelf.resolveSelfRelative(childDirection, containerDirection, false);
+            }
 
             // For RTL, we need to flip the grid area horizontally within the container
             // grid-column: 1 in RTL means the rightmost column
@@ -5318,6 +5325,9 @@ public class GridComputer {
     }
 
     private static float contentAlignmentOffsetFor(AlignContent alignment, float freeSpace, int numTracks) {
+        boolean safe = alignment.isSafe();
+        alignment = alignment.withoutSafety();
+        if (safe && freeSpace <= 0) return 0;
         switch (alignment) {
             case CENTER:
                 return freeSpace / 2;  // Works for both positive and negative space

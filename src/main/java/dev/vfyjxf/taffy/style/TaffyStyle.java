@@ -575,14 +575,15 @@ public class TaffyStyle {
     }
 
     private static JustifyContent mapJustifyContent(AlignContent justifyContent) {
-        justifyContent = justifyContent.withoutSafety();
-        switch (justifyContent) {
+        boolean safe = justifyContent.isSafe();
+        AlignContent base = justifyContent.withoutSafety();
+        switch (base) {
             case FLEX_START:
-                return JustifyContent.FLEX_START;
+                return safe ? JustifyContent.SAFE_FLEX_START : JustifyContent.FLEX_START;
             case FLEX_END:
-                return JustifyContent.FLEX_END;
+                return safe ? JustifyContent.SAFE_FLEX_END : JustifyContent.FLEX_END;
             case CENTER:
-                return JustifyContent.CENTER;
+                return safe ? JustifyContent.SAFE_CENTER : JustifyContent.CENTER;
             case SPACE_BETWEEN:
                 return JustifyContent.SPACE_BETWEEN;
             case SPACE_AROUND:
@@ -590,9 +591,9 @@ public class TaffyStyle {
             case SPACE_EVENLY:
                 return JustifyContent.SPACE_EVENLY;
             case START:
-                return JustifyContent.START;
+                return safe ? JustifyContent.SAFE_START : JustifyContent.START;
             case END:
-                return JustifyContent.END;
+                return safe ? JustifyContent.SAFE_END : JustifyContent.END;
             case STRETCH:
                 return JustifyContent.STRETCH;
             case AUTO:

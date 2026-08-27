@@ -218,8 +218,18 @@ public class FlexboxComputer {
         // Determine available space for flex items (transforms outer available space to inner available space)
         TaffySize<AvailableSpace> innerAvailableSpace = determineAvailableSpace(styledBasedKnownDimensions, availableSpace, contentBoxInset);
 
+        FloatSize percentageResolutionSize = isRow
+            ? new FloatSize(
+                hasDefiniteMainSize ? nodeInnerSize.width : NaN,
+                hasDefiniteCrossSize ? nodeInnerSize.height : NaN
+            )
+            : new FloatSize(
+                hasDefiniteCrossSize ? nodeInnerSize.width : NaN,
+                hasDefiniteMainSize ? nodeInnerSize.height : NaN
+            );
+
         // Generate flex items
-        List<FlexItem> items = generateFlexItems(node, style, nodeInnerSize, flexDirection);
+        List<FlexItem> items = generateFlexItems(node, style, percentageResolutionSize, flexDirection);
 
         // If no flow items, we still need to layout absolute children
         if (items.isEmpty()) {

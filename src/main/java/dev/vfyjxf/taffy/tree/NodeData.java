@@ -154,9 +154,9 @@ public class NodeData {
     /**
      * Marks the node as dirty (needing layout recalculation).
      * 
-     * @return true if the cache was already empty (node was already dirty)
+     * @return the result of invalidating the node cache
      */
-    public boolean markDirty() {
+    public ClearState markDirty() {
         return cache.clear();
     }
 }

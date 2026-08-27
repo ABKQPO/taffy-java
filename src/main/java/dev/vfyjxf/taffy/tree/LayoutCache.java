@@ -178,16 +178,18 @@ public class LayoutCache {
     /**
      * Clear all cache entries.
      *
-     * @return true when the cache was already empty
+     * @return the outcome of the clear operation
      */
-    public boolean clear() {
-        boolean wasAlreadyEmpty = isEmpty;
+    public ClearState clear() {
+        if (isEmpty) {
+            return ClearState.ALREADY_EMPTY;
+        }
         finalLayoutEntry = null;
         Arrays.fill(measureEntries, null);
         recentlyUsedEntries = 0;
         nextMeasureEntry = 0;
         isEmpty = true;
-        return wasAlreadyEmpty;
+        return ClearState.CLEARED;
     }
 
     /**

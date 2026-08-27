@@ -8,7 +8,10 @@ import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.LayoutInput;
 import dev.vfyjxf.taffy.tree.LayoutOutput;
+import dev.vfyjxf.taffy.tree.LayoutCache;
 import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.tree.ClearState;
+import dev.vfyjxf.taffy.tree.NodeData;
 import dev.vfyjxf.taffy.tree.RequestedAxis;
 import dev.vfyjxf.taffy.tree.RunMode;
 import dev.vfyjxf.taffy.tree.SizingMode;
@@ -18,6 +21,21 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class LayoutCacheParityTest {
+    @Test
+    void clearingCacheAndMarkingNodeDirtyReportNamedClearStates() {
+        LayoutCache cache = new LayoutCache();
+        LayoutInput input = input(100f);
+        cache.store(input, LayoutOutput.fromOuterSize(new FloatSize(20f, 10f)));
+
+        assertEquals(ClearState.CLEARED, cache.clear());
+        assertEquals(ClearState.ALREADY_EMPTY, cache.clear());
+
+        NodeData node = new NodeData(new TaffyStyle());
+        node.getCache().store(input, LayoutOutput.fromOuterSize(new FloatSize(20f, 10f)));
+        assertEquals(ClearState.CLEARED, node.markDirty());
+        assertEquals(ClearState.ALREADY_EMPTY, node.markDirty());
+    }
+
     @Test
     void percentageSizeMeasurementDoesNotReuseAResultForAnotherParentWidth() {
         TaffyTree tree = new TaffyTree();

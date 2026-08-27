@@ -717,8 +717,8 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         NodeData data = nodes.get(node.getId());
         if (data == null) return;
         
-        boolean wasAlreadyDirty = data.markDirty();
-        if (!wasAlreadyDirty) {
+        ClearState clearState = data.markDirty();
+        if (clearState == ClearState.CLEARED) {
             NodeId parent = parents.get(node.getId());
             if (parent != null) {
                 markDirtyRecursive(parent);

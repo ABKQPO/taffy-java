@@ -3,6 +3,7 @@ package dev.vfyjxf.taffy.tree.grid;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.GridTemplateArea;
+import dev.vfyjxf.taffy.style.GridTemplateAreas;
 import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 
@@ -59,14 +60,13 @@ public class NamedLineResolver {
         this.explicitRowCount = 0;
         
         // Process grid-template-areas
-        if (style.gridTemplateAreas != null) {
-            for (GridTemplateArea area : style.gridTemplateAreas) {
+        GridTemplateAreas templateAreas = style.gridTemplateAreas;
+        if (templateAreas != null) {
+            areaColumnCount = templateAreas.columnCount();
+            areaRowCount = templateAreas.rowCount();
+            for (GridTemplateArea area : templateAreas.areas()) {
                 areas.put(area.getName(), area);
-                
-                // Track maximum row/column bounds
-                areaColumnCount = Math.max(areaColumnCount, Math.max(1, area.getColumnEnd()) - 1);
-                areaRowCount = Math.max(areaRowCount, Math.max(1, area.getRowEnd()) - 1);
-                
+
                 // Create implicit line names from areas
                 // Area "header" creates lines "header-start" and "header-end"
                 upsertLineName(columnLines, area.getName() + "-start", area.getColumnStart());

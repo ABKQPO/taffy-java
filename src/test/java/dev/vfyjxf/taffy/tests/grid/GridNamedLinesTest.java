@@ -7,6 +7,7 @@ import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.GridTemplateArea;
+import dev.vfyjxf.taffy.style.GridTemplateAreas;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyStyle;
@@ -135,12 +136,12 @@ public class GridNamedLinesTest {
         );
         
         // Define areas
-        containerStyle.gridTemplateAreas = Arrays.asList(
-            new GridTemplateArea("header", 1, 2, 1, 4),    // row 1, cols 1-3
-            new GridTemplateArea("sidebar", 2, 3, 1, 2),  // row 2, col 1
-            new GridTemplateArea("content", 2, 3, 2, 4),  // row 2, cols 2-3
-            new GridTemplateArea("footer", 3, 4, 1, 4)    // row 3, cols 1-3
-        );
+        containerStyle.gridTemplateAreas = new GridTemplateAreas(Arrays.asList(
+            new GridTemplateArea("header", 1, 2, 1, 4),
+            new GridTemplateArea("sidebar", 2, 3, 1, 2),
+            new GridTemplateArea("content", 2, 3, 2, 4),
+            new GridTemplateArea("footer", 3, 4, 1, 4)
+        ), 3, 3);
 
         NodeId root = tree.newLeaf(containerStyle);
 

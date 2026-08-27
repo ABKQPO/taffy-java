@@ -59,6 +59,40 @@ public class CssParser {
         return value;
     }
 
+    /** Parse a CSS {@code grid-template-areas} value. */
+    public static GridTemplateAreas parseGridTemplateAreas(String input) {
+        if (input == null) throw new IllegalArgumentException("Grid template areas value must not be null");
+        String value = input.trim();
+        if (value.equalsIgnoreCase("none")) return null;
+        List<String> rows = new ArrayList<>();
+        int index = 0;
+        while (index < value.length()) {
+            while (index < value.length() && Character.isWhitespace(value.charAt(index))) index++;
+            if (index == value.length()) break;
+            char quote = value.charAt(index++);
+            if (quote != '\'' && quote != '"') {
+                throw new IllegalArgumentException("Grid template areas rows must be quoted");
+            }
+            StringBuilder row = new StringBuilder();
+            boolean closed = false;
+            while (index < value.length()) {
+                char character = value.charAt(index++);
+                if (character == '\\') {
+                    if (index == value.length()) throw new IllegalArgumentException("Unterminated grid template area escape");
+                    row.append(value.charAt(index++));
+                } else if (character == quote) {
+                    closed = true;
+                    break;
+                } else {
+                    row.append(character);
+                }
+            }
+            if (!closed) throw new IllegalArgumentException("Unterminated grid template area row");
+            rows.add(row.toString());
+        }
+        return GridTemplateAreas.fromRows(rows);
+    }
+
     public static GridPlacement parseGridPlacement(String input) {
         Parser parser = new Parser(input);
         GridPlacement value = parser.gridPlacement();

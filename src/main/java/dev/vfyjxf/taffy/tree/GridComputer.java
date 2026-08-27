@@ -578,8 +578,11 @@ public class GridComputer {
         );
 
         // Expand auto-fill/auto-fit in grid templates
-        List<TrackSizingFunction> expandedColumns = getExpandedTemplateColumns(style, nodeInnerSize.width, gap.width);
-        List<TrackSizingFunction> expandedRows = getExpandedTemplateRows(style, nodeInnerSize.height, gap.height);
+        NamedLineResolver namedLineResolver = new NamedLineResolver(style);
+        List<TrackSizingFunction> expandedColumns = ensureAreaTemplateTracks(
+            getExpandedTemplateColumns(style, nodeInnerSize.width, gap.width), namedLineResolver.getAreaColumnCount());
+        List<TrackSizingFunction> expandedRows = ensureAreaTemplateTracks(
+            getExpandedTemplateRows(style, nodeInnerSize.height, gap.height), namedLineResolver.getAreaRowCount());
 
         // Generate grid items
         List<GridItem> items = generateGridItems(node, style, nodeInnerSize, expandedColumns, expandedRows);
@@ -1851,6 +1854,18 @@ public class GridComputer {
             return tracks == null ? new ArrayList<>() : tracks;
         }
         return new ArrayList<>(tracks.subList(0, MAX_GRID_TRACKS));
+    }
+
+    /** Adds CSS auto tracks required by unnamed cells in grid-template-areas. */
+    private static List<TrackSizingFunction> ensureAreaTemplateTracks(
+        List<TrackSizingFunction> tracks,
+        int areaTrackCount) {
+        int targetCount = Math.min(MAX_GRID_TRACKS, Math.max(0, areaTrackCount));
+        List<TrackSizingFunction> result = new ArrayList<>(tracks == null ? List.of() : tracks);
+        while (result.size() < targetCount) {
+            result.add(TrackSizingFunction.auto());
+        }
+        return result;
     }
 
     /**

@@ -374,12 +374,11 @@ public class TaffyStyle {
     public List<GridTemplateComponent> gridTemplateColumnsWithRepeat = new ArrayList<>();
 
     /**
-     * Defines named grid areas in the grid template.
-     * Each area specifies a name and the row/column lines that bound it.
+     * Defines named grid areas and the complete area-template dimensions.
      * <p>
-     * Rust equivalent: grid_template_areas: Vec&lt;GridTemplateArea&gt;
+     * Rust equivalent: grid_template_areas: Option&lt;GridTemplateAreas&gt;.
      */
-    public List<GridTemplateArea> gridTemplateAreas = new ArrayList<>();
+    public GridTemplateAreas gridTemplateAreas = null;
 
     /**
      * Defines named lines for grid columns.
@@ -482,7 +481,7 @@ public class TaffyStyle {
         copy.gridAutoRows = new ArrayList<>(this.gridAutoRows);
         copy.gridAutoColumns = new ArrayList<>(this.gridAutoColumns);
         copy.gridAutoFlow = this.gridAutoFlow;
-        copy.gridTemplateAreas = new ArrayList<>(this.gridTemplateAreas);
+        copy.gridTemplateAreas = this.gridTemplateAreas == null ? null : this.gridTemplateAreas.copy();
         copy.gridTemplateColumnNames = new ArrayList<>(this.gridTemplateColumnNames);
         copy.gridTemplateRowNames = new ArrayList<>(this.gridTemplateRowNames);
         copy.gridRow = this.gridRow.copy();
@@ -542,6 +541,16 @@ public class TaffyStyle {
     private static TaffySize<LengthPercentageAuto> toLengthPercentageAuto(TaffySize<?> value) {
         if (value == null) return TaffySize.all(LengthPercentageAuto.AUTO);
         return new TaffySize<>(toLengthPercentageAuto(value.width), toLengthPercentageAuto(value.height));
+    }
+
+    /** Returns the number of rows established by {@code grid-template-areas}. */
+    public int getGridTemplateAreaRowCount() {
+        return gridTemplateAreas == null ? 0 : gridTemplateAreas.rowCount();
+    }
+
+    /** Returns the number of columns established by {@code grid-template-areas}. */
+    public int getGridTemplateAreaColumnCount() {
+        return gridTemplateAreas == null ? 0 : gridTemplateAreas.columnCount();
     }
 
     private static LengthPercentageAuto toLengthPercentageAuto(Object value) {

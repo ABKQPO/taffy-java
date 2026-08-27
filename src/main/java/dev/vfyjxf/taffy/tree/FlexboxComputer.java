@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static java.lang.Float.NaN;
-import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.Float.isNaN;
 
 /**
@@ -311,6 +310,7 @@ public class FlexboxComputer {
         );
 
         // Determine container main size if not already known (needed for flex grow/shrink)
+        boolean mainSizeIsContentDetermined = isNaN(innerMainSize);
         if (isNaN(innerMainSize)) {
             innerMainSize = determineContainerMainSize(
                 flexLines,
@@ -319,6 +319,7 @@ public class FlexboxComputer {
                 maxSize,
                 mainGap,
                 flexDirection,
+                isWrap,
                 innerAvailableSpace,
                 nodeInnerSize
             );
@@ -340,6 +341,26 @@ public class FlexboxComputer {
                 gap = new FloatSize(mainGap, gap.height);
             } else {
                 gap = new FloatSize(gap.width, mainGap);
+            }
+
+            // Intrinsic sizing initially collects items under a min/max-content constraint.
+            // Once that resolves the main size, wrap against the resolved size instead.
+            if (mainSizeIsContentDetermined && isWrap) {
+                TaffySize<AvailableSpace> resolvedAvailableSpace = isRow
+                    ? new TaffySize<>(AvailableSpace.definite(innerMainSize), innerAvailableSpace.height)
+                    : new TaffySize<>(innerAvailableSpace.width, AvailableSpace.definite(innerMainSize));
+                flexLines = collectIntoFlexLines(
+                    items,
+                    resolvedAvailableSpace,
+                    mainGap,
+                    true,
+                    true,
+                    isBalance,
+                    style.getFlexLineCount(),
+                    flexDirection,
+                    minSize,
+                    maxSize
+                );
             }
         }
 
@@ -1016,8 +1037,28 @@ public class FlexboxComputer {
         }
     }
 
+    private float clampIntrinsicContentContribution(
+        float contentSize,
+        float flexBasisCap,
+        float flexBasisFloor,
+        float styleMinSize,
+        float styleMaxSize,
+        float resolvedMinimumSize,
+        float marginSum) {
+
+        float clampedContentSize = contentSize;
+        if (!isNaN(flexBasisCap)) {
+            clampedContentSize = Math.min(clampedContentSize, flexBasisCap);
+        }
+        if (!isNaN(flexBasisFloor)) {
+            clampedContentSize = Math.max(clampedContentSize, flexBasisFloor);
+        }
+        clampedContentSize = TaffyMath.maybeClamp(clampedContentSize, styleMinSize, styleMaxSize);
+        return Math.max(clampedContentSize, resolvedMinimumSize) + marginSum;
+    }
+
     /**
-     * Determine the container's main size when it's not explicitly set.
+     * Determine the container's main size when it is not explicitly set.
      * This is needed before resolving flexible lengths so that flex grow/shrink can work correctly.
      */
     private float determineContainerMainSize(
@@ -1027,6 +1068,7 @@ public class FlexboxComputer {
         FloatSize maxSize,
         float mainGap,
         FlexDirection flexDirection,
+        boolean isWrap,
         TaffySize<AvailableSpace> availableSpace,
         FloatSize nodeInnerSize) {
 
@@ -1063,7 +1105,7 @@ public class FlexboxComputer {
             if (lines.size() > 1) {
                 outerMainSize = Math.max(outerMainSize, mainAvail.getValue());
             }
-        } else if (mainAvail.isMinContent()) {
+        } else if (mainAvail.isMinContent() && (!isWrap || !isRow)) {
             // Min-content: for wrap, longest-line based size. Our line collection already handles MinContent by placing each
             // item on its own line, which makes this equivalent.
             float longestLineLength = 0;
@@ -1078,12 +1120,13 @@ public class FlexboxComputer {
             }
             outerMainSize = longestLineLength + mainContentBoxInset;
         } else {
-            // Max-content: intrinsic sizing using the CSS Flexbox intrinsic item contribution algorithm.
+            // Intrinsic sizing uses the CSS Flexbox intrinsic item contribution algorithm.
             // See: https://www.w3.org/TR/css-flexbox-1/#intrinsic-item-contributions
             // 
             // This implements the full algorithm including content_flex_fraction calculation
             // which handles scaling based on flex-grow/flex-shrink factors.
             float maxLineSum = 0;
+            boolean useLargestItemContribution = isRow && isWrap && mainAvail.isMinContent();
 
             for (FlexLine line : lines) {
                 // Step 1: Calculate content_contribution and content_flex_fraction for each item
@@ -1096,65 +1139,65 @@ public class FlexboxComputer {
                     float stylePreferredMain = isRow ? item.size.width : item.size.height;
                     float styleMaxMain = isRow ? item.maxSize.width : item.maxSize.height;
 
-                    // The spec seems a bit unclear on this point (my initial reading was that the .maybe_max(style_preferred) should
-                    // not be included here), however this matches both Chrome and Firefox as of 9th March 2023.
-                    //
-                    // Spec: https://www.w3.org/TR/css-flexbox-1/#intrinsic-item-contributions
-                    // Spec modification: https://www.w3.org/TR/css-flexbox-1/#change-2016-max-contribution
+                    // The flex basis used for capping and flooring includes the preferred size.
                     float clampingBasis = !Float.isNaN(stylePreferredMain)
                                           ? Math.max(item.flexBasis, stylePreferredMain)
                                           : item.flexBasis;
-
-                    // flex_basis acts as min when flex_shrink == 0
-                    float flexBasisMin = item.flexShrink == 0f ? clampingBasis : NaN;
-                    // flex_basis acts as max when flex_grow == 0
-                    float flexBasisMax = item.flexGrow == 0f ? clampingBasis : NaN;
-
-                    // Compute effective min: max(style_min, flex_basis_min, resolved_minimum_main_size)
-                    float minMainSize = item.resolvedMinimumMainSize;
-                    if (!Float.isNaN(styleMinMain)) minMainSize = Math.max(minMainSize, styleMinMain);
-
-                    // Compute effective max: min(style_max, flex_basis_max) or infinity
-                    float maxMainSize = POSITIVE_INFINITY;
-                    if (!Float.isNaN(styleMaxMain)) maxMainSize = styleMaxMain;
-                    if (!Float.isNaN(flexBasisMax)) {
-                        maxMainSize = Math.min(maxMainSize, flexBasisMax);
-                    }
-
-                    if (!Float.isNaN(flexBasisMin)) {
-                        float cappedFlexBasisMin = maxMainSize != POSITIVE_INFINITY
-                                                   ? Math.min(flexBasisMin, maxMainSize)
-                                                   : flexBasisMin;
-                        minMainSize = Math.max(minMainSize, cappedFlexBasisMin);
-                    }
-
-                    float intrinsicFlexBasis = item.flexBasis;
-                    if (maxMainSize != POSITIVE_INFINITY) {
-                        intrinsicFlexBasis = Math.min(intrinsicFlexBasis, maxMainSize);
-                    }
+                    float flexBasisCap = item.flexGrow == 0f ? clampingBasis : NaN;
+                    float flexBasisFloor = item.flexShrink == 0f ? clampingBasis : NaN;
 
                     float contentContribution;
 
-                    // Fast path: if clamping values are such that max <= min, avoid measuring content
-                    if (!Float.isNaN(stylePreferredMain) && (maxMainSize <= minMainSize || maxMainSize <= stylePreferredMain)) {
-                        // pref.min(max).max(min) - clamp preferred by max, then ensure at least min
-                        float clamped = Math.min(stylePreferredMain, maxMainSize);
-                        clamped = Math.max(clamped, minMainSize);
-                        contentContribution = clamped + marginMain;
-                    } else if (maxMainSize <= minMainSize) {
-                        contentContribution = minMainSize + marginMain;
+                    if (!isRow) {
+                        float hypotheticalInnerMain = item.hypotheticalInnerSize.height;
+                        if (!isNaN(styleMaxMain)) {
+                            hypotheticalInnerMain = Math.min(hypotheticalInnerMain, styleMaxMain);
+                        }
+                        contentContribution = Math.max(hypotheticalInnerMain, item.resolvedMinimumMainSize) + marginMain;
+                    } else if (!isNaN(flexBasisCap)
+                               && clampIntrinsicContentContribution(
+                                   flexBasisCap,
+                                   flexBasisCap,
+                                   flexBasisFloor,
+                                   styleMinMain,
+                                   styleMaxMain,
+                                   item.resolvedMinimumMainSize,
+                                   marginMain
+                               ) == clampIntrinsicContentContribution(
+                                   Float.NEGATIVE_INFINITY,
+                                   flexBasisCap,
+                                   flexBasisFloor,
+                                   styleMinMain,
+                                   styleMaxMain,
+                                   item.resolvedMinimumMainSize,
+                                   marginMain
+                               )) {
+                        contentContribution = clampIntrinsicContentContribution(
+                            flexBasisCap,
+                            flexBasisCap,
+                            flexBasisFloor,
+                            styleMinMain,
+                            styleMaxMain,
+                            item.resolvedMinimumMainSize,
+                            marginMain
+                        );
                     } else if (!Float.isNaN(stylePreferredMain)) {
                         float paddingBorderMain = isRow
                                                   ? item.padding.left + item.padding.right + item.border.left + item.border.right
                                                   : item.padding.top + item.padding.bottom + item.border.top + item.border.bottom;
                         float innerMainSize = Math.max(stylePreferredMain, paddingBorderMain);
-                        contentContribution = isRow
-                                              ? innerMainSize + marginMain
-                                              : Math.max(innerMainSize, item.flexBasis) + marginMain;
-                        contentContribution = TaffyMath.maybeClamp(contentContribution, styleMinMain, styleMaxMain);
+                        contentContribution = clampIntrinsicContentContribution(
+                            innerMainSize,
+                            flexBasisCap,
+                            flexBasisFloor,
+                            styleMinMain,
+                            styleMaxMain,
+                            item.resolvedMinimumMainSize,
+                            marginMain
+                        );
                     } else if (item.overflow.x != Overflow.VISIBLE || item.overflow.y != Overflow.VISIBLE) {
                         // Scroll container: use flex-basis
-                        contentContribution = intrinsicFlexBasis + marginMain;
+                        contentContribution = item.flexBasis + marginMain;
                     } else {
                         // Measure child content size in main axis
                         AvailableSpace outerCrossAvail = isRow ? availableSpace.height : availableSpace.width;
@@ -1224,21 +1267,25 @@ public class FlexboxComputer {
                         float measuredMain = isRow ? measured.size().width : measured.size().height;
                         float innerMainSize = measuredMain;
 
-                        // Asymmetric behavior between row and column containers (matches Webkit/Firefox):
-                        // - Row containers: use content size clamped by min/max
-                        // - Column containers: content size is at least flex-basis
-                        if (isRow) {
-                            contentContribution = TaffyMath.maybeClamp(innerMainSize + marginMain, styleMinMain, styleMaxMain);
-                        } else {
-                            contentContribution = Math.max(innerMainSize, item.flexBasis) + marginMain;
-                            contentContribution = TaffyMath.maybeClamp(contentContribution, styleMinMain, styleMaxMain);
-                        }
-                        contentContribution = Math.max(contentContribution, mainContentBoxInset);
+                        contentContribution = clampIntrinsicContentContribution(
+                            innerMainSize,
+                            flexBasisCap,
+                            flexBasisFloor,
+                            styleMinMain,
+                            styleMaxMain,
+                            item.resolvedMinimumMainSize,
+                            marginMain
+                        );
+                    }
+
+                    if (useLargestItemContribution) {
+                        maxLineSum = Math.max(maxLineSum, contentContribution);
+                        continue;
                     }
 
                     // Calculate content_flex_fraction
                     // This represents the "flex fraction" needed to size the item to its content contribution
-                    float diff = contentContribution - intrinsicFlexBasis;
+                    float diff = contentContribution - item.flexBasis;
                     if (diff > 0.0f) {
                         item.contentFlexFraction = diff / Math.max(1.0f, item.flexGrow);
                     } else if (diff < 0.0f) {
@@ -1247,6 +1294,10 @@ public class FlexboxComputer {
                     } else {
                         item.contentFlexFraction = 0.0f;
                     }
+                }
+
+                if (useLargestItemContribution) {
+                    continue;
                 }
 
                 // Step 2: Calculate the final item sizes using flex_contribution
@@ -1267,21 +1318,7 @@ public class FlexboxComputer {
                         flexContribution = 0.0f;
                     }
 
-                    float styleMaxMain = isRow ? item.maxSize.width : item.maxSize.height;
-                    float maxMainSize = POSITIVE_INFINITY;
-                    if (!Float.isNaN(styleMaxMain)) maxMainSize = styleMaxMain;
-                    if (item.flexGrow == 0f) {
-                        float stylePreferredMain = isRow ? item.size.width : item.size.height;
-                        float clampingBasis = !Float.isNaN(stylePreferredMain)
-                                              ? Math.max(item.flexBasis, stylePreferredMain)
-                                              : item.flexBasis;
-                        maxMainSize = Math.min(maxMainSize, clampingBasis);
-                    }
-                    float intrinsicFlexBasis = item.flexBasis;
-                    if (maxMainSize != POSITIVE_INFINITY) {
-                        intrinsicFlexBasis = Math.min(intrinsicFlexBasis, maxMainSize);
-                    }
-                    float itemSize = intrinsicFlexBasis + flexContribution;
+                    float itemSize = item.flexBasis + flexContribution;
 
                     // Update item's target sizes (used later in layout)
                     if (isRow) {

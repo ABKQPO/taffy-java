@@ -305,6 +305,66 @@ public class FloatClearTest {
         assertEquals(40f, tree.getLayout(bfc).size().width, 0.01f);
     }
 
+    @Test
+    void clearSeparatesFromFloatAdjoiningAnUnresolvedMarginStrut() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(100f, 50f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+        NodeId floatContainer = tree.newWithChildren(blockStyle(Float.NaN, Float.NaN), floated);
+
+        TaffyStyle clearedStyle = blockStyle(Float.NaN, 50f);
+        clearedStyle.clear = Clear.LEFT;
+        clearedStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.length(400f),
+            LengthPercentageAuto.ZERO
+        );
+        NodeId cleared = tree.newLeaf(clearedStyle);
+        NodeId parent = tree.newWithChildren(blockStyle(Float.NaN, Float.NaN), floatContainer, cleared);
+        NodeId root = tree.newWithChildren(rootStyle, parent);
+
+        compute(tree, root);
+
+        assertEquals(50f, tree.getLayout(cleared).location().y, 0.01f);
+        assertEquals(100f, tree.getLayout(parent).size().height, 0.01f);
+        assertEquals(100f, tree.getLayout(root).size().height, 0.01f);
+    }
+
+    @Test
+    void selfCollapsingClearDoesNotPropagateMarginAfterAnAdjoiningFloat() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(100f, 50f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle clearStyle = blockStyle(Float.NaN, Float.NaN);
+        clearStyle.clear = Clear.LEFT;
+        clearStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.length(200f),
+            LengthPercentageAuto.ZERO
+        );
+        NodeId cleared = tree.newLeaf(clearStyle);
+        NodeId floatContainer = tree.newWithChildren(blockStyle(Float.NaN, Float.NaN), floated, cleared);
+        NodeId following = tree.newLeaf(blockStyle(100f, 50f));
+        NodeId parent = tree.newWithChildren(blockStyle(Float.NaN, Float.NaN), floatContainer, following);
+        NodeId root = tree.newWithChildren(rootStyle, parent);
+
+        compute(tree, root);
+
+        assertEquals(50f, tree.getLayout(cleared).location().y, 0.01f);
+        assertEquals(50f, tree.getLayout(floatContainer).size().height, 0.01f);
+        assertEquals(50f, tree.getLayout(following).location().y, 0.01f);
+        assertEquals(100f, tree.getLayout(root).size().height, 0.01f);
+    }
+
     private static TaffyStyle blockStyle(float width, float height) {
         TaffyStyle style = new TaffyStyle();
         style.display = TaffyDisplay.BLOCK;

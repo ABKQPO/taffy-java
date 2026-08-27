@@ -18,6 +18,10 @@ public class BlockContext {
     private final float leftInset;
     private final float rightInset;
     private final boolean root;
+    private boolean adjoiningLeftFloat;
+    private boolean adjoiningRightFloat;
+    private Boolean topAdjoiningLeftFloat;
+    private Boolean topAdjoiningRightFloat;
 
     private BlockContext(FloatContext floatContext, float yOffset, float leftInset, float rightInset, boolean root) {
         this.floatContext = floatContext;
@@ -34,24 +38,32 @@ public class BlockContext {
 
     /** Create a child context in the same block formatting context. */
     public BlockContext subContext(float additionalYOffset, float additionalLeftInset, float additionalRightInset) {
-        return new BlockContext(
+        BlockContext context = new BlockContext(
             floatContext,
             yOffset + additionalYOffset,
             leftInset + additionalLeftInset,
             rightInset + additionalRightInset,
             false
         );
+        context.adjoiningLeftFloat = adjoiningLeftFloat;
+        context.adjoiningRightFloat = adjoiningRightFloat;
+        return context;
     }
 
     /** Apply a block's content-box insets before laying out its in-flow children. */
     public BlockContext withContentBoxInsets(float additionalLeftInset, float additionalRightInset) {
-        return new BlockContext(
+        BlockContext context = new BlockContext(
             floatContext,
             yOffset,
             leftInset + additionalLeftInset,
             rightInset + additionalRightInset,
             root
         );
+        context.adjoiningLeftFloat = adjoiningLeftFloat;
+        context.adjoiningRightFloat = adjoiningRightFloat;
+        context.topAdjoiningLeftFloat = topAdjoiningLeftFloat;
+        context.topAdjoiningRightFloat = topAdjoiningRightFloat;
+        return context;
     }
 
     /** Returns whether this context belongs to the root box of its formatting context. */
@@ -75,7 +87,16 @@ public class BlockContext {
     }
 
     /** Place a float using local box coordinates. */
-    public FloatPoint placeFloatedBox(FloatSize size, float minY, FloatDirection direction, Clear clear) {
+    public FloatPoint placeFloatedBox(
+        FloatSize size,
+        float minY,
+        FloatDirection direction,
+        Clear clear,
+        boolean adjoinsUnresolvedStrut) {
+        if (adjoinsUnresolvedStrut) {
+            if (direction == FloatDirection.LEFT) adjoiningLeftFloat = true;
+            else adjoiningRightFloat = true;
+        }
         FloatPoint position = floatContext.placeFloatedBox(
             size,
             minY + yOffset,
@@ -84,6 +105,36 @@ public class BlockContext {
             clear
         );
         return new FloatPoint(position.x - leftInset, position.y - yOffset);
+    }
+
+    /** Returns the lowest bottom edge of floats cleared by the supplied value. */
+    public float clearedThreshold(Clear clear) {
+        return floatContext.clearedThreshold(clear) - yOffset;
+    }
+
+    /** Returns whether a float adjoining the current margin strut is relevant to the clear value. */
+    public boolean hasAdjoiningFloat(Clear clear) {
+        if (clear == Clear.LEFT) return adjoiningLeftFloat;
+        if (clear == Clear.RIGHT) return adjoiningRightFloat;
+        return clear == Clear.BOTH && (adjoiningLeftFloat || adjoiningRightFloat);
+    }
+
+    /** Merge the adjacent-float state from a same-BFC child into this block context. */
+    public void mergeTopAdjoiningFloats(BlockContext childContext) {
+        adjoiningLeftFloat |= childContext.topAdjoiningLeftFloat != null
+            ? childContext.topAdjoiningLeftFloat : childContext.adjoiningLeftFloat;
+        adjoiningRightFloat |= childContext.topAdjoiningRightFloat != null
+            ? childContext.topAdjoiningRightFloat : childContext.adjoiningRightFloat;
+    }
+
+    /** Commit the current margin strut after in-flow content establishes a final position. */
+    public void commitStrut() {
+        if (topAdjoiningLeftFloat == null) {
+            topAdjoiningLeftFloat = adjoiningLeftFloat;
+            topAdjoiningRightFloat = adjoiningRightFloat;
+        }
+        adjoiningLeftFloat = false;
+        adjoiningRightFloat = false;
     }
 
     /** Find a content slot in local box coordinates. */

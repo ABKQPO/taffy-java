@@ -419,6 +419,9 @@ public class BlockComputer {
         firstVerticalBaseline = style.contain.suppressesBaseline()
             ? NaN
             : firstVerticalBaseline;
+        if (inheritedContext != null && !establishesNewBfc && blockContext != inheritedContext) {
+            inheritedContext.mergeTopAdjoiningFloats(blockContext);
+        }
         return new LayoutOutput(
             finalOuterSize,
             contentSize,
@@ -690,11 +693,14 @@ public class BlockComputer {
                 FloatSize floatSize = floatOutput.size();
                 float marginBoxWidth = floatSize.width + itemNonAutoXMarginSum;
                 float marginBoxHeight = floatSize.height + itemNonAutoMargin.top + itemNonAutoMargin.bottom;
+                boolean adjoinsUnresolvedStrut = isCollapsingWithFirstMarginSet
+                    && ownMarginsCollapseWithChildren.start;
                 FloatPoint marginBoxPosition = blockContext.placeFloatedBox(
                     new FloatSize(marginBoxWidth, marginBoxHeight),
                     committedYOffset + activeCollapsibleMarginSet.resolve(),
                     item.floatMode.floatDirection(),
-                    item.clear
+                    item.clear,
+                    adjoinsUnresolvedStrut
                 );
                 float floatX = marginBoxPosition.x + itemNonAutoMargin.left;
                 float floatY = marginBoxPosition.y + itemNonAutoMargin.top;
@@ -721,7 +727,8 @@ public class BlockComputer {
             }
 
             float minimumY = committedYOffset + activeCollapsibleMarginSet.resolve();
-            boolean itemAvoidsFloats = !item.isInSameBfc && blockContext.hasActiveFloats(minimumY);
+            boolean hasActiveFloatsBeforeItem = blockContext.hasActiveFloats(minimumY);
+            boolean itemAvoidsFloats = !item.isInSameBfc && hasActiveFloatsBeforeItem;
             ContentSlot flowSlot = null;
             BfcSlot bfcSlot = null;
             float stretchWidth;
@@ -775,10 +782,13 @@ public class BlockComputer {
                 item.isInSameBfc ? new TaffyLine<>(true, true) : TaffyLine.FALSE,
                 childBlockContext
             );
+            if (item.isInSameBfc) {
+                blockContext.mergeTopAdjoiningFloats(childBlockContext);
+            }
 
             FloatSize finalSize = itemOutput.size();
 
-            if (!itemAvoidsFloats) {
+            if (!itemAvoidsFloats && (!item.isInSameBfc || hasActiveFloatsBeforeItem)) {
                 flowSlot = findContentSlotForBox(
                     blockContext,
                     minimumY,
@@ -825,8 +835,20 @@ public class BlockComputer {
                                                           .collapseWithMargin(resolvedMargin.top).resolve();
             }
 
+            boolean hasClearance = false;
+            if (item.isInSameBfc) {
+                float clearThreshold = blockContext.clearedThreshold(item.clear);
+                float hypotheticalY = committedYOffset + activeCollapsibleMarginSet.copy()
+                    .collapseWithSet(topMarginSet).resolve();
+                if (!Float.isInfinite(clearThreshold)
+                    && (blockContext.hasAdjoiningFloat(item.clear) || hypotheticalY < clearThreshold)) {
+                    hasClearance = true;
+                    yMarginOffset = clearThreshold - committedYOffset;
+                }
+            }
+
             item.computedSize = finalSize;
-            item.canBeCollapsedThrough = itemOutput.marginsCanCollapseThrough();
+            item.canBeCollapsedThrough = itemOutput.marginsCanCollapseThrough() && !hasClearance;
 
             // Update static position for RTL
             float staticX = isRtl
@@ -839,7 +861,7 @@ public class BlockComputer {
 
             float y = itemAvoidsFloats
                 ? bfcSlot.y + insetOffsetY
-                : blockContext.hasFloats()
+                : hasActiveFloatsBeforeItem
                 ? Math.max(committedYOffset + insetOffsetY + yMarginOffset, flowSlot.y + insetOffsetY)
                 : committedYOffset + insetOffsetY + yMarginOffset;
 
@@ -894,7 +916,7 @@ public class BlockComputer {
                 x = isRtl
                     ? contentBoxInset.left + bfcSlot.x + bfcSlot.borderWidth - finalSize.width + insetOffsetX
                     : contentBoxInset.left + bfcSlot.x + insetOffsetX;
-            } else if (blockContext.hasFloats()) {
+            } else if (hasActiveFloatsBeforeItem) {
                 x = isRtl
                     ? contentBoxInset.left + flowSlot.x + flowSlot.width - finalSize.width
                         - resolvedMargin.right + insetOffsetX
@@ -934,7 +956,9 @@ public class BlockComputer {
 
             // Update first_child_top_margin_set
             if (isCollapsingWithFirstMarginSet) {
-                if (item.canBeCollapsedThrough) {
+                if (hasClearance) {
+                    isCollapsingWithFirstMarginSet = false;
+                } else if (item.canBeCollapsedThrough) {
                     firstChildTopMarginSet
                         .collapseWithSet(topMarginSet)
                         .collapseWithSet(bottomMarginSet);
@@ -951,12 +975,11 @@ public class BlockComputer {
                     .collapseWithSet(bottomMarginSet);
                 yOffsetForAbsolute = committedYOffset + finalSize.height + yMarginOffset;
             } else {
-                committedYOffset = itemAvoidsFloats
-                    ? y - insetOffsetY + finalSize.height
-                    : committedYOffset + finalSize.height + yMarginOffset;
+                committedYOffset = y - insetOffsetY + finalSize.height;
                 activeCollapsibleMarginSet = bottomMarginSet;
                 yOffsetForAbsolute = committedYOffset + activeCollapsibleMarginSet.resolve();
                 allChildrenCanBeCollapsedThrough = false;
+                blockContext.commitStrut();
             }
         }
 

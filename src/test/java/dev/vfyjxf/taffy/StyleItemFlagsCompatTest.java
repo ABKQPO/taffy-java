@@ -3,6 +3,7 @@ package dev.vfyjxf.taffy;
 import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
+import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.LengthPercentage;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Compatibility tests for Style flags that exist in Rust taffy:
  * - itemIsTable: block layout should NOT stretch-fit table children.
- * - itemIsReplaced: grid minimum contribution for compressible replaced elements should be capped by definite preferred/max sizes.
+ * - itemIsReplaced: block layout uses intrinsic sizing, and grid minimum contributions are capped.
  */
 public class StyleItemFlagsCompatTest {
 
@@ -108,6 +109,72 @@ public class StyleItemFlagsCompatTest {
     }
 
     @Test
+    @DisplayName("block_replaced_child_auto_width_uses_intrinsic_size")
+    void blockReplacedChildAutoWidthUsesIntrinsicSize() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle childStyle = replacedBlockStyle();
+        NodeId child = tree.newLeafWithMeasure(childStyle, fixedMeasure(142.0f, 20.0f));
+        NodeId root = tree.newWithChildren(blockContainer(600.0f), child);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        Layout childLayout = tree.getLayout(child);
+        assertEquals(142.0f, childLayout.size().width, EPSILON);
+        assertEquals(20.0f, childLayout.size().height, EPSILON);
+    }
+
+    @Test
+    @DisplayName("block_replaced_child_uses_explicit_size")
+    void blockReplacedChildUsesExplicitSize() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle childStyle = replacedBlockStyle();
+        childStyle.size = new TaffySize<>(TaffyDimension.length(300.0f), TaffyDimension.length(50.0f));
+        NodeId child = tree.newLeafWithMeasure(childStyle, fixedMeasure(142.0f, 20.0f));
+        NodeId root = tree.newWithChildren(blockContainer(600.0f), child);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        Layout childLayout = tree.getLayout(child);
+        assertEquals(300.0f, childLayout.size().width, EPSILON);
+        assertEquals(50.0f, childLayout.size().height, EPSILON);
+    }
+
+    @Test
+    @DisplayName("block_replaced_child_max_width_clamps_intrinsic_size")
+    void blockReplacedChildMaxWidthClampsIntrinsicSize() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle childStyle = replacedBlockStyle();
+        childStyle.maxSize = new TaffySize<>(TaffyDimension.percent(1.0f), TaffyDimension.AUTO);
+        NodeId child = tree.newLeafWithMeasure(childStyle, fixedMeasure(142.0f, 20.0f));
+        NodeId root = tree.newWithChildren(blockContainer(100.0f), child);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(100.0f, tree.getLayout(child).size().width, EPSILON);
+    }
+
+    @Test
+    @DisplayName("block_replaced_child_auto_margins_center_intrinsic_width")
+    void blockReplacedChildAutoMarginsCenterIntrinsicWidth() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle childStyle = replacedBlockStyle();
+        childStyle.margin = TaffyRect.ltrb(
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.ZERO
+        );
+        NodeId child = tree.newLeafWithMeasure(childStyle, fixedMeasure(142.0f, 20.0f));
+        NodeId root = tree.newWithChildren(blockContainer(600.0f), child);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        Layout childLayout = tree.getLayout(child);
+        assertEquals(142.0f, childLayout.size().width, EPSILON);
+        assertEquals(229.0f, childLayout.location().x, EPSILON);
+    }
+
+    @Test
     @DisplayName("grid_compressible_replaced_minimum_contribution_is_capped_by_max_size")
     void gridCompressibleReplacedMinimumContributionIsCappedByMaxSize() {
         TaffyTree tree = new TaffyTree();
@@ -170,5 +237,19 @@ public class StyleItemFlagsCompatTest {
 
         Layout itemLayout = tree.getLayout(item);
         assertEquals(110.0f, itemLayout.size().width, EPSILON);
+    }
+
+    private static TaffyStyle blockContainer(float width) {
+        TaffyStyle style = new TaffyStyle();
+        style.display = TaffyDisplay.BLOCK;
+        style.size = new TaffySize<>(TaffyDimension.length(width), TaffyDimension.AUTO);
+        return style;
+    }
+
+    private static TaffyStyle replacedBlockStyle() {
+        TaffyStyle style = new TaffyStyle();
+        style.display = TaffyDisplay.BLOCK;
+        style.itemIsReplaced = true;
+        return style;
     }
 }

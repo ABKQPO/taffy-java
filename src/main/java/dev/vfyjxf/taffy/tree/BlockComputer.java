@@ -48,6 +48,7 @@ public class BlockComputer {
         NodeId nodeId;
         int order;
         boolean isTable;
+        boolean isReplaced;
         FloatSize size;
         FloatSize minSize;
         FloatSize maxSize;
@@ -534,6 +535,7 @@ public class BlockComputer {
             item.staticPosition = new FloatPoint(0f, 0f);
             item.canBeCollapsedThrough = false;
             item.isTable = childStyle.getItemIsTable();
+            item.isReplaced = childStyle.getItemIsReplaced();
             boolean isScrollContainer = item.overflow.x.isScrollContainer() || item.overflow.y.isScrollContainer();
             item.isInSameBfc = childStyle.getDisplay() == TaffyDisplay.BLOCK
                 && !item.isTable
@@ -756,7 +758,7 @@ public class BlockComputer {
             }
 
             FloatSize knownDimensions;
-            if (item.isTable) {
+            if (item.isTable || item.isReplaced) {
                 knownDimensions = new FloatSize(NaN, NaN);
             } else {
                 float width = Float.isNaN(item.size.width) ? stretchWidth : item.size.width;

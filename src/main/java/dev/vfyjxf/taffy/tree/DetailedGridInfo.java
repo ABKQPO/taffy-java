@@ -34,7 +34,7 @@ public class DetailedGridInfo {
         FloatRect paddingBox) {
         this.rows = rows;
         this.columns = columns;
-        this.items = Collections.unmodifiableList(new ArrayList<>(items == null ? Collections.emptyList() : items));
+        this.items = List.copyOf(items == null ? Collections.emptyList() : items);
         this.gridTemplateRows = gridTemplateRows == null ? "" : gridTemplateRows;
         this.gridTemplateColumns = gridTemplateColumns == null ? "" : gridTemplateColumns;
         this.namedLineResolver = namedLineResolver;

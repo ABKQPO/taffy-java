@@ -200,15 +200,11 @@ public class AvailableSpace {
 
     @Override
     public String toString() {
-        switch (type) {
-            case DEFINITE:
-                return "Definite(" + value + ")";
-            case MIN_CONTENT:
-                return "MinContent";
-            case MAX_CONTENT:
-                return "MaxContent";
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case DEFINITE -> "Definite(" + value + ")";
+            case MIN_CONTENT -> "MinContent";
+            case MAX_CONTENT -> "MaxContent";
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 }

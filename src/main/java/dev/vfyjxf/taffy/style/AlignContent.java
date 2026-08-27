@@ -72,18 +72,18 @@ public enum AlignContent {
 
     /** Returns the underlying position keyword. */
     public AlignContentKeyword keyword() {
-        switch (this) {
-            case START: case SAFE_START: return AlignContentKeyword.START;
-            case END: case SAFE_END: return AlignContentKeyword.END;
-            case FLEX_START: case SAFE_FLEX_START: return AlignContentKeyword.FLEX_START;
-            case FLEX_END: case SAFE_FLEX_END: return AlignContentKeyword.FLEX_END;
-            case CENTER: case SAFE_CENTER: return AlignContentKeyword.CENTER;
-            case STRETCH: case AUTO: return AlignContentKeyword.STRETCH;
-            case SPACE_BETWEEN: return AlignContentKeyword.SPACE_BETWEEN;
-            case SPACE_EVENLY: return AlignContentKeyword.SPACE_EVENLY;
-            case SPACE_AROUND: return AlignContentKeyword.SPACE_AROUND;
-            default: throw new IllegalStateException("Unexpected align-content value: " + this);
-        }
+        return switch (this) {
+            case START, SAFE_START -> AlignContentKeyword.START;
+            case END, SAFE_END -> AlignContentKeyword.END;
+            case FLEX_START, SAFE_FLEX_START -> AlignContentKeyword.FLEX_START;
+            case FLEX_END, SAFE_FLEX_END -> AlignContentKeyword.FLEX_END;
+            case CENTER, SAFE_CENTER -> AlignContentKeyword.CENTER;
+            case STRETCH, AUTO -> AlignContentKeyword.STRETCH;
+            case SPACE_BETWEEN -> AlignContentKeyword.SPACE_BETWEEN;
+            case SPACE_EVENLY -> AlignContentKeyword.SPACE_EVENLY;
+            case SPACE_AROUND -> AlignContentKeyword.SPACE_AROUND;
+            default -> throw new IllegalStateException("Unexpected align-content value: " + this);
+        };
     }
 
     /** Returns whether this value has the CSS safe overflow modifier. */
@@ -94,14 +94,14 @@ public enum AlignContent {
 
     /** Removes the safe modifier while preserving the alignment position. */
     public AlignContent withoutSafety() {
-        switch (this) {
-            case SAFE_START: return START;
-            case SAFE_END: return END;
-            case SAFE_FLEX_START: return FLEX_START;
-            case SAFE_FLEX_END: return FLEX_END;
-            case SAFE_CENTER: return CENTER;
-            default: return this;
-        }
+        return switch (this) {
+            case SAFE_START -> START;
+            case SAFE_END -> END;
+            case SAFE_FLEX_START -> FLEX_START;
+            case SAFE_FLEX_END -> FLEX_END;
+            case SAFE_CENTER -> CENTER;
+            default -> this;
+        };
     }
 
     /** Parse a CSS align-content keyword. */

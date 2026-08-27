@@ -25,12 +25,12 @@ public class DetailedGridTracksInfo {
         Float emptyAxisLine,
         Map<Integer, List<String>> lineNames) {
         this.counts = new TrackCounts(counts);
-        this.sizes = Collections.unmodifiableList(new ArrayList<>(sizes));
-        this.positions = Collections.unmodifiableList(new ArrayList<>(positions));
+        this.sizes = List.copyOf(sizes);
+        this.positions = List.copyOf(positions);
         this.emptyAxisLine = emptyAxisLine;
         Map<Integer, List<String>> copiedNames = new HashMap<>();
         for (Map.Entry<Integer, List<String>> entry : lineNames.entrySet()) {
-            copiedNames.put(entry.getKey(), Collections.unmodifiableList(new ArrayList<>(entry.getValue())));
+            copiedNames.put(entry.getKey(), List.copyOf(entry.getValue()));
         }
         this.lineNames = Collections.unmodifiableMap(copiedNames);
     }

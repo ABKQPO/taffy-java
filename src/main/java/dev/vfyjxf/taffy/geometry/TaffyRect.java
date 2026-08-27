@@ -310,6 +310,6 @@ public class TaffyRect<T> {
      * Null is treated as "None" => NaN.
      */
     public TaffyRect<Float> resolveOrZero(Float context) {
-        return resolveOrZero(context == null ? Float.NaN : context.floatValue());
+        return resolveOrZero(context == null ? Float.NaN : context);
     }
 }

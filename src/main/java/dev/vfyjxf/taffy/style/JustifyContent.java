@@ -45,31 +45,31 @@ public enum JustifyContent {
     public static JustifyContent parse(String value) {
         AlignContent parsed = CssParser.parseJustifyContent(value);
         boolean safe = parsed.isSafe();
-        switch (parsed.withoutSafety()) {
-            case START: return safe ? SAFE_START : START;
-            case END: return safe ? SAFE_END : END;
-            case FLEX_START: return safe ? SAFE_FLEX_START : FLEX_START;
-            case FLEX_END: return safe ? SAFE_FLEX_END : FLEX_END;
-            case CENTER: return safe ? SAFE_CENTER : CENTER;
-            case STRETCH: return STRETCH;
-            case SPACE_BETWEEN: return SPACE_BETWEEN;
-            case SPACE_EVENLY: return SPACE_EVENLY;
-            case SPACE_AROUND: return SPACE_AROUND;
-            case AUTO: return FLEX_START;
-            default: throw new IllegalStateException("Unexpected justify-content value: " + parsed);
-        }
+        return switch (parsed.withoutSafety()) {
+            case START -> safe ? SAFE_START : START;
+            case END -> safe ? SAFE_END : END;
+            case FLEX_START -> safe ? SAFE_FLEX_START : FLEX_START;
+            case FLEX_END -> safe ? SAFE_FLEX_END : FLEX_END;
+            case CENTER -> safe ? SAFE_CENTER : CENTER;
+            case STRETCH -> STRETCH;
+            case SPACE_BETWEEN -> SPACE_BETWEEN;
+            case SPACE_EVENLY -> SPACE_EVENLY;
+            case SPACE_AROUND -> SPACE_AROUND;
+            case AUTO -> FLEX_START;
+            default -> throw new IllegalStateException("Unexpected justify-content value: " + parsed);
+        };
     }
 
     /** Returns the underlying distribution keyword. */
     public JustifyContent withoutSafety() {
-        switch (this) {
-            case SAFE_START: return START;
-            case SAFE_END: return END;
-            case SAFE_FLEX_START: return FLEX_START;
-            case SAFE_FLEX_END: return FLEX_END;
-            case SAFE_CENTER: return CENTER;
-            default: return this;
-        }
+        return switch (this) {
+            case SAFE_START -> START;
+            case SAFE_END -> END;
+            case SAFE_FLEX_START -> FLEX_START;
+            case SAFE_FLEX_END -> FLEX_END;
+            case SAFE_CENTER -> CENTER;
+            default -> this;
+        };
     }
 
     /** Returns whether this value has the CSS safe overflow modifier. */

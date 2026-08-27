@@ -165,19 +165,18 @@ public class TrackSizingFunction {
 
     /** Expand this track sizing function into a readable tagged representation. */
     public ExpandedTrackSizingFunction expand() {
-        switch (type) {
-            case FIXED: return ExpandedTrackSizingFunction.fixed(lengthValue);
-            case MIN_CONTENT: return ExpandedTrackSizingFunction.minContent();
-            case MAX_CONTENT: return ExpandedTrackSizingFunction.maxContent();
-            case FIT_CONTENT: return ExpandedTrackSizingFunction.fitContent(lengthValue);
-            case AUTO: return ExpandedTrackSizingFunction.auto();
-            case FLEX: return ExpandedTrackSizingFunction.flex(flexValue);
-            case MINMAX:
-                return ExpandedTrackSizingFunction.minmax(
+        return switch (type) {
+            case FIXED -> ExpandedTrackSizingFunction.fixed(lengthValue);
+            case MIN_CONTENT -> ExpandedTrackSizingFunction.minContent();
+            case MAX_CONTENT -> ExpandedTrackSizingFunction.maxContent();
+            case FIT_CONTENT -> ExpandedTrackSizingFunction.fitContent(lengthValue);
+            case AUTO -> ExpandedTrackSizingFunction.auto();
+            case FLEX -> ExpandedTrackSizingFunction.flex(flexValue);
+            case MINMAX -> ExpandedTrackSizingFunction.minmax(
                     minFunc == null ? null : minFunc.expand(),
                     maxFunc == null ? null : maxFunc.expand());
-            default: throw new IllegalStateException("Unexpected track type: " + type);
-        }
+            default -> throw new IllegalStateException("Unexpected track type: " + type);
+        };
     }
 
     /**
@@ -306,18 +305,12 @@ public class TrackSizingFunction {
      * This is used to determine which items need their min-content contribution tracked for re-run detection.
      */
     public boolean hasIntrinsicSizingFunction() {
-        switch (type) {
-            case MIN_CONTENT:
-            case MAX_CONTENT:
-            case AUTO:
-            case FIT_CONTENT:
-                return true;
-            case MINMAX:
-                return (minFunc != null && minFunc.hasIntrinsicSizingFunction()) ||
-                       (maxFunc != null && maxFunc.hasIntrinsicSizingFunction());
-            default:
-                return false;
-        }
+        return switch (type) {
+            case MIN_CONTENT, MAX_CONTENT, AUTO, FIT_CONTENT -> true;
+            case MINMAX -> (minFunc != null && minFunc.hasIntrinsicSizingFunction()) ||
+                    (maxFunc != null && maxFunc.hasIntrinsicSizingFunction());
+            default -> false;
+        };
     }
 
     /**
@@ -326,17 +319,13 @@ public class TrackSizingFunction {
      * A track has a fixed component if it's a fixed length/percentage or a minmax where either min or max is fixed.
      */
     public boolean hasFixedComponent() {
-        switch (type) {
-            case FIXED:
-                return lengthValue != null;
-            case MINMAX:
-                return (minFunc != null && minFunc.hasFixedComponent()) ||
-                       (maxFunc != null && maxFunc.hasFixedComponent());
-            case FIT_CONTENT:
-                return lengthValue != null;  // fit-content has a fixed limit
-            default:
-                return false;  // MIN_CONTENT, MAX_CONTENT, AUTO, FLEX are not fixed
-        }
+        return switch (type) {
+            case FIXED -> lengthValue != null;
+            case MINMAX -> (minFunc != null && minFunc.hasFixedComponent()) ||
+                    (maxFunc != null && maxFunc.hasFixedComponent());
+            case FIT_CONTENT -> lengthValue != null;  // fit-content has a fixed limit
+            default -> false;  // MIN_CONTENT, MAX_CONTENT, AUTO, FLEX are not fixed
+        };
     }
 
     /**
@@ -370,38 +359,26 @@ public class TrackSizingFunction {
      * This is used to determine if column/row sizing needs to be re-run after initial sizing.
      */
     public boolean usesPercentage() {
-        switch (type) {
-            case FIXED:
-            case FIT_CONTENT:
-                return lengthValue != null && lengthValue.isPercent();
-            case MINMAX:
-                return (minFunc != null && minFunc.usesPercentage()) ||
-                       (maxFunc != null && maxFunc.usesPercentage());
-            default:
-                return false;
-        }
+        return switch (type) {
+            case FIXED, FIT_CONTENT -> lengthValue != null && lengthValue.isPercent();
+            case MINMAX -> (minFunc != null && minFunc.usesPercentage()) ||
+                    (maxFunc != null && maxFunc.usesPercentage());
+            default -> false;
+        };
     }
 
     @Override
     public String toString() {
-        switch (type) {
-            case FIXED:
-                return lengthValue.toString();
-            case MIN_CONTENT:
-                return "min-content";
-            case MAX_CONTENT:
-                return "max-content";
-            case FIT_CONTENT:
-                return "fit-content(" + lengthValue + ")";
-            case AUTO:
-                return "auto";
-            case FLEX:
-                return flexValue + "fr";
-            case MINMAX:
-                return "minmax(" + minFunc + ", " + maxFunc + ")";
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case FIXED -> lengthValue.toString();
+            case MIN_CONTENT -> "min-content";
+            case MAX_CONTENT -> "max-content";
+            case FIT_CONTENT -> "fit-content(" + lengthValue + ")";
+            case AUTO -> "auto";
+            case FLEX -> flexValue + "fr";
+            case MINMAX -> "minmax(" + minFunc + ", " + maxFunc + ")";
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 
     @Override

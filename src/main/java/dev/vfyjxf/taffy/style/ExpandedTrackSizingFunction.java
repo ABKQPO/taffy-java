@@ -52,24 +52,23 @@ public class ExpandedTrackSizingFunction {
     public ExpandedTrackSizingFunction getMaxFunction() { return maxFunction; }
 
     public TrackSizingFunction toTrackSizingFunction() {
-        switch (type) {
-            case FIXED: return TrackSizingFunction.fixed(lengthValue);
-            case MIN_CONTENT: return TrackSizingFunction.MIN_CONTENT;
-            case MAX_CONTENT: return TrackSizingFunction.MAX_CONTENT;
-            case FIT_CONTENT: return TrackSizingFunction.fitContent(lengthValue);
-            case AUTO: return TrackSizingFunction.AUTO;
-            case FLEX: return TrackSizingFunction.flex(flexValue);
-            case MINMAX: return TrackSizingFunction.minmax(
-                minFunction == null ? TrackSizingFunction.AUTO : minFunction.toTrackSizingFunction(),
-                maxFunction == null ? TrackSizingFunction.AUTO : maxFunction.toTrackSizingFunction());
-            default: throw new IllegalStateException("Unexpected expanded track type: " + type);
-        }
+        return switch (type) {
+            case FIXED -> TrackSizingFunction.fixed(lengthValue);
+            case MIN_CONTENT -> TrackSizingFunction.MIN_CONTENT;
+            case MAX_CONTENT -> TrackSizingFunction.MAX_CONTENT;
+            case FIT_CONTENT -> TrackSizingFunction.fitContent(lengthValue);
+            case AUTO -> TrackSizingFunction.AUTO;
+            case FLEX -> TrackSizingFunction.flex(flexValue);
+            case MINMAX -> TrackSizingFunction.minmax(
+                    minFunction == null ? TrackSizingFunction.AUTO : minFunction.toTrackSizingFunction(),
+                    maxFunction == null ? TrackSizingFunction.AUTO : maxFunction.toTrackSizingFunction());
+            default -> throw new IllegalStateException("Unexpected expanded track type: " + type);
+        };
     }
 
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof ExpandedTrackSizingFunction)) return false;
-        ExpandedTrackSizingFunction other = (ExpandedTrackSizingFunction) object;
+        if (!(object instanceof ExpandedTrackSizingFunction other)) return false;
         return type == other.type && Float.compare(flexValue, other.flexValue) == 0
             && Objects.equals(lengthValue, other.lengthValue)
             && Objects.equals(minFunction, other.minFunction)

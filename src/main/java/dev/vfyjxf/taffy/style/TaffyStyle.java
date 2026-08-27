@@ -586,30 +586,19 @@ public class TaffyStyle {
     private static JustifyContent mapJustifyContent(AlignContent justifyContent) {
         boolean safe = justifyContent.isSafe();
         AlignContent base = justifyContent.withoutSafety();
-        switch (base) {
-            case FLEX_START:
-                return safe ? JustifyContent.SAFE_FLEX_START : JustifyContent.FLEX_START;
-            case FLEX_END:
-                return safe ? JustifyContent.SAFE_FLEX_END : JustifyContent.FLEX_END;
-            case CENTER:
-                return safe ? JustifyContent.SAFE_CENTER : JustifyContent.CENTER;
-            case SPACE_BETWEEN:
-                return JustifyContent.SPACE_BETWEEN;
-            case SPACE_AROUND:
-                return JustifyContent.SPACE_AROUND;
-            case SPACE_EVENLY:
-                return JustifyContent.SPACE_EVENLY;
-            case START:
-                return safe ? JustifyContent.SAFE_START : JustifyContent.START;
-            case END:
-                return safe ? JustifyContent.SAFE_END : JustifyContent.END;
-            case STRETCH:
-                return JustifyContent.STRETCH;
-            case AUTO:
-                return JustifyContent.FLEX_START; // defensive (handled above)
-            default:
-                throw new IllegalStateException("Unexpected: " + justifyContent);
-        }
+        return switch (base) {
+            case FLEX_START -> safe ? JustifyContent.SAFE_FLEX_START : JustifyContent.FLEX_START;
+            case FLEX_END -> safe ? JustifyContent.SAFE_FLEX_END : JustifyContent.FLEX_END;
+            case CENTER -> safe ? JustifyContent.SAFE_CENTER : JustifyContent.CENTER;
+            case SPACE_BETWEEN -> JustifyContent.SPACE_BETWEEN;
+            case SPACE_AROUND -> JustifyContent.SPACE_AROUND;
+            case SPACE_EVENLY -> JustifyContent.SPACE_EVENLY;
+            case START -> safe ? JustifyContent.SAFE_START : JustifyContent.START;
+            case END -> safe ? JustifyContent.SAFE_END : JustifyContent.END;
+            case STRETCH -> JustifyContent.STRETCH;
+            case AUTO -> JustifyContent.FLEX_START; // defensive (handled above)
+            default -> throw new IllegalStateException("Unexpected: " + justifyContent);
+        };
     }
 
     public TaffySize<LengthPercentage> getGap() {return gap;}

@@ -15,8 +15,7 @@ public class MinMax<Min, Max> {
     @Override
     public boolean equals(Object object) {
         if (this == object) return true;
-        if (!(object instanceof MinMax<?, ?>)) return false;
-        MinMax<?, ?> other = (MinMax<?, ?>) object;
+        if (!(object instanceof MinMax<?, ?> other)) return false;
         return Objects.equals(min, other.min) && Objects.equals(max, other.max);
     }
 

@@ -1,6 +1,7 @@
 package dev.vfyjxf.taffy.style;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.math.BigInteger;
@@ -137,34 +138,30 @@ public class CssParser {
 
     public static TextAlign parseTextAlign(String input) {
         String value = singleKeyword(input, "text-align");
-        switch (value) {
-            case "auto": return TextAlign.AUTO;
-            case "start": return TextAlign.START;
-            case "end": return TextAlign.END;
-            case "left": return TextAlign.LEFT;
-            case "right": return TextAlign.RIGHT;
-            case "center":
-            case "-webkit-center":
-            case "-moz-center": return TextAlign.CENTER;
-            case "justify": return TextAlign.JUSTIFY;
-            case "justify-all": return TextAlign.JUSTIFY_ALL;
-            case "-webkit-left":
-            case "-moz-left": return TextAlign.LEFT;
-            case "-webkit-right":
-            case "-moz-right": return TextAlign.RIGHT;
-            default: throw invalidKeyword("text-align", value);
-        }
+        return switch (value) {
+            case "auto" -> TextAlign.AUTO;
+            case "start" -> TextAlign.START;
+            case "end" -> TextAlign.END;
+            case "left" -> TextAlign.LEFT;
+            case "right" -> TextAlign.RIGHT;
+            case "center", "-webkit-center", "-moz-center" -> TextAlign.CENTER;
+            case "justify" -> TextAlign.JUSTIFY;
+            case "justify-all" -> TextAlign.JUSTIFY_ALL;
+            case "-webkit-left", "-moz-left" -> TextAlign.LEFT;
+            case "-webkit-right", "-moz-right" -> TextAlign.RIGHT;
+            default -> throw invalidKeyword("text-align", value);
+        };
     }
 
     public static FlexDirection parseFlexDirection(String input) {
         String value = singleKeyword(input, "flex-direction");
-        switch (value) {
-            case "row": return FlexDirection.ROW;
-            case "column": return FlexDirection.COLUMN;
-            case "row-reverse": return FlexDirection.ROW_REVERSE;
-            case "column-reverse": return FlexDirection.COLUMN_REVERSE;
-            default: throw invalidKeyword("flex-direction", value);
-        }
+        return switch (value) {
+            case "row" -> FlexDirection.ROW;
+            case "column" -> FlexDirection.COLUMN;
+            case "row-reverse" -> FlexDirection.ROW_REVERSE;
+            case "column-reverse" -> FlexDirection.COLUMN_REVERSE;
+            default -> throw invalidKeyword("flex-direction", value);
+        };
     }
 
     public static FlexWrap parseFlexWrap(String input) {
@@ -175,25 +172,25 @@ public class CssParser {
     public static AlignSelf parseAlignSelf(String input) {
         AlignItems value = parseAlignItems(input);
         if (value == AlignItems.AUTO) return AlignSelf.AUTO;
-        switch (value) {
-            case START: return AlignSelf.FLEX_START;
-            case END: return AlignSelf.FLEX_END;
-            case FLEX_START: return AlignSelf.FLEX_START;
-            case FLEX_END: return AlignSelf.FLEX_END;
-            case SELF_START: return AlignSelf.SELF_START;
-            case SELF_END: return AlignSelf.SELF_END;
-            case CENTER: return AlignSelf.CENTER;
-            case BASELINE: return AlignSelf.BASELINE;
-            case STRETCH: return AlignSelf.STRETCH;
-            case SAFE_START: return AlignSelf.SAFE_START;
-            case SAFE_END: return AlignSelf.SAFE_END;
-            case SAFE_FLEX_START: return AlignSelf.SAFE_FLEX_START;
-            case SAFE_FLEX_END: return AlignSelf.SAFE_FLEX_END;
-            case SAFE_SELF_START: return AlignSelf.SAFE_SELF_START;
-            case SAFE_SELF_END: return AlignSelf.SAFE_SELF_END;
-            case SAFE_CENTER: return AlignSelf.SAFE_CENTER;
-            default: throw new IllegalStateException("Unexpected align-self value: " + value);
-        }
+        return switch (value) {
+            case START -> AlignSelf.FLEX_START;
+            case END -> AlignSelf.FLEX_END;
+            case FLEX_START -> AlignSelf.FLEX_START;
+            case FLEX_END -> AlignSelf.FLEX_END;
+            case SELF_START -> AlignSelf.SELF_START;
+            case SELF_END -> AlignSelf.SELF_END;
+            case CENTER -> AlignSelf.CENTER;
+            case BASELINE -> AlignSelf.BASELINE;
+            case STRETCH -> AlignSelf.STRETCH;
+            case SAFE_START -> AlignSelf.SAFE_START;
+            case SAFE_END -> AlignSelf.SAFE_END;
+            case SAFE_FLEX_START -> AlignSelf.SAFE_FLEX_START;
+            case SAFE_FLEX_END -> AlignSelf.SAFE_FLEX_END;
+            case SAFE_SELF_START -> AlignSelf.SAFE_SELF_START;
+            case SAFE_SELF_END -> AlignSelf.SAFE_SELF_END;
+            case SAFE_CENTER -> AlignSelf.SAFE_CENTER;
+            default -> throw new IllegalStateException("Unexpected align-self value: " + value);
+        };
     }
 
     /** Parse a justify-items value. */
@@ -214,32 +211,32 @@ public class CssParser {
     public static AlignItems parseAlignItems(String input) {
         String[] values = alignmentKeywords(input, "align-items");
         if (values.length == 1) {
-            switch (values[0]) {
-                case "auto": return AlignItems.AUTO;
-                case "start": return AlignItems.START;
-                case "end": return AlignItems.END;
-                case "flex-start": return AlignItems.FLEX_START;
-                case "flex-end": return AlignItems.FLEX_END;
-                case "self-start": return AlignItems.SELF_START;
-                case "self-end": return AlignItems.SELF_END;
-                case "center": return AlignItems.CENTER;
-                case "baseline": return AlignItems.BASELINE;
-                case "stretch": return AlignItems.STRETCH;
-                default: throw invalidKeyword("align-items", values[0]);
-            }
+            return switch (values[0]) {
+                case "auto" -> AlignItems.AUTO;
+                case "start" -> AlignItems.START;
+                case "end" -> AlignItems.END;
+                case "flex-start" -> AlignItems.FLEX_START;
+                case "flex-end" -> AlignItems.FLEX_END;
+                case "self-start" -> AlignItems.SELF_START;
+                case "self-end" -> AlignItems.SELF_END;
+                case "center" -> AlignItems.CENTER;
+                case "baseline" -> AlignItems.BASELINE;
+                case "stretch" -> AlignItems.STRETCH;
+                default -> throw invalidKeyword("align-items", values[0]);
+            };
         }
         if (values.length == 2 && ("safe".equals(values[0]) || "unsafe".equals(values[0]))) {
             boolean safe = "safe".equals(values[0]);
-            switch (values[1]) {
-                case "start": return safe ? AlignItems.SAFE_START : AlignItems.START;
-                case "end": return safe ? AlignItems.SAFE_END : AlignItems.END;
-                case "flex-start": return safe ? AlignItems.SAFE_FLEX_START : AlignItems.FLEX_START;
-                case "flex-end": return safe ? AlignItems.SAFE_FLEX_END : AlignItems.FLEX_END;
-                case "self-start": return safe ? AlignItems.SAFE_SELF_START : AlignItems.SELF_START;
-                case "self-end": return safe ? AlignItems.SAFE_SELF_END : AlignItems.SELF_END;
-                case "center": return safe ? AlignItems.SAFE_CENTER : AlignItems.CENTER;
-                default: throw invalidKeyword("align-items", values[1]);
-            }
+            return switch (values[1]) {
+                case "start" -> safe ? AlignItems.SAFE_START : AlignItems.START;
+                case "end" -> safe ? AlignItems.SAFE_END : AlignItems.END;
+                case "flex-start" -> safe ? AlignItems.SAFE_FLEX_START : AlignItems.FLEX_START;
+                case "flex-end" -> safe ? AlignItems.SAFE_FLEX_END : AlignItems.FLEX_END;
+                case "self-start" -> safe ? AlignItems.SAFE_SELF_START : AlignItems.SELF_START;
+                case "self-end" -> safe ? AlignItems.SAFE_SELF_END : AlignItems.SELF_END;
+                case "center" -> safe ? AlignItems.SAFE_CENTER : AlignItems.CENTER;
+                default -> throw invalidKeyword("align-items", values[1]);
+            };
         }
         throw new ParseError("Invalid align-items value: " + input);
     }
@@ -247,30 +244,30 @@ public class CssParser {
     public static AlignContent parseAlignContent(String input) {
         String[] values = alignmentKeywords(input, "align-content");
         if (values.length == 1) {
-            switch (values[0]) {
-                case "auto": return AlignContent.AUTO;
-                case "start": return AlignContent.START;
-                case "end": return AlignContent.END;
-                case "flex-start": return AlignContent.FLEX_START;
-                case "flex-end": return AlignContent.FLEX_END;
-                case "center": return AlignContent.CENTER;
-                case "stretch": return AlignContent.STRETCH;
-                case "space-between": return AlignContent.SPACE_BETWEEN;
-                case "space-evenly": return AlignContent.SPACE_EVENLY;
-                case "space-around": return AlignContent.SPACE_AROUND;
-                default: throw invalidKeyword("align-content", values[0]);
-            }
+            return switch (values[0]) {
+                case "auto" -> AlignContent.AUTO;
+                case "start" -> AlignContent.START;
+                case "end" -> AlignContent.END;
+                case "flex-start" -> AlignContent.FLEX_START;
+                case "flex-end" -> AlignContent.FLEX_END;
+                case "center" -> AlignContent.CENTER;
+                case "stretch" -> AlignContent.STRETCH;
+                case "space-between" -> AlignContent.SPACE_BETWEEN;
+                case "space-evenly" -> AlignContent.SPACE_EVENLY;
+                case "space-around" -> AlignContent.SPACE_AROUND;
+                default -> throw invalidKeyword("align-content", values[0]);
+            };
         }
         if (values.length == 2 && ("safe".equals(values[0]) || "unsafe".equals(values[0]))) {
             boolean safe = "safe".equals(values[0]);
-            switch (values[1]) {
-                case "start": return safe ? AlignContent.SAFE_START : AlignContent.START;
-                case "end": return safe ? AlignContent.SAFE_END : AlignContent.END;
-                case "flex-start": return safe ? AlignContent.SAFE_FLEX_START : AlignContent.FLEX_START;
-                case "flex-end": return safe ? AlignContent.SAFE_FLEX_END : AlignContent.FLEX_END;
-                case "center": return safe ? AlignContent.SAFE_CENTER : AlignContent.CENTER;
-                default: throw invalidKeyword("align-content", values[1]);
-            }
+            return switch (values[1]) {
+                case "start" -> safe ? AlignContent.SAFE_START : AlignContent.START;
+                case "end" -> safe ? AlignContent.SAFE_END : AlignContent.END;
+                case "flex-start" -> safe ? AlignContent.SAFE_FLEX_START : AlignContent.FLEX_START;
+                case "flex-end" -> safe ? AlignContent.SAFE_FLEX_END : AlignContent.FLEX_END;
+                case "center" -> safe ? AlignContent.SAFE_CENTER : AlignContent.CENTER;
+                default -> throw invalidKeyword("align-content", values[1]);
+            };
         }
         throw new ParseError("Invalid align-content value: " + input);
     }
@@ -375,7 +372,7 @@ public class CssParser {
             if (keyword.equals("min-content")) return AvailableSpace.MIN_CONTENT;
             if (keyword.equals("max-content")) return AvailableSpace.MAX_CONTENT;
             ParsedNumber number = number(value);
-            if (number.value < 0f || !(number.unit.equals("") || number.unit.equals("px"))) {
+            if (number.value < 0f || !(number.unit.isEmpty() || number.unit.equals("px"))) {
                 fail("Expected a non-negative length");
             }
             return AvailableSpace.definite(number.value);
@@ -425,9 +422,17 @@ public class CssParser {
 
         private TrackSizingFunction trackMinFunction(String value) {
             String lower = value.toLowerCase(Locale.ROOT);
-            if (lower.equals("auto")) return TrackSizingFunction.AUTO;
-            if (lower.equals("min-content")) return TrackSizingFunction.MIN_CONTENT;
-            if (lower.equals("max-content")) return TrackSizingFunction.MAX_CONTENT;
+            switch (lower) {
+                case "auto" -> {
+                    return TrackSizingFunction.AUTO;
+                }
+                case "min-content" -> {
+                    return TrackSizingFunction.MIN_CONTENT;
+                }
+                case "max-content" -> {
+                    return TrackSizingFunction.MAX_CONTENT;
+                }
+            }
             ParsedNumber number = number(value);
             if (number.unit.equals("px")) return TrackSizingFunction.fixed(number.value);
             if (number.unit.equals("%")) return TrackSizingFunction.percent(number.value / 100f);
@@ -543,7 +548,7 @@ public class CssParser {
             if (!value.toLowerCase(Locale.ROOT).startsWith(prefix) || !value.endsWith(")")) fail("Malformed " + function + "() function");
             String body = value.substring(prefix.length(), value.length() - 1);
             List<String> result = splitTopLevel(body, ',');
-            for (int i = 0; i < result.size(); i++) result.set(i, result.get(i).trim());
+            result.replaceAll(String::trim);
             return result;
         }
 
@@ -555,9 +560,7 @@ public class CssParser {
             String body = input.substring(start, index).trim();
             if (body.isEmpty()) fail("Expected a value");
             String[] values = body.split("\\s+");
-            List<String> result = new ArrayList<>();
-            for (String value : values) result.add(value);
-            return result;
+            return new ArrayList<>(Arrays.asList(values));
         }
 
         private String token() {

@@ -24,7 +24,7 @@ public class GridTemplateAreas {
         if (rowCount < 0 || columnCount < 0) {
             throw new IllegalArgumentException("Grid template area dimensions must not be negative");
         }
-        this.areas = Collections.unmodifiableList(new ArrayList<>(areas == null ? List.of() : areas));
+        this.areas = List.copyOf(areas == null ? List.of() : areas);
         this.rowCount = rowCount;
         this.columnCount = columnCount;
     }
@@ -121,8 +121,7 @@ public class GridTemplateAreas {
     @Override
     public boolean equals(Object object) {
         if (this == object) return true;
-        if (!(object instanceof GridTemplateAreas)) return false;
-        GridTemplateAreas other = (GridTemplateAreas) object;
+        if (!(object instanceof GridTemplateAreas other)) return false;
         return rowCount == other.rowCount && columnCount == other.columnCount && areas.equals(other.areas);
     }
 

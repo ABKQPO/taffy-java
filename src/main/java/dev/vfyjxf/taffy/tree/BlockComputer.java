@@ -150,7 +150,7 @@ public class BlockComputer {
         RunMode runMode = inputs.runMode();
         TaffyLine<Boolean> verticalMarginsAreCollapsible = inputs.verticalMarginsAreCollapsible();
 
-        Float aspectRatio = style.getAspectRatio();
+        float aspectRatio = style.getAspectRatio();
         FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
         FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width);
 
@@ -455,15 +455,11 @@ public class BlockComputer {
             safe = true;
         }
         if (safe && freeSpace <= 0f) return 0f;
-        switch (keyword) {
-            case CENTER:
-                return freeSpace / 2f;
-            case END:
-            case FLEX_END:
-                return freeSpace;
-            default:
-                return 0f;
-        }
+        return switch (keyword) {
+            case CENTER -> freeSpace / 2f;
+            case END, FLEX_END -> freeSpace;
+            default -> 0f;
+        };
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {
@@ -506,7 +502,7 @@ public class BlockComputer {
             item.nodeId = childId;
             item.order = order++;
 
-            Float aspectRatio = childStyle.getAspectRatio();
+            float aspectRatio = childStyle.getAspectRatio();
             FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), nodeInnerSize.width);
             FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), nodeInnerSize.width);
             item.padding = itemPadding;
@@ -1036,7 +1032,7 @@ public class BlockComputer {
             TaffyStyle childStyle = tree.getStyle(item.nodeId);
             if (childStyle.getBoxGenerationMode() == BoxGenerationMode.NONE) continue;
 
-            Float aspectRatio = childStyle.getAspectRatio();
+            float aspectRatio = childStyle.getAspectRatio();
 
             // Get margin style - need to track which are auto
             TaffyRect<LengthPercentageAuto> marginStyle = childStyle.getMargin();

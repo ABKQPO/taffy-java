@@ -182,34 +182,29 @@ public class TaffyDimension {
      * Convert from LengthPercentage
      */
     public static TaffyDimension from(LengthPercentage lp) {
-        switch (lp.getType()) {
-            case LENGTH:
-                return length(lp.getValue());
-            case PERCENT:
-                return percent(lp.getValue());
-            case CALC:
-                return calc(lp.getCalcExpression());
-            default:
-                throw new IllegalStateException("Unexpected: " + lp.getType());
-        }
+        return switch (lp.getType()) {
+            case LENGTH -> length(lp.getValue());
+            case PERCENT -> percent(lp.getValue());
+            case CALC -> calc(lp.getCalcExpression());
+            default -> throw new IllegalStateException("Unexpected: " + lp.getType());
+        };
     }
 
     /**
      * Convert from LengthPercentageAuto
      */
     public static TaffyDimension from(LengthPercentageAuto lpa) {
-        switch (lpa.getType()) {
-            case LENGTH: return length(lpa.getValue());
-            case PERCENT: return percent(lpa.getValue());
-            case AUTO: return AUTO;
-            case CALC: return calc(lpa.getCalcExpression());
-            case MIN_CONTENT: return MIN_CONTENT;
-            case MAX_CONTENT: return MAX_CONTENT;
-            case FIT_CONTENT:
-                return lpa.getFitContentLimit() == null ? FIT_CONTENT : fitContent(lpa.getFitContentLimit());
-            case STRETCH: return STRETCH;
-            default: throw new IllegalStateException("Unexpected: " + lpa.getType());
-        }
+        return switch (lpa.getType()) {
+            case LENGTH -> length(lpa.getValue());
+            case PERCENT -> percent(lpa.getValue());
+            case AUTO -> AUTO;
+            case CALC -> calc(lpa.getCalcExpression());
+            case MIN_CONTENT -> MIN_CONTENT;
+            case MAX_CONTENT -> MAX_CONTENT;
+            case FIT_CONTENT -> lpa.getFitContentLimit() == null ? FIT_CONTENT : fitContent(lpa.getFitContentLimit());
+            case STRETCH -> STRETCH;
+            default -> throw new IllegalStateException("Unexpected: " + lpa.getType());
+        };
     }
 
     /**
@@ -260,18 +255,18 @@ public class TaffyDimension {
 
     /** Expand this value into a readable tagged representation. */
     public ExpandedDimension expand() {
-        switch (type) {
-            case LENGTH: return ExpandedDimension.length(value);
-            case PERCENT: return ExpandedDimension.percent(value);
-            case AUTO: return ExpandedDimension.auto();
-            case CALC: return ExpandedDimension.calc(calcExpression);
-            case MIN_CONTENT: return ExpandedDimension.minContent();
-            case MAX_CONTENT: return ExpandedDimension.maxContent();
-            case FIT_CONTENT: return ExpandedDimension.fitContent(fitContentLimit);
-            case STRETCH: return ExpandedDimension.stretch();
-            case CONTENT: return ExpandedDimension.content();
-            default: throw new IllegalStateException("Unexpected dimension type: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> ExpandedDimension.length(value);
+            case PERCENT -> ExpandedDimension.percent(value);
+            case AUTO -> ExpandedDimension.auto();
+            case CALC -> ExpandedDimension.calc(calcExpression);
+            case MIN_CONTENT -> ExpandedDimension.minContent();
+            case MAX_CONTENT -> ExpandedDimension.maxContent();
+            case FIT_CONTENT -> ExpandedDimension.fitContent(fitContentLimit);
+            case STRETCH -> ExpandedDimension.stretch();
+            case CONTENT -> ExpandedDimension.content();
+            default -> throw new IllegalStateException("Unexpected dimension type: " + type);
+        };
     }
     
     /**
@@ -339,18 +334,14 @@ public class TaffyDimension {
      * to compute their actual value based on content.
      */
     public float maybeResolve(float context) {
-        switch (type) {
-            case LENGTH: return value;
-            case PERCENT: return Float.isNaN(context) ? Float.NaN : context * value;
-            case AUTO:
-            case MIN_CONTENT:
-            case MAX_CONTENT:
-            case FIT_CONTENT:
-            case STRETCH:
-            case CONTENT: return Float.NaN;
-            case CALC: return Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
-            default: throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value;
+            case PERCENT -> Float.isNaN(context) ? Float.NaN : context * value;
+            case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH, CONTENT -> Float.NaN;
+            case CALC ->
+                    Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 
     /**
@@ -388,17 +379,17 @@ public class TaffyDimension {
 
     @Override
     public String toString() {
-        switch (type) {
-            case LENGTH: return value + "px";
-            case PERCENT: return (value * 100) + "%";
-            case AUTO: return "auto";
-            case CALC: return "calc(...)";
-            case MIN_CONTENT: return "min-content";
-            case MAX_CONTENT: return "max-content";
-            case FIT_CONTENT: return fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
-            case STRETCH: return "stretch";
-            case CONTENT: return "content";
-            default: throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value + "px";
+            case PERCENT -> (value * 100) + "%";
+            case AUTO -> "auto";
+            case CALC -> "calc(...)";
+            case MIN_CONTENT -> "min-content";
+            case MAX_CONTENT -> "max-content";
+            case FIT_CONTENT -> fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
+            case STRETCH -> "stretch";
+            case CONTENT -> "content";
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 }

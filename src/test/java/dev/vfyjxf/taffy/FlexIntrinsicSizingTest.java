@@ -76,6 +76,24 @@ public class FlexIntrinsicSizingTest {
         assertEquals(10f, tree.getLayout(item).size().height, 0.01f);
     }
 
+    @Test
+    void intrinsicRowSizeTransfersStretchedCrossSizeThroughAspectRatio() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle itemStyle = new TaffyStyle();
+        itemStyle.aspectRatio = 2f;
+        NodeId item = tree.newLeaf(itemStyle);
+
+        TaffyStyle rootStyle = flexStyle();
+        rootStyle.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(100f));
+        NodeId root = tree.newWithChildren(rootStyle, item);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(200f, tree.getLayout(root).size().width, 0.01f);
+        assertEquals(200f, tree.getLayout(item).size().width, 0.01f);
+        assertEquals(100f, tree.getLayout(item).size().height, 0.01f);
+    }
+
     private static TaffyStyle flexStyle() {
         TaffyStyle style = new TaffyStyle();
         style.display = TaffyDisplay.FLEX;

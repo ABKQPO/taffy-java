@@ -50,43 +50,33 @@ public enum AlignSelf {
 
     private static AlignSelf mapFromAlignItems(AlignItems alignItems) {
         boolean safe = alignItems.isSafe();
-        switch (alignItems.keyword()) {
-            case FLEX_START:
-                return safe ? SAFE_FLEX_START : FLEX_START;
-            case START:
-                return safe ? SAFE_START : FLEX_START;
-            case FLEX_END:
-                return safe ? SAFE_FLEX_END : FLEX_END;
-            case END:
-                return safe ? SAFE_END : FLEX_END;
-            case SELF_START:
-                return safe ? SAFE_SELF_START : SELF_START;
-            case SELF_END:
-                return safe ? SAFE_SELF_END : SELF_END;
-            case CENTER:
-                return safe ? SAFE_CENTER : CENTER;
-            case BASELINE:
-                return BASELINE;
-            case STRETCH:
-                return STRETCH;
-        }
-        throw new IllegalStateException("Unexpected: " + alignItems);
+        return switch (alignItems.keyword()) {
+            case FLEX_START -> safe ? SAFE_FLEX_START : FLEX_START;
+            case START -> safe ? SAFE_START : FLEX_START;
+            case FLEX_END -> safe ? SAFE_FLEX_END : FLEX_END;
+            case END -> safe ? SAFE_END : FLEX_END;
+            case SELF_START -> safe ? SAFE_SELF_START : SELF_START;
+            case SELF_END -> safe ? SAFE_SELF_END : SELF_END;
+            case CENTER -> safe ? SAFE_CENTER : CENTER;
+            case BASELINE -> BASELINE;
+            case STRETCH -> STRETCH;
+        };
     }
 
     /** Returns the underlying alignment keyword. */
     public AlignItemsKeyword keyword() {
-        switch (this) {
-            case FLEX_START: case SAFE_FLEX_START: return AlignItemsKeyword.FLEX_START;
-            case FLEX_END: case SAFE_FLEX_END: return AlignItemsKeyword.FLEX_END;
-            case SELF_START: case SAFE_SELF_START: return AlignItemsKeyword.SELF_START;
-            case SELF_END: case SAFE_SELF_END: return AlignItemsKeyword.SELF_END;
-            case CENTER: case SAFE_CENTER: return AlignItemsKeyword.CENTER;
-            case BASELINE: return AlignItemsKeyword.BASELINE;
-            case STRETCH: case AUTO: return AlignItemsKeyword.STRETCH;
-            case SAFE_START: return AlignItemsKeyword.START;
-            case SAFE_END: return AlignItemsKeyword.END;
-            default: throw new IllegalStateException("Unexpected align-self value: " + this);
-        }
+        return switch (this) {
+            case FLEX_START, SAFE_FLEX_START -> AlignItemsKeyword.FLEX_START;
+            case FLEX_END, SAFE_FLEX_END -> AlignItemsKeyword.FLEX_END;
+            case SELF_START, SAFE_SELF_START -> AlignItemsKeyword.SELF_START;
+            case SELF_END, SAFE_SELF_END -> AlignItemsKeyword.SELF_END;
+            case CENTER, SAFE_CENTER -> AlignItemsKeyword.CENTER;
+            case BASELINE -> AlignItemsKeyword.BASELINE;
+            case STRETCH, AUTO -> AlignItemsKeyword.STRETCH;
+            case SAFE_START -> AlignItemsKeyword.START;
+            case SAFE_END -> AlignItemsKeyword.END;
+            default -> throw new IllegalStateException("Unexpected align-self value: " + this);
+        };
     }
 
     /** Returns whether this value has the CSS safe overflow modifier. */
@@ -98,51 +88,37 @@ public enum AlignSelf {
 
     /** Removes the safe modifier while preserving the alignment position. */
     public AlignSelf withoutSafety() {
-        switch (this) {
-            case SAFE_START: return FLEX_START;
-            case SAFE_END: return FLEX_END;
-            case SAFE_FLEX_START: return FLEX_START;
-            case SAFE_FLEX_END: return FLEX_END;
-            case SAFE_SELF_START: return SELF_START;
-            case SAFE_SELF_END: return SELF_END;
-            case SAFE_CENTER: return CENTER;
-            default: return this;
-        }
+        return switch (this) {
+            case SAFE_START -> FLEX_START;
+            case SAFE_END -> FLEX_END;
+            case SAFE_FLEX_START -> FLEX_START;
+            case SAFE_FLEX_END -> FLEX_END;
+            case SAFE_SELF_START -> SELF_START;
+            case SAFE_SELF_END -> SELF_END;
+            case SAFE_CENTER -> CENTER;
+            default -> this;
+        };
     }
 
     /**
      * Converts to AlignItems.
      */
     public AlignItems toAlignItems() {
-        switch (this) {
-            case FLEX_START:
-                return AlignItems.FLEX_START;
-            case FLEX_END:
-                return AlignItems.FLEX_END;
-            case SELF_START:
-                return AlignItems.SELF_START;
-            case SELF_END:
-                return AlignItems.SELF_END;
-            case CENTER:
-                return AlignItems.CENTER;
-            case BASELINE:
-                return AlignItems.BASELINE;
-            case SAFE_START:
-                return AlignItems.SAFE_START;
-            case SAFE_END:
-                return AlignItems.SAFE_END;
-            case SAFE_FLEX_START:
-                return AlignItems.SAFE_FLEX_START;
-            case SAFE_FLEX_END:
-                return AlignItems.SAFE_FLEX_END;
-            case SAFE_SELF_START:
-                return AlignItems.SAFE_SELF_START;
-            case SAFE_SELF_END:
-                return AlignItems.SAFE_SELF_END;
-            case SAFE_CENTER:
-                return AlignItems.SAFE_CENTER;
-            default:
-                return AlignItems.STRETCH;
-        }
+        return switch (this) {
+            case FLEX_START -> AlignItems.FLEX_START;
+            case FLEX_END -> AlignItems.FLEX_END;
+            case SELF_START -> AlignItems.SELF_START;
+            case SELF_END -> AlignItems.SELF_END;
+            case CENTER -> AlignItems.CENTER;
+            case BASELINE -> AlignItems.BASELINE;
+            case SAFE_START -> AlignItems.SAFE_START;
+            case SAFE_END -> AlignItems.SAFE_END;
+            case SAFE_FLEX_START -> AlignItems.SAFE_FLEX_START;
+            case SAFE_FLEX_END -> AlignItems.SAFE_FLEX_END;
+            case SAFE_SELF_START -> AlignItems.SAFE_SELF_START;
+            case SAFE_SELF_END -> AlignItems.SAFE_SELF_END;
+            case SAFE_CENTER -> AlignItems.SAFE_CENTER;
+            default -> AlignItems.STRETCH;
+        };
     }
 }

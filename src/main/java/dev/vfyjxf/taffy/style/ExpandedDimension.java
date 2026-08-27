@@ -55,25 +55,24 @@ public class ExpandedDimension {
     public LengthPercentage getFitContentLimit() { return fitContentLimit; }
 
     public TaffyDimension toDimension() {
-        switch (type) {
-            case LENGTH: return TaffyDimension.length(value);
-            case PERCENT: return TaffyDimension.percent(value);
-            case AUTO: return TaffyDimension.AUTO;
-            case CALC: return TaffyDimension.calc(calcExpression);
-            case MIN_CONTENT: return TaffyDimension.MIN_CONTENT;
-            case MAX_CONTENT: return TaffyDimension.MAX_CONTENT;
-            case FIT_CONTENT: return fitContentLimit == null ? TaffyDimension.FIT_CONTENT
-                : TaffyDimension.fitContent(fitContentLimit);
-            case STRETCH: return TaffyDimension.STRETCH;
-            case CONTENT: return TaffyDimension.CONTENT;
-            default: throw new IllegalStateException("Unexpected expanded dimension type: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> TaffyDimension.length(value);
+            case PERCENT -> TaffyDimension.percent(value);
+            case AUTO -> TaffyDimension.AUTO;
+            case CALC -> TaffyDimension.calc(calcExpression);
+            case MIN_CONTENT -> TaffyDimension.MIN_CONTENT;
+            case MAX_CONTENT -> TaffyDimension.MAX_CONTENT;
+            case FIT_CONTENT -> fitContentLimit == null ? TaffyDimension.FIT_CONTENT
+                    : TaffyDimension.fitContent(fitContentLimit);
+            case STRETCH -> TaffyDimension.STRETCH;
+            case CONTENT -> TaffyDimension.CONTENT;
+            default -> throw new IllegalStateException("Unexpected expanded dimension type: " + type);
+        };
     }
 
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof ExpandedDimension)) return false;
-        ExpandedDimension other = (ExpandedDimension) object;
+        if (!(object instanceof ExpandedDimension other)) return false;
         return type == other.type && Float.compare(value, other.value) == 0
             && Objects.equals(calcExpression, other.calcExpression)
             && Objects.equals(fitContentLimit, other.fitContentLimit);

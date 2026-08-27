@@ -33,18 +33,17 @@ public class ExpandedLengthPercentage {
     public CalcExpression getCalcExpression() { return calcExpression; }
 
     public LengthPercentage toLengthPercentage() {
-        switch (type) {
-            case LENGTH: return LengthPercentage.length(value);
-            case PERCENT: return LengthPercentage.percent(value);
-            case CALC: return LengthPercentage.calc(calcExpression);
-            default: throw new IllegalStateException("Unexpected expanded length type: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> LengthPercentage.length(value);
+            case PERCENT -> LengthPercentage.percent(value);
+            case CALC -> LengthPercentage.calc(calcExpression);
+            default -> throw new IllegalStateException("Unexpected expanded length type: " + type);
+        };
     }
 
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof ExpandedLengthPercentage)) return false;
-        ExpandedLengthPercentage other = (ExpandedLengthPercentage) object;
+        if (!(object instanceof ExpandedLengthPercentage other)) return false;
         return type == other.type && Float.compare(value, other.value) == 0
             && Objects.equals(calcExpression, other.calcExpression);
     }

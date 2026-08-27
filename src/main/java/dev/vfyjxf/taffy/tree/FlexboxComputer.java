@@ -17,7 +17,6 @@ import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.FlexWrap;
 import dev.vfyjxf.taffy.style.JustifyContent;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
@@ -3263,28 +3262,24 @@ public class FlexboxComputer {
     private static float resolveAbsoluteMainOffsetByJustify(JustifyContent jc, float containerMain, float finalMain,
                                                             float contentBoxMainStart, float contentBoxMainEnd,
                                                             float marginMainStart, float marginMainEnd, boolean isWrapReverse) {
-        switch (jc) {
-            case SPACE_BETWEEN:
-            case START:
-                return contentBoxMainStart + marginMainStart;
-            case FLEX_START:
-            case STRETCH:
+        return switch (jc) {
+            case SPACE_BETWEEN, START -> contentBoxMainStart + marginMainStart;
+            case FLEX_START, STRETCH -> {
                 // FLEX_START behaves like START normally, like END when wrap-reverse
                 // STRETCH has no effect on main axis in flexbox, treat as FLEX_START
-                if (isWrapReverse) return containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
-                return contentBoxMainStart + marginMainStart;
-            case END:
-                return containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
-            case FLEX_END:
-                if (isWrapReverse) return contentBoxMainStart + marginMainStart;
-                return containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
-            case SPACE_EVENLY:
-            case SPACE_AROUND:
-            case CENTER:
-                return (containerMain + contentBoxMainStart - contentBoxMainEnd - finalMain
-                        + marginMainStart - marginMainEnd) / 2.0f;
-        }
-        throw new IllegalStateException("Unexpected: " + jc);
+                if (isWrapReverse) yield containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
+                yield contentBoxMainStart + marginMainStart;
+            }
+            case END -> containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
+            case FLEX_END -> {
+                if (isWrapReverse) yield contentBoxMainStart + marginMainStart;
+                yield containerMain - contentBoxMainEnd - finalMain - marginMainEnd;
+            }
+            case SPACE_EVENLY, SPACE_AROUND, CENTER ->
+                    (containerMain + contentBoxMainStart - contentBoxMainEnd - finalMain
+                            + marginMainStart - marginMainEnd) / 2.0f;
+            default -> throw new IllegalStateException("Unexpected: " + jc);
+        };
     }
 
     private float computeAbsoluteCrossOffset(float startCross, float endCross, FloatSize finalSize,
@@ -3322,25 +3317,19 @@ public class FlexboxComputer {
             - marginCrossStart - marginCrossEnd;
         AlignItemsKeyword keyword = safeAlignSelf.keyword();
         if (safeAlignSelf.isSafe() && freeSpace < 0) keyword = AlignItemsKeyword.START;
-        switch (keyword) {
-            case START:
-            case STRETCH:
-            case FLEX_START:
-            case SELF_START:
-                if (isWrapReverse) return containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
-                return contentBoxCrossStart + marginCrossStart;
-            case END:
-            case FLEX_END:
-            case SELF_END:
-                if (isWrapReverse) return contentBoxCrossStart + marginCrossStart;
-                return containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
-            case CENTER:
-                return (containerCross + contentBoxCrossStart - contentBoxCrossEnd - finalCross
-                        + marginCrossStart - marginCrossEnd) / 2.0f;
-            case BASELINE:
-            default:
-                return contentBoxCrossStart + marginCrossStart;
-        }
+        return switch (keyword) {
+            case START, STRETCH, FLEX_START, SELF_START -> {
+                if (isWrapReverse) yield containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
+                yield contentBoxCrossStart + marginCrossStart;
+            }
+            case END, FLEX_END, SELF_END -> {
+                if (isWrapReverse) yield contentBoxCrossStart + marginCrossStart;
+                yield containerCross - contentBoxCrossEnd - finalCross - marginCrossEnd;
+            }
+            case CENTER -> (containerCross + contentBoxCrossStart - contentBoxCrossEnd - finalCross
+                    + marginCrossStart - marginCrossEnd) / 2.0f;
+            default -> contentBoxCrossStart + marginCrossStart;
+        };
     }
 
     // Helper methods

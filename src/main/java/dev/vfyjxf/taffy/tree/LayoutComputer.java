@@ -52,7 +52,7 @@ public class LayoutComputer {
         if (style.isBlock()) {
             FloatSize parentSize = availableSpaceToOptionSize(availableSpace);
 
-            Float aspectRatio = style.getAspectRatio();
+            float aspectRatio = style.getAspectRatio();
             FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), parentSize.width);
             FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
             FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width);
@@ -379,17 +379,12 @@ public class LayoutComputer {
     }
 
     private LayoutOutput dispatchByDisplay(TaffyDisplay display, NodeId node, LayoutInput inputs, TaffyStyle style) {
-        switch (display) {
-            case BLOCK:
-            case FLOW_ROOT:
-                return computeBlockLayout(node, inputs, style);
-            case FLEX:
-                return computeFlexboxLayout(node, inputs, style);
-            case GRID:
-                return computeGridLayout(node, inputs, style);
-            default:
-                return computeLeafLayout(node, inputs, style);
-        }
+        return switch (display) {
+            case BLOCK, FLOW_ROOT -> computeBlockLayout(node, inputs, style);
+            case FLEX -> computeFlexboxLayout(node, inputs, style);
+            case GRID -> computeGridLayout(node, inputs, style);
+            default -> computeLeafLayout(node, inputs, style);
+        };
     }
 
     /**

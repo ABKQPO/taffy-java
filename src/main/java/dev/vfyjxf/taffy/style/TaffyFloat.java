@@ -15,11 +15,11 @@ public enum TaffyFloat {
 
     /** Converts this value to a resolved direction, or null for {@link #NONE}. */
     public FloatDirection floatDirection() {
-        switch (this) {
-            case LEFT: return FloatDirection.LEFT;
-            case RIGHT: return FloatDirection.RIGHT;
-            default: return null;
-        }
+        return switch (this) {
+            case LEFT -> FloatDirection.LEFT;
+            case RIGHT -> FloatDirection.RIGHT;
+            default -> null;
+        };
     }
 
     /** Parse the CSS {@code float} property. */
@@ -27,12 +27,12 @@ public enum TaffyFloat {
         if (value == null || value.trim().isEmpty()) {
             throw new ParseError("Float value must not be empty");
         }
-        switch (value.trim().toLowerCase(Locale.ROOT)) {
-            case "left": return LEFT;
-            case "right": return RIGHT;
-            case "none": return NONE;
-            default: throw new ParseError("Unknown float keyword: " + value);
-        }
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "left" -> LEFT;
+            case "right" -> RIGHT;
+            case "none" -> NONE;
+            default -> throw new ParseError("Unknown float keyword: " + value);
+        };
     }
 
     @Override

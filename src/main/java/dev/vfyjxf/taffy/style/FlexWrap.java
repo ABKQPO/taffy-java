@@ -76,13 +76,13 @@ public enum FlexWrap {
     /** Return the CSS keyword representation. */
     @Override
     public String toString() {
-        switch (this) {
-            case NO_WRAP: return "nowrap";
-            case WRAP: return "wrap";
-            case WRAP_REVERSE: return "wrap-reverse";
-            case BALANCE: return "wrap balance";
-            case BALANCE_REVERSE: return "wrap-reverse balance";
-            default: throw new IllegalStateException("Unexpected flex-wrap mode: " + this);
-        }
+        return switch (this) {
+            case NO_WRAP -> "nowrap";
+            case WRAP -> "wrap";
+            case WRAP_REVERSE -> "wrap-reverse";
+            case BALANCE -> "wrap balance";
+            case BALANCE_REVERSE -> "wrap-reverse balance";
+            default -> throw new IllegalStateException("Unexpected flex-wrap mode: " + this);
+        };
     }
 }

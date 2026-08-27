@@ -67,29 +67,27 @@ public enum AlignItems {
 
     /** Returns the underlying position keyword. */
     public AlignItemsKeyword keyword() {
-        switch (this) {
-            case START: case SAFE_START: return AlignItemsKeyword.START;
-            case END: case SAFE_END: return AlignItemsKeyword.END;
-            case FLEX_START: case SAFE_FLEX_START: return AlignItemsKeyword.FLEX_START;
-            case FLEX_END: case SAFE_FLEX_END: return AlignItemsKeyword.FLEX_END;
-            case SELF_START: case SAFE_SELF_START: return AlignItemsKeyword.SELF_START;
-            case SELF_END: case SAFE_SELF_END: return AlignItemsKeyword.SELF_END;
-            case CENTER: case SAFE_CENTER: return AlignItemsKeyword.CENTER;
-            case BASELINE: return AlignItemsKeyword.BASELINE;
-            case STRETCH: case AUTO: return AlignItemsKeyword.STRETCH;
-            default: throw new IllegalStateException("Unexpected align-items value: " + this);
-        }
+        return switch (this) {
+            case START, SAFE_START -> AlignItemsKeyword.START;
+            case END, SAFE_END -> AlignItemsKeyword.END;
+            case FLEX_START, SAFE_FLEX_START -> AlignItemsKeyword.FLEX_START;
+            case FLEX_END, SAFE_FLEX_END -> AlignItemsKeyword.FLEX_END;
+            case SELF_START, SAFE_SELF_START -> AlignItemsKeyword.SELF_START;
+            case SELF_END, SAFE_SELF_END -> AlignItemsKeyword.SELF_END;
+            case CENTER, SAFE_CENTER -> AlignItemsKeyword.CENTER;
+            case BASELINE -> AlignItemsKeyword.BASELINE;
+            case STRETCH, AUTO -> AlignItemsKeyword.STRETCH;
+            default -> throw new IllegalStateException("Unexpected align-items value: " + this);
+        };
     }
 
     /** Returns whether this value has the CSS safe overflow modifier. */
     public boolean isSafe() {
-        switch (this) {
-            case SAFE_START: case SAFE_END: case SAFE_FLEX_START: case SAFE_FLEX_END:
-            case SAFE_SELF_START: case SAFE_SELF_END: case SAFE_CENTER:
-                return true;
-            default:
-                return false;
-        }
+        return switch (this) {
+            case SAFE_START, SAFE_END, SAFE_FLEX_START, SAFE_FLEX_END, SAFE_SELF_START, SAFE_SELF_END, SAFE_CENTER ->
+                    true;
+            default -> false;
+        };
     }
 
     /** Returns whether this value uses the item's own writing direction. */
@@ -110,16 +108,16 @@ public enum AlignItems {
 
     /** Removes the safe modifier while preserving the alignment position. */
     public AlignItems withoutSafety() {
-        switch (this) {
-            case SAFE_START: return START;
-            case SAFE_END: return END;
-            case SAFE_FLEX_START: return FLEX_START;
-            case SAFE_FLEX_END: return FLEX_END;
-            case SAFE_SELF_START: return SELF_START;
-            case SAFE_SELF_END: return SELF_END;
-            case SAFE_CENTER: return CENTER;
-            default: return this;
-        }
+        return switch (this) {
+            case SAFE_START -> START;
+            case SAFE_END -> END;
+            case SAFE_FLEX_START -> FLEX_START;
+            case SAFE_FLEX_END -> FLEX_END;
+            case SAFE_SELF_START -> SELF_START;
+            case SAFE_SELF_END -> SELF_END;
+            case SAFE_CENTER -> CENTER;
+            default -> this;
+        };
     }
 
     /** Parse a CSS align-items keyword. */

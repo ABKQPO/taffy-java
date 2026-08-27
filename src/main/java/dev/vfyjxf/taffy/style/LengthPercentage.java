@@ -111,12 +111,11 @@ public class LengthPercentage {
 
     /** Expand this value into a readable tagged representation. */
     public ExpandedLengthPercentage expand() {
-        switch (type) {
-            case LENGTH: return ExpandedLengthPercentage.length(value);
-            case PERCENT: return ExpandedLengthPercentage.percent(value);
-            case CALC: return ExpandedLengthPercentage.calc(calcExpression);
-            default: throw new IllegalStateException("Unexpected length type: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> ExpandedLengthPercentage.length(value);
+            case PERCENT -> ExpandedLengthPercentage.percent(value);
+            case CALC -> ExpandedLengthPercentage.calc(calcExpression);
+        };
     }
     
     /**
@@ -133,16 +132,11 @@ public class LengthPercentage {
      * @return The resolved length in pixels
      */
     public float resolve(float context) {
-        switch (type) {
-            case LENGTH:
-                return value;
-            case PERCENT:
-                return context * value;
-            case CALC:
-                return calcExpression != null ? calcExpression.resolve(context) : 0f;
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value;
+            case PERCENT -> context * value;
+            case CALC -> calcExpression != null ? calcExpression.resolve(context) : 0f;
+        };
     }
 
     /**
@@ -150,16 +144,12 @@ public class LengthPercentage {
      * Returns NaN if this is a percentage/calc and context is NaN.
      */
     public float maybeResolve(float context) {
-        switch (type) {
-            case LENGTH:
-                return value;
-            case PERCENT:
-                return Float.isNaN(context) ? Float.NaN : context * value;
-            case CALC:
-                return Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value;
+            case PERCENT -> Float.isNaN(context) ? Float.NaN : context * value;
+            case CALC ->
+                    Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
+        };
     }
 
     /**
@@ -196,15 +186,10 @@ public class LengthPercentage {
     }
 
     private static String formatString(Type type, float value) {
-        switch (type) {
-            case LENGTH:
-                return value + "px";
-            case PERCENT:
-                return (value * 100) + "%";
-            case CALC:
-                return "calc(...)";
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value + "px";
+            case PERCENT -> (value * 100) + "%";
+            case CALC -> "calc(...)";
+        };
     }
 }

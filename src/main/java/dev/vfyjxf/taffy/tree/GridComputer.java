@@ -5343,26 +5343,24 @@ public class GridComputer {
         boolean safe = alignment.isSafe();
         alignment = alignment.withoutSafety();
         if (safe && freeSpace <= 0) return 0;
-        switch (alignment) {
-            case CENTER:
-                return freeSpace / 2;  // Works for both positive and negative space
-            case END:
-            case FLEX_END:
-                return freeSpace;  // Works for both positive and negative space
-            case SPACE_AROUND:
+        return switch (alignment) {
+            case CENTER -> freeSpace / 2;  // Works for both positive and negative space
+            case END, FLEX_END -> freeSpace;  // Works for both positive and negative space
+            case SPACE_AROUND -> {
                 // Only apply when positive space
                 if (freeSpace > 0) {
-                    return freeSpace / (numTracks * 2);
+                    yield freeSpace / (numTracks * 2);
                 }
-                return 0;
-            case SPACE_EVENLY:
+                yield 0;
+            }
+            case SPACE_EVENLY -> {
                 if (freeSpace > 0) {
-                    return freeSpace / (numTracks + 1);
+                    yield freeSpace / (numTracks + 1);
                 }
-                return 0;
-            default:
-                return 0;
-        }
+                yield 0;
+            }
+            default -> 0;
+        };
     }
 
     /**
@@ -5377,32 +5375,27 @@ public class GridComputer {
     }
 
     private static float contentAlignmentOffsetFor(JustifyContent alignment, float freeSpace, int numTracks) {
-        switch (alignment) {
-            case CENTER:
-                return freeSpace / 2;
-            case END:
-            case FLEX_END:
-                return freeSpace;
-            case SPACE_AROUND:
+        return switch (alignment) {
+            case CENTER -> freeSpace / 2;
+            case END, FLEX_END -> freeSpace;
+            case SPACE_AROUND -> {
                 if (freeSpace > 0) {
-                    return freeSpace / (numTracks * 2);
+                    yield freeSpace / (numTracks * 2);
                 }
-                return 0;
-            case SPACE_EVENLY:
+                yield 0;
+            }
+            case SPACE_EVENLY -> {
                 if (freeSpace > 0) {
-                    return freeSpace / (numTracks + 1);
+                    yield freeSpace / (numTracks + 1);
                 }
-                return 0;
+                yield 0;
+            }
             // STRETCH, START, FLEX_START, SPACE_BETWEEN: offset is 0 (content starts at the beginning)
             // Per CSS Grid spec: stretch distributes space to tracks, not to gutters
             // SPACE_BETWEEN also has offset 0 (first item at start, last at end)
-            case STRETCH:
-            case START:
-            case FLEX_START:
-            case SPACE_BETWEEN:
-                return 0;
-        }
-        throw new IllegalStateException("Unexpected: " + alignment);
+            case STRETCH, START, FLEX_START, SPACE_BETWEEN -> 0;
+            default -> throw new IllegalStateException("Unexpected: " + alignment);
+        };
     }
 
     /**
@@ -5417,20 +5410,19 @@ public class GridComputer {
     }
 
     private static float adjustedGapFor(AlignContent alignment, float freeSpace, int numTracks, float originalGap) {
-        switch (alignment) {
-            case SPACE_BETWEEN:
+        return switch (alignment) {
+            case SPACE_BETWEEN ->
                 // All free space goes between tracks
-                return originalGap + freeSpace / (numTracks - 1);
-            case SPACE_AROUND:
+                    originalGap + freeSpace / (numTracks - 1);
+            case SPACE_AROUND ->
                 // Each track gets freeSpace/(numTracks*2) on each side
                 // Gap between = original + 2 * (freeSpace / (numTracks*2)) = original + freeSpace/numTracks
-                return originalGap + freeSpace / numTracks;
-            case SPACE_EVENLY:
+                    originalGap + freeSpace / numTracks;
+            case SPACE_EVENLY ->
                 // Equal space between all
-                return originalGap + freeSpace / (numTracks + 1);
-            default:
-                return originalGap;
-        }
+                    originalGap + freeSpace / (numTracks + 1);
+            default -> originalGap;
+        };
     }
 
     /**
@@ -5445,23 +5437,14 @@ public class GridComputer {
     }
 
     private static float adjustedGapFor(JustifyContent alignment, float freeSpace, int numTracks, float originalGap) {
-        switch (alignment) {
-            case SPACE_BETWEEN:
-                return originalGap + freeSpace / (numTracks - 1);
-            case SPACE_AROUND:
-                return originalGap + freeSpace / numTracks;
-            case SPACE_EVENLY:
-                return originalGap + freeSpace / (numTracks + 1);
+        return switch (alignment) {
+            case SPACE_BETWEEN -> originalGap + freeSpace / (numTracks - 1);
+            case SPACE_AROUND -> originalGap + freeSpace / numTracks;
+            case SPACE_EVENLY -> originalGap + freeSpace / (numTracks + 1);
             // STRETCH, START, END, etc: no gap adjustment (space is distributed to tracks, not gutters)
-            case STRETCH:
-            case START:
-            case END:
-            case FLEX_START:
-            case FLEX_END:
-            case CENTER:
-                return originalGap;
-        }
-        throw new IllegalStateException("Unexpected: " + alignment);
+            case STRETCH, START, END, FLEX_START, FLEX_END, CENTER -> originalGap;
+            default -> throw new IllegalStateException("Unexpected: " + alignment);
+        };
     }
 
     /**

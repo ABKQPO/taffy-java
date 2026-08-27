@@ -50,24 +50,23 @@ public class ExpandedLengthPercentageAuto {
     public LengthPercentage getFitContentLimit() { return fitContentLimit; }
 
     public LengthPercentageAuto toLengthPercentageAuto() {
-        switch (type) {
-            case LENGTH: return LengthPercentageAuto.length(value);
-            case PERCENT: return LengthPercentageAuto.percent(value);
-            case AUTO: return LengthPercentageAuto.AUTO;
-            case CALC: return LengthPercentageAuto.calc(calcExpression);
-            case MIN_CONTENT: return LengthPercentageAuto.MIN_CONTENT;
-            case MAX_CONTENT: return LengthPercentageAuto.MAX_CONTENT;
-            case FIT_CONTENT: return fitContentLimit == null ? LengthPercentageAuto.FIT_CONTENT
-                : LengthPercentageAuto.fitContent(fitContentLimit);
-            case STRETCH: return LengthPercentageAuto.STRETCH;
-            default: throw new IllegalStateException("Unexpected expanded length type: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> LengthPercentageAuto.length(value);
+            case PERCENT -> LengthPercentageAuto.percent(value);
+            case AUTO -> LengthPercentageAuto.AUTO;
+            case CALC -> LengthPercentageAuto.calc(calcExpression);
+            case MIN_CONTENT -> LengthPercentageAuto.MIN_CONTENT;
+            case MAX_CONTENT -> LengthPercentageAuto.MAX_CONTENT;
+            case FIT_CONTENT -> fitContentLimit == null ? LengthPercentageAuto.FIT_CONTENT
+                    : LengthPercentageAuto.fitContent(fitContentLimit);
+            case STRETCH -> LengthPercentageAuto.STRETCH;
+            default -> throw new IllegalStateException("Unexpected expanded length type: " + type);
+        };
     }
 
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof ExpandedLengthPercentageAuto)) return false;
-        ExpandedLengthPercentageAuto other = (ExpandedLengthPercentageAuto) object;
+        if (!(object instanceof ExpandedLengthPercentageAuto other)) return false;
         return type == other.type && Float.compare(value, other.value) == 0
             && Objects.equals(calcExpression, other.calcExpression)
             && Objects.equals(fitContentLimit, other.fitContentLimit);

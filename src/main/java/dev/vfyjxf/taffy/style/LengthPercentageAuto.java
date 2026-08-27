@@ -168,16 +168,12 @@ public class LengthPercentageAuto {
      * Convert from LengthPercentage
      */
     public static LengthPercentageAuto from(LengthPercentage lp) {
-        switch (lp.getType()) {
-            case LENGTH:
-                return length(lp.getValue());
-            case PERCENT:
-                return percent(lp.getValue());
-            case CALC:
-                return calc(lp.getCalcExpression());
-            default:
-                throw new IllegalStateException("Unexpected: " + lp.getType());
-        }
+        return switch (lp.getType()) {
+            case LENGTH -> length(lp.getValue());
+            case PERCENT -> percent(lp.getValue());
+            case CALC -> calc(lp.getCalcExpression());
+            default -> throw new IllegalStateException("Unexpected: " + lp.getType());
+        };
     }
 
     /**
@@ -186,20 +182,19 @@ public class LengthPercentageAuto {
      * in a min/max constraint.
      */
     public static LengthPercentageAuto from(TaffyDimension dimension) {
-        switch (dimension.getType()) {
-            case LENGTH: return length(dimension.getValue());
-            case PERCENT: return percent(dimension.getValue());
-            case AUTO: return AUTO;
-            case CALC: return calc(dimension.getCalcExpression());
-            case MIN_CONTENT: return MIN_CONTENT;
-            case MAX_CONTENT: return MAX_CONTENT;
-            case FIT_CONTENT:
-                return dimension.getFitContentLimit() == null
+        return switch (dimension.getType()) {
+            case LENGTH -> length(dimension.getValue());
+            case PERCENT -> percent(dimension.getValue());
+            case AUTO -> AUTO;
+            case CALC -> calc(dimension.getCalcExpression());
+            case MIN_CONTENT -> MIN_CONTENT;
+            case MAX_CONTENT -> MAX_CONTENT;
+            case FIT_CONTENT -> dimension.getFitContentLimit() == null
                     ? FIT_CONTENT : fitContent(dimension.getFitContentLimit());
-            case STRETCH: return STRETCH;
-            case CONTENT: return AUTO;
-            default: throw new IllegalStateException("Unexpected: " + dimension.getType());
-        }
+            case STRETCH -> STRETCH;
+            case CONTENT -> AUTO;
+            default -> throw new IllegalStateException("Unexpected: " + dimension.getType());
+        };
     }
 
     /**
@@ -250,17 +245,17 @@ public class LengthPercentageAuto {
 
     /** Expand this value into a readable tagged representation. */
     public ExpandedLengthPercentageAuto expand() {
-        switch (type) {
-            case LENGTH: return ExpandedLengthPercentageAuto.length(value);
-            case PERCENT: return ExpandedLengthPercentageAuto.percent(value);
-            case AUTO: return ExpandedLengthPercentageAuto.auto();
-            case CALC: return ExpandedLengthPercentageAuto.calc(calcExpression);
-            case MIN_CONTENT: return ExpandedLengthPercentageAuto.minContent();
-            case MAX_CONTENT: return ExpandedLengthPercentageAuto.maxContent();
-            case FIT_CONTENT: return ExpandedLengthPercentageAuto.fitContent(fitContentLimit);
-            case STRETCH: return ExpandedLengthPercentageAuto.stretch();
-            default: throw new IllegalStateException("Unexpected length type: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> ExpandedLengthPercentageAuto.length(value);
+            case PERCENT -> ExpandedLengthPercentageAuto.percent(value);
+            case AUTO -> ExpandedLengthPercentageAuto.auto();
+            case CALC -> ExpandedLengthPercentageAuto.calc(calcExpression);
+            case MIN_CONTENT -> ExpandedLengthPercentageAuto.minContent();
+            case MAX_CONTENT -> ExpandedLengthPercentageAuto.maxContent();
+            case FIT_CONTENT -> ExpandedLengthPercentageAuto.fitContent(fitContentLimit);
+            case STRETCH -> ExpandedLengthPercentageAuto.stretch();
+            default -> throw new IllegalStateException("Unexpected length type: " + type);
+        };
     }
     
     /**
@@ -311,22 +306,13 @@ public class LengthPercentageAuto {
      * Returns NaN for auto and intrinsic sizing keywords.
      */
     public float resolveToOption(float context) {
-        switch (type) {
-            case LENGTH:
-                return value;
-            case PERCENT:
-                return context * value;
-            case AUTO:
-            case MIN_CONTENT:
-            case MAX_CONTENT:
-            case FIT_CONTENT:
-            case STRETCH:
-                return Float.NaN;
-            case CALC:
-                return calcExpression != null ? calcExpression.resolve(context) : 0f;
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value;
+            case PERCENT -> context * value;
+            case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH -> Float.NaN;
+            case CALC -> calcExpression != null ? calcExpression.resolve(context) : 0f;
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 
     /**
@@ -334,22 +320,14 @@ public class LengthPercentageAuto {
      * Returns null if this is auto/intrinsic or if this is a percentage/calc and context is NaN.
      */
     public float maybeResolve(float context) {
-        switch (type) {
-            case LENGTH:
-                return value;
-            case PERCENT:
-                return Float.isNaN(context) ? Float.NaN : context * value;
-            case AUTO:
-            case MIN_CONTENT:
-            case MAX_CONTENT:
-            case FIT_CONTENT:
-            case STRETCH:
-                return Float.NaN;
-            case CALC:
-                return Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value;
+            case PERCENT -> Float.isNaN(context) ? Float.NaN : context * value;
+            case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH -> Float.NaN;
+            case CALC ->
+                    Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 
     /**
@@ -387,25 +365,16 @@ public class LengthPercentageAuto {
 
     @Override
     public String toString() {
-        switch (type) {
-            case LENGTH:
-                return value + "px";
-            case PERCENT:
-                return (value * 100) + "%";
-            case AUTO:
-                return "auto";
-            case CALC:
-                return "calc(...)";
-            case MIN_CONTENT:
-                return "min-content";
-            case MAX_CONTENT:
-                return "max-content";
-            case FIT_CONTENT:
-                return fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
-            case STRETCH:
-                return "stretch";
-            default:
-                throw new IllegalStateException("Unexpected: " + type);
-        }
+        return switch (type) {
+            case LENGTH -> value + "px";
+            case PERCENT -> (value * 100) + "%";
+            case AUTO -> "auto";
+            case CALC -> "calc(...)";
+            case MIN_CONTENT -> "min-content";
+            case MAX_CONTENT -> "max-content";
+            case FIT_CONTENT -> fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
+            case STRETCH -> "stretch";
+            default -> throw new IllegalStateException("Unexpected: " + type);
+        };
     }
 }

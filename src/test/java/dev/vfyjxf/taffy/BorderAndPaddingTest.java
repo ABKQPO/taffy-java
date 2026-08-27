@@ -4,6 +4,8 @@ import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.LengthPercentage;
+import dev.vfyjxf.taffy.style.TaffyDimension;
+import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.NodeId;
@@ -117,5 +119,41 @@ public class BorderAndPaddingTest {
         Layout layout = tree.getLayout(node);
         assertEquals(200f, layout.size().width, 0.0001f);
         assertEquals(200f, layout.size().height, 0.0001f);
+    }
+
+    @Test
+    @DisplayName("block_percentage_padding_uses_containing_block_width_for_nonstretch_width")
+    void blockPercentagePaddingUsesContainingBlockWidthForNonstretchWidth() {
+        TaffyTree tree = new TaffyTree();
+
+        TaffyStyle grandchildStyle = new TaffyStyle();
+        grandchildStyle.display = TaffyDisplay.BLOCK;
+        grandchildStyle.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10f));
+        NodeId grandchild = tree.newLeaf(grandchildStyle);
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.display = TaffyDisplay.BLOCK;
+        childStyle.size = new TaffySize<>(TaffyDimension.length(100f), TaffyDimension.AUTO);
+        childStyle.padding = new TaffyRect<>(
+            LengthPercentage.percent(0.1f),
+            LengthPercentage.percent(0.1f),
+            LengthPercentage.percent(0.1f),
+            LengthPercentage.percent(0.1f)
+        );
+        NodeId child = tree.newWithChildren(childStyle, grandchild);
+
+        TaffyStyle rootStyle = new TaffyStyle();
+        rootStyle.display = TaffyDisplay.BLOCK;
+        rootStyle.size = new TaffySize<>(TaffyDimension.length(40f), TaffyDimension.AUTO);
+        NodeId root = tree.newWithChildren(rootStyle, child);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(18f, tree.getLayout(root).size().height, 0.01f);
+        assertEquals(100f, tree.getLayout(child).size().width, 0.01f);
+        assertEquals(18f, tree.getLayout(child).size().height, 0.01f);
+        assertEquals(4f, tree.getLayout(grandchild).location().x, 0.01f);
+        assertEquals(4f, tree.getLayout(grandchild).location().y, 0.01f);
+        assertEquals(92f, tree.getLayout(grandchild).size().width, 0.01f);
     }
 }

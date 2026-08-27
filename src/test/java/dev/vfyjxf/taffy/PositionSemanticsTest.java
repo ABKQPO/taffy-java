@@ -610,6 +610,37 @@ public class PositionSemanticsTest {
         assertEquals(absolute, output.oofCandidates().get(0).node());
     }
 
+    @Test
+    void absoluteAutoMarginsCenterUsingMaxWidthClampedSize() {
+        TaffyStyle absoluteStyle = sizedStyle(180f, 40f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.maxSize = new TaffySize<>(TaffyDimension.length(100f), TaffyDimension.AUTO);
+        absoluteStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO
+        );
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.length(0f),
+            LengthPercentageAuto.length(0f),
+            LengthPercentageAuto.length(20f),
+            LengthPercentageAuto.AUTO
+        );
+
+        TaffyStyle rootStyle = sizedStyle(200f, 100f);
+        rootStyle.display = TaffyDisplay.BLOCK;
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId root = tree.newWithChildren(rootStyle, absolute);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(100f, tree.getLayout(absolute).size().width, 0.01f);
+        assertEquals(50f, tree.getLayout(absolute).location().x, 0.01f);
+        assertEquals(20f, tree.getLayout(absolute).location().y, 0.01f);
+    }
+
     private static TaffyStyle itemStyle() {
         TaffyStyle style = new TaffyStyle();
         style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10f));

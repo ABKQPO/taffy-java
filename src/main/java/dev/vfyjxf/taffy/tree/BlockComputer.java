@@ -285,8 +285,9 @@ public class BlockComputer {
         }
 
         // Perform final layout on children
-        FloatRect resolvedPadding = Resolve.resolveRectOrZero(style.getPadding(), containerOuterWidth);
-        FloatRect resolvedBorder = Resolve.resolveRectOrZero(style.getBorder(), containerOuterWidth);
+        float percentageResolutionWidth = Float.isNaN(parentSize.width) ? containerOuterWidth : parentSize.width;
+        FloatRect resolvedPadding = Resolve.resolveRectOrZero(style.getPadding(), percentageResolutionWidth);
+        FloatRect resolvedBorder = Resolve.resolveRectOrZero(style.getBorder(), percentageResolutionWidth);
         FloatRect contentBoxInset = new FloatRect(
             resolvedPadding.left + resolvedBorder.left + scrollbarGutter.left,
             resolvedPadding.right + resolvedBorder.right + scrollbarGutter.right,
@@ -335,6 +336,11 @@ public class BlockComputer {
         }
 
         FloatSize finalOuterSize = new FloatSize(containerOuterWidth, containerOuterHeight);
+
+        boolean heightConstrainedByMinHeight =
+            !Float.isNaN(minSize.height) && minSize.height > 0f && minSize.height >= containerOuterHeight;
+        boolean ownBottomMarginCollapsesWithChildren =
+            ownMarginsCollapseWithChildren.end && !heightConstrainedByMinHeight;
 
         if (runMode == RunMode.COMPUTE_SIZE) {
             return LayoutOutput.fromOuterSize(finalOuterSize);
@@ -409,7 +415,7 @@ public class BlockComputer {
         }
 
         CollapsibleMarginSet bottomMargin;
-        if (ownMarginsCollapseWithChildren.end) {
+        if (ownBottomMarginCollapsesWithChildren) {
             bottomMargin = layoutResult.lastChildBottomMarginSet;
         } else {
             float marginBottom = Resolve.resolveLpaOrZero(style.getMargin().bottom, parentSize.width);
@@ -748,7 +754,9 @@ public class BlockComputer {
                 float requestedOuterWidth = Float.isNaN(item.size.width)
                     ? 0f : item.size.width + itemNonAutoXMarginSum;
                 flowSlot = findContentSlotForBox(blockContext, minimumY, requestedOuterWidth, item.clear);
-                stretchWidth = flowSlot.width - itemNonAutoXMarginSum;
+                stretchWidth = hasActiveFloatsBeforeItem
+                    ? flowSlot.width - itemNonAutoXMarginSum
+                    : containerInnerWidth - itemNonAutoXMarginSum;
             }
 
             FloatSize knownDimensions;
@@ -1138,9 +1146,9 @@ public class BlockComputer {
                                - nonAutoMargin.top - nonAutoMargin.bottom;
 
             // Calculate auto margin size
-            float autoMarginSizeX = calcAutoMarginSize(marginOpt.left, marginOpt.right, styleSize.width, freeSpaceX);
+            float autoMarginSizeX = calcAutoMarginSize(marginOpt.left, marginOpt.right, freeSpaceX);
 
-            float autoMarginSizeY = calcAutoMarginSize(marginOpt.top, marginOpt.bottom, styleSize.height, freeSpaceY);
+            float autoMarginSizeY = calcAutoMarginSize(marginOpt.top, marginOpt.bottom, freeSpaceY);
 
             FloatRect autoMargin = new FloatRect(
                 Float.isNaN(marginOpt.left) ? autoMarginSizeX : 0f,
@@ -1197,12 +1205,11 @@ public class BlockComputer {
         }
     }
 
-    private static float calcAutoMarginSize(float marginOpt, float marginOpt1, float styleSize, float freeSpace) {
+    private static float calcAutoMarginSize(float marginOpt, float marginOpt1, float freeSpace) {
         float autoMarginSizeX;
         {
             int autoMarginCountX = (Float.isNaN(marginOpt) ? 1 : 0) + (Float.isNaN(marginOpt1) ? 1 : 0);
-            // If both margins are auto and size is >= free space, set auto margins to 0
-            if (autoMarginCountX == 2 && (Float.isNaN(styleSize) || styleSize >= freeSpace)) {
+            if (autoMarginCountX == 2 && freeSpace <= 0f) {
                 autoMarginSizeX = 0f;
             } else if (autoMarginCountX > 0) {
                 // Allow negative margins when child is larger than parent

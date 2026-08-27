@@ -9,6 +9,7 @@ import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.AlignItemsKeyword;
 import dev.vfyjxf.taffy.style.AlignSelf;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxGenerationMode;
@@ -2318,11 +2319,23 @@ public class FlexboxComputer {
      */
     private float computeAlignItemsOffset(FlexItem item, float freeSpace, float maxBaseline, boolean isRow, boolean isWrapReverse) {
         AlignSelf alignSelf = item.alignSelf;
+        AlignItemsKeyword keyword = alignSelf.keyword();
+        if (alignSelf.isSafe() && freeSpace < 0) {
+            keyword = AlignItemsKeyword.START;
+        }
 
-        switch (alignSelf) {
+        switch (keyword) {
+            case START:
+                return isWrapReverse ? freeSpace : 0;
+            case END:
+                return isWrapReverse ? 0 : freeSpace;
             case FLEX_START:
                 return isWrapReverse ? freeSpace : 0;
             case FLEX_END:
+                return isWrapReverse ? 0 : freeSpace;
+            case SELF_START:
+                return isWrapReverse ? freeSpace : 0;
+            case SELF_END:
                 return isWrapReverse ? 0 : freeSpace;
             case CENTER:
                 return freeSpace / 2;

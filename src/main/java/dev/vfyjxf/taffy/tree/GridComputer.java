@@ -10,6 +10,7 @@ import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.AlignItemsKeyword;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxGenerationMode;
 import dev.vfyjxf.taffy.style.BoxSizing;
@@ -4860,9 +4861,12 @@ public class GridComputer {
             } else {
                 // Use alignment-based offset
                 float freeSpaceX = effectiveAreaWidth - finalSize.width - margin.left - margin.right;
-                if (justifySelf == AlignItems.END || justifySelf == AlignItems.FLEX_END) {
+                AlignItemsKeyword justifyKeyword = justifySelf == null ? AlignItemsKeyword.STRETCH : justifySelf.keyword();
+                if (justifySelf != null && justifySelf.isSafe() && freeSpaceX < 0) justifyKeyword = AlignItemsKeyword.START;
+                if (justifyKeyword == AlignItemsKeyword.END || justifyKeyword == AlignItemsKeyword.FLEX_END
+                    || justifyKeyword == AlignItemsKeyword.SELF_END) {
                     xInArea = freeSpaceX + margin.left;
-                } else if (justifySelf == AlignItems.CENTER) {
+                } else if (justifyKeyword == AlignItemsKeyword.CENTER) {
                     xInArea = freeSpaceX / 2 + margin.left;
                 } else {
                     // START, FLEX_START, STRETCH, BASELINE - all start at margin.left
@@ -4879,9 +4883,12 @@ public class GridComputer {
             } else {
                 // Use alignment-based offset
                 float freeSpaceY = areaHeight - finalSize.height - margin.top - margin.bottom;
-                if (alignSelf == AlignItems.END || alignSelf == AlignItems.FLEX_END) {
+                AlignItemsKeyword alignKeyword = alignSelf == null ? AlignItemsKeyword.STRETCH : alignSelf.keyword();
+                if (alignSelf != null && alignSelf.isSafe() && freeSpaceY < 0) alignKeyword = AlignItemsKeyword.START;
+                if (alignKeyword == AlignItemsKeyword.END || alignKeyword == AlignItemsKeyword.FLEX_END
+                    || alignKeyword == AlignItemsKeyword.SELF_END) {
                     yInArea = freeSpaceY + margin.top;
-                } else if (alignSelf == AlignItems.CENTER) {
+                } else if (alignKeyword == AlignItemsKeyword.CENTER) {
                     yInArea = freeSpaceY / 2 + margin.top;
                 } else {
                     // START, FLEX_START, STRETCH, BASELINE - all start at margin.top

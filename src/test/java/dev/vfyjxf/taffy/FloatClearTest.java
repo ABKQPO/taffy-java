@@ -4,6 +4,7 @@ import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.Clear;
 import dev.vfyjxf.taffy.style.TaffyDimension;
+import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyFloat;
 import dev.vfyjxf.taffy.style.TaffyStyle;
@@ -79,6 +80,45 @@ public class FloatClearTest {
         assertEquals(80f, tree.getLayout(right).location().x, 0.01f);
         assertEquals(30f, tree.getLayout(content).location().x, 0.01f);
         assertEquals(50f, tree.getLayout(content).size().width, 0.01f);
+    }
+
+    @Test
+    void fixedWidthBlockMovesBelowFloatWhenItsMarginBoxDoesNotFit() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(30f, 20f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle followingStyle = blockStyle(80f, 10f);
+        NodeId following = tree.newLeaf(followingStyle);
+        NodeId root = tree.newWithChildren(rootStyle, floated, following);
+
+        compute(tree, root);
+
+        assertEquals(0f, tree.getLayout(following).location().x, 0.01f);
+        assertEquals(20f, tree.getLayout(following).location().y, 0.01f);
+    }
+
+    @Test
+    void rtlBlockAvoidsRightFloatAtThePhysicalStartEdge() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+        rootStyle.direction = TaffyDirection.RTL;
+
+        TaffyStyle floatStyle = blockStyle(30f, 20f);
+        floatStyle.floatMode = TaffyFloat.RIGHT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle followingStyle = blockStyle(Float.NaN, 10f);
+        NodeId following = tree.newLeaf(followingStyle);
+        NodeId root = tree.newWithChildren(rootStyle, floated, following);
+
+        compute(tree, root);
+
+        assertEquals(0f, tree.getLayout(following).location().x, 0.01f);
+        assertEquals(70f, tree.getLayout(following).size().width, 0.01f);
     }
 
     private static TaffyStyle blockStyle(float width, float height) {

@@ -184,4 +184,27 @@ public class DetailedGridInfoTest {
         assertEquals(200f, area.right, 0.01f);
         assertEquals(150f, area.bottom, 0.01f);
     }
+
+    @Test
+    void autoStartDefiniteEndDoesNotCreatePhantomImplicitTracks() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(10f), TaffyDimension.length(10f));
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.size = new TaffySize<>(TaffyDimension.length(10f), TaffyDimension.length(10f));
+        childStyle.gridColumn = new TaffyLine<>(GridPlacement.auto(), GridPlacement.line(1));
+        childStyle.gridRow = new TaffyLine<>(GridPlacement.auto(), GridPlacement.line(1));
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(grid, child);
+
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.maxContent(), AvailableSpace.maxContent()));
+
+        DetailedGridInfo details = tree.getDetailedLayoutInfo(root).grid();
+        assertEquals(1, details.columns().sizes().size());
+        assertEquals(1, details.rows().sizes().size());
+        assertEquals("10.0000px", details.gridTemplateColumns());
+        assertEquals("10.0000px", details.gridTemplateRows());
+    }
 }

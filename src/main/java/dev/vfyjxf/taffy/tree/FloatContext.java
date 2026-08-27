@@ -153,7 +153,8 @@ public class FloatContext {
                     availableWidth - left - right, Float.POSITIVE_INFINITY);
             }
         }
-        return new ContentSlot(null, containingBlockInsets[0], y,
+        float fallbackY = boundaries.isEmpty() ? y : boundaries.get(boundaries.size() - 1);
+        return new ContentSlot(null, containingBlockInsets[0], fallbackY,
             availableWidth - containingBlockInsets[0] - containingBlockInsets[1], Float.POSITIVE_INFINITY);
     }
 

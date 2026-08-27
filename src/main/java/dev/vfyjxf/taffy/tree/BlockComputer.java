@@ -65,95 +65,6 @@ public class BlockComputer {
         boolean canBeCollapsedThrough;
     }
 
-    /** A float occupying a rectangle in the block formatting context. */
-    private static class PlacedFloat {
-        private final TaffyFloat side;
-        private final float x;
-        private final float y;
-        private final float width;
-        private final float height;
-
-        private PlacedFloat(TaffyFloat side, float x, float y, float width, float height) {
-            this.side = side;
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-        }
-
-        private float bottom() {
-            return y + height;
-        }
-    }
-
-    /** A horizontal slot available between active floats. */
-    private static class FloatSlot {
-        private final float x;
-        private final float rightInset;
-        private final float y;
-        private final float width;
-
-        private FloatSlot(float x, float rightInset, float y, float width) {
-            this.x = x;
-            this.rightInset = rightInset;
-            this.y = y;
-            this.width = width;
-        }
-    }
-
-    /** Lightweight block formatting context used for float placement. */
-    private static class FloatContext {
-        private final float width;
-        private final List<PlacedFloat> floats = new ArrayList<>();
-
-        private FloatContext(float width) {
-            this.width = Math.max(0f, width);
-        }
-
-        private void add(TaffyFloat side, float x, float y, float floatWidth, float height) {
-            floats.add(new PlacedFloat(side, x, y, Math.max(0f, floatWidth), Math.max(0f, height)));
-        }
-
-        private boolean hasFloats() {
-            return !floats.isEmpty();
-        }
-
-        private float clearPosition(float y, Clear clear) {
-            float result = y;
-            for (PlacedFloat placed : floats) {
-                if (clear.clears(placed.side)) {
-                    result = Math.max(result, placed.bottom());
-                }
-            }
-            return result;
-        }
-
-        private FloatSlot findSlot(float requestedY, float requestedWidth, float requestedHeight, Clear clear) {
-            float y = clearPosition(requestedY, clear);
-            float height = Math.max(0f, requestedHeight);
-            for (int attempts = 0; attempts <= floats.size() + 1; attempts++) {
-                float left = 0f;
-                float right = 0f;
-                float nextY = Float.POSITIVE_INFINITY;
-                for (PlacedFloat placed : floats) {
-                    if (placed.bottom() <= y || placed.y >= y + height && height > 0f) continue;
-                    if (placed.side == TaffyFloat.LEFT) left = Math.max(left, placed.x + placed.width);
-                    if (placed.side == TaffyFloat.RIGHT) right = Math.max(right, width - placed.x);
-                    if (placed.bottom() > y) nextY = Math.min(nextY, placed.bottom());
-                }
-                float available = Math.max(0f, width - left - right);
-                if (requestedWidth <= available + 0.001f || requestedWidth <= 0f) {
-                    return new FloatSlot(left, right, y, available);
-                }
-                if (Float.isInfinite(nextY)) {
-                    return new FloatSlot(0f, 0f, y, width);
-                }
-                y = nextY;
-            }
-            return new FloatSlot(0f, 0f, y, width);
-        }
-    }
-
     /**
      * Result of performing final layout on in-flow children, including margin collapse info.
      */
@@ -581,6 +492,23 @@ public class BlockComputer {
         return Math.max(maxChildWidth, floatContribution.result());
     }
 
+    /** Finds the first float-avoiding content slot wide enough for the supplied margin box. */
+    private ContentSlot findContentSlotForBox(
+        FloatContext floatContext,
+        float minY,
+        float outerWidth,
+        Clear clear) {
+        float[] containingBlockInsets = new float[] {0f, 0f};
+        ContentSlot slot = floatContext.findContentSlot(minY, containingBlockInsets, clear, null);
+        while (outerWidth > slot.width + 0.001f && slot.segmentId != null) {
+            ContentSlot next = floatContext.findContentSlot(
+                minY, containingBlockInsets, clear, slot.segmentId);
+            if (next.y <= slot.y + 0.001f) break;
+            slot = next;
+        }
+        return slot;
+    }
+
     private InFlowLayoutResult performFinalLayoutOnChildren(
         List<BlockItem> items,
         float containerOuterWidth,
@@ -649,22 +577,15 @@ public class BlockComputer {
                 FloatSize floatSize = floatOutput.size();
                 float marginBoxWidth = floatSize.width + itemNonAutoXMarginSum;
                 float marginBoxHeight = floatSize.height + itemNonAutoMargin.top + itemNonAutoMargin.bottom;
-                FloatSlot floatSlot = floatContext.findSlot(
+                FloatPoint marginBoxPosition = floatContext.placeFloatedBox(
+                    new FloatSize(marginBoxWidth, marginBoxHeight),
                     committedYOffset + activeCollapsibleMarginSet.resolve(),
-                    marginBoxWidth,
-                    marginBoxHeight,
+                    new float[] {0f, 0f},
+                    item.floatMode.floatDirection(),
                     item.clear
                 );
-                floatSlot = new FloatSlot(
-                    floatSlot.x,
-                    floatSlot.rightInset,
-                    Math.max(floatSlot.y, committedYOffset),
-                    floatSlot.width
-                );
-                float floatX = item.floatMode == TaffyFloat.LEFT
-                    ? floatSlot.x + itemNonAutoMargin.left
-                    : containerInnerWidth - floatSlot.rightInset - floatSize.width - itemNonAutoMargin.right;
-                float floatY = floatSlot.y + itemNonAutoMargin.top;
+                float floatX = marginBoxPosition.x + itemNonAutoMargin.left;
+                float floatY = marginBoxPosition.y + itemNonAutoMargin.top;
                 FloatSize floatScrollbar = new FloatSize(
                     item.overflow.y == Overflow.SCROLL ? item.scrollbarWidth : 0f,
                     item.overflow.x == Overflow.SCROLL ? item.scrollbarWidth : 0f
@@ -683,24 +604,15 @@ public class BlockComputer {
                 ));
                 item.computedSize = floatSize;
                 item.canBeCollapsedThrough = false;
-                floatContext.add(
-                    item.floatMode,
-                    item.floatMode == TaffyFloat.LEFT
-                        ? floatSlot.x
-                        : floatX - itemNonAutoMargin.left,
-                    floatSlot.y,
-                    marginBoxWidth,
-                    marginBoxHeight
-                );
                 continue;
             }
 
-            FloatSlot flowSlot = floatContext.findSlot(
+            float requestedOuterWidth = Float.isNaN(item.size.width)
+                ? 0f : item.size.width + itemNonAutoXMarginSum;
+            ContentSlot flowSlot = findContentSlotForBox(
+                floatContext,
                 committedYOffset + activeCollapsibleMarginSet.resolve(),
-                Float.isNaN(item.size.width)
-                    ? 0f
-                    : item.size.width,
-                Float.isNaN(item.size.height) ? 0f : item.size.height,
+                requestedOuterWidth,
                 item.clear
             );
 
@@ -731,10 +643,10 @@ public class BlockComputer {
 
             FloatSize finalSize = itemOutput.size();
 
-            flowSlot = floatContext.findSlot(
-                flowSlot.y,
+            flowSlot = findContentSlotForBox(
+                floatContext,
+                committedYOffset + activeCollapsibleMarginSet.resolve(),
                 finalSize.width + itemNonAutoXMarginSum,
-                finalSize.height + itemNonAutoMargin.top + itemNonAutoMargin.bottom,
                 item.clear
             );
 
@@ -841,7 +753,7 @@ public class BlockComputer {
 
             if (floatContext.hasFloats()) {
                 x = isRtl
-                    ? contentBoxInset.left + containerInnerWidth - flowSlot.rightInset - finalSize.width
+                    ? contentBoxInset.left + flowSlot.x + flowSlot.width - finalSize.width
                         - resolvedMargin.right + insetOffsetX
                     : contentBoxInset.left + flowSlot.x + resolvedMargin.left + insetOffsetX;
             }

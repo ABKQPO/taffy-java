@@ -3566,11 +3566,12 @@ public class GridComputer {
             isFlexible[i] = true;
         }
 
-        float flexFraction;
+        float flexFraction = 0f;
         boolean changed;
 
         // Iterate until no tracks need to be made inflexible
-        do {
+        int maximumIterations = frValues.size() + 1;
+        for (int iteration = 0; iteration < maximumIterations; iteration++) {
             changed = false;
 
             // Calculate hypothetical fr size from flexible tracks only
@@ -3613,7 +3614,8 @@ public class GridComputer {
                     }
                 }
             }
-        } while (changed);
+            if (!changed) break;
+        }
 
         return Math.max(0, flexFraction);
     }
@@ -3982,7 +3984,8 @@ public class GridComputer {
 
                 // Iterative algorithm: tracks with content > fr*fraction become inflexible
                 boolean changed = true;
-                while (changed) {
+                int maximumIterations = sizes.size() + 1;
+                for (int iteration = 0; iteration < maximumIterations && changed; iteration++) {
                     changed = false;
                     float remainingForFr = availableForFr - usedByInflexible;
                     float flexFraction = currentTotalFr > 0 ? remainingForFr / currentTotalFr : 0f;

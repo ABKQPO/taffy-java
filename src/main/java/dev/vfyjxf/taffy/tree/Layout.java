@@ -150,16 +150,16 @@ public record Layout(
      * Return the scroll width of the node.
      */
     public float scrollWidth() {
-        return Math.max(0, contentSize.width + Math.min(scrollbarSize.width, size.width)
-            - size.width + border.right);
+        return Math.max(0, scrollableOverflowRect.right + Math.min(scrollbarSize.width, size.width)
+            - size.width + border.left + border.right);
     }
 
     /**
      * Return the scroll height of the node.
      */
     public float scrollHeight() {
-        return Math.max(0, contentSize.height + Math.min(scrollbarSize.height, size.height)
-            - size.height + border.bottom);
+        return Math.max(0, scrollableOverflowRect.bottom + Math.min(scrollbarSize.height, size.height)
+            - size.height + border.top + border.bottom);
     }
 
     @Override

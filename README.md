@@ -30,7 +30,7 @@ The library is built for the configured modern Java toolchain. Consumers should 
 The optional fixture generator uses the upstream Rust `test_fixtures` directory without assuming a sibling checkout. Point it at any Rust Taffy checkout using a Gradle property or environment variable:
 
 ```powershell
-.\gradlew.bat :gentest:generateTaffyFixtures -PtaffyFixtureRoot=E:\Github\taffy\test_fixtures
+.\gradlew.bat :gentest:generateTaffyFixtures "-PtaffyFixtureRoot=<path-to-taffy>/test_fixtures"
 ```
 
 Optional properties are `generatedTestRoot`, `taffyFixtureCategory`, `chromeBinary`, and `chromeDriver`. Their environment equivalents are `TAFFY_GENERATED_TEST_ROOT`, `TAFFY_FIXTURE_CATEGORY`, `CHROME_BINARY`, and `CHROME_DRIVER`.
@@ -38,7 +38,7 @@ Optional properties are `generatedTestRoot`, `taffyFixtureCategory`, `chromeBina
 Run upstream XML layout assertions directly with an explicit XML root. Restrict a run to one group while expanding the runner's supported style surface:
 
 ```powershell
-.\gradlew.bat test -PtaffyXmlRoot=E:\Github\taffy\tests\xml -PtaffyXmlGroup=grid
+.\gradlew.bat test "-PtaffyXmlRoot=<path-to-taffy>/tests/xml" -PtaffyXmlGroup=grid
 ```
 
 ## Credits

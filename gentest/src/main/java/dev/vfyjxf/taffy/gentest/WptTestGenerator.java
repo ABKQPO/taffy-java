@@ -75,7 +75,7 @@ public class WptTestGenerator {
                 throw new IllegalArgumentException(
                     "wptRoot is not a directory: " + wptRoot + "\n" +
                     "If you configured this path in gradle.properties, Windows backslashes must be escaped (\\)\n" +
-                    "or use forward slashes (recommended): D:/path/to/wpt-root"
+                    "or use forward slashes (recommended): <path-to-wpt-root>"
                 );
             }
         }
@@ -1031,9 +1031,9 @@ public class WptTestGenerator {
      * Heuristic repair for Windows paths that lost backslashes.
      *
      * A common way this happens is setting a path in gradle.properties:
-     *   wptRoot=D:\\foo\\bar\\css
+     *   wptRoot=&lt;path-to-wpt-root&gt;\\css
      * If you write single backslashes, Java properties treat them as escapes and may drop them,
-     * producing something like D:\foo\barcss.
+     * producing a path with missing directory separators.
      */
     private static Path tryRepairPossiblyEscapedWindowsPath(Path p) {
         try {

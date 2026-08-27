@@ -379,7 +379,12 @@ public class BlockComputer {
             resolvedBorder.top + scrollbarGutter.top,
             resolvedBorder.bottom + scrollbarGutter.bottom
         );
-        performAbsoluteLayoutOnChildren(items, finalOuterSize, absolutePositionInset);
+        performAbsoluteLayoutOnChildren(
+            items,
+            finalOuterSize,
+            absolutePositionInset,
+            layoutComputer.resolveDirection(node)
+        );
 
         // Layout hidden children
         for (BlockItem item : items) {
@@ -1022,7 +1027,8 @@ public class BlockComputer {
     private void performAbsoluteLayoutOnChildren(
         List<BlockItem> items,
         FloatSize areaSize,
-        FloatRect areaInset) {
+        FloatRect areaInset,
+        TaffyDirection direction) {
 
         LayoutPartialTree tree = layoutComputer.getTree();
         float areaWidth = areaSize.width - areaInset.left - areaInset.right;
@@ -1169,7 +1175,9 @@ public class BlockComputer {
             } else if (!Float.isNaN(right)) {
                 x = areaInset.left + areaWidth - finalSize.width - right - resolvedMargin.right;
             } else {
-                x = item.staticPosition.x + resolvedMargin.left;
+                x = direction.isRtl()
+                    ? item.staticPosition.x - finalSize.width - resolvedMargin.right
+                    : item.staticPosition.x + resolvedMargin.left;
             }
 
             float y;

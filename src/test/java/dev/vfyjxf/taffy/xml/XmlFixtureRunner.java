@@ -4,6 +4,7 @@ import dev.vfyjxf.taffy.geometry.TaffyPoint;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
+import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.LengthPercentage;
@@ -15,6 +16,7 @@ import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.DetailedLayoutInfo;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
+import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -71,7 +73,11 @@ public class XmlFixtureRunner {
         for (int index = 0; index < inputChildren.size(); index++) {
             childIds.add(buildTree(tree, inputChildren.get(index), expectedChildren.get(index)));
         }
-        return tree.newWithChildren(style(input), childIds);
+        TaffyStyle style = style(input);
+        if (childIds.isEmpty() && input.getTagName().equals("text")) {
+            return tree.newLeafWithMeasure(style, ahemTextMeasure(input.getTextContent()));
+        }
+        return tree.newWithChildren(style, childIds);
     }
 
     private static TaffyStyle style(Element element) {
@@ -127,6 +133,12 @@ public class XmlFixtureRunner {
         assertEquals(number(expected, "y", 0f), layout.location().y, EPSILON, fixtureName + " y");
         assertEquals(number(expected, "width", 0f), layout.size().width, EPSILON, fixtureName + " width");
         assertEquals(number(expected, "height", 0f), layout.size().height, EPSILON, fixtureName + " height");
+        if (expected.hasAttribute("scroll_width")) {
+            assertEquals(number(expected, "scroll_width", 0f), layout.scrollWidth(), EPSILON, fixtureName + " scroll width");
+        }
+        if (expected.hasAttribute("scroll_height")) {
+            assertEquals(number(expected, "scroll_height", 0f), layout.scrollHeight(), EPSILON, fixtureName + " scroll height");
+        }
         DetailedLayoutInfo detailedLayout = tree.getDetailedLayoutInfo(node);
         if (expected.hasAttribute("resolved-rows")) {
             assertEquals(normalizeTrackList(expected.getAttribute("resolved-rows")), normalizeTrackList(detailedLayout.grid().gridTemplateRows()), fixtureName + " resolved rows");
@@ -185,6 +197,32 @@ public class XmlFixtureRunner {
 
     private static String normalizeTrackList(String value) {
         return PIXEL_TOKEN.matcher(value).replaceAll(match -> Float.toString(Float.parseFloat(match.group(1))) + "px");
+    }
+
+    private static MeasureFunc ahemTextMeasure(String textContent) {
+        String text = textContent == null ? "" : textContent.trim();
+        int minCharacters = 0;
+        int maxCharacters = 0;
+        for (String segment : text.split("\\u200B", -1)) {
+            minCharacters = Math.max(minCharacters, segment.length());
+            maxCharacters += segment.length();
+        }
+        int minimum = minCharacters;
+        int maximum = maxCharacters;
+        return (knownDimensions, availableSpace) -> {
+            float width = knownDimensions.width;
+            if (Float.isNaN(width)) {
+                if (availableSpace.width.isMinContent()) width = minimum * 10f;
+                else if (availableSpace.width.isDefinite()) width = Math.max(minimum * 10f, Math.min(maximum * 10f, availableSpace.width.getValue()));
+                else width = maximum * 10f;
+            }
+            float height = knownDimensions.height;
+            if (Float.isNaN(height)) {
+                int perLine = Math.max(1, (int) Math.floor(width / 10f));
+                height = Math.max(1, (int) Math.ceil((double) maximum / perLine)) * 10f;
+            }
+            return new FloatSize(width, height);
+        };
     }
 
     private static TaffyDimension dimension(Element element, String name) {

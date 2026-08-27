@@ -509,7 +509,10 @@ public class LayoutComputer {
 
         // If both dimensions are known, return early (but ensure size is at least padding+border, WITHOUT scrollbar)
         // Scrollbar gutter reduces content area but doesn't inflate explicit size
-        if (!Float.isNaN(styledBasedKnownDimensions.width) && !Float.isNaN(styledBasedKnownDimensions.height)) {
+        if (inputs.runMode() == RunMode.COMPUTE_SIZE
+            && hasStylesPreventingBeingCollapsedThrough
+            && !Float.isNaN(styledBasedKnownDimensions.width)
+            && !Float.isNaN(styledBasedKnownDimensions.height)) {
             FloatSize size = new FloatSize(
                 Math.max(styledBasedKnownDimensions.width, paddingBorderSize.width),
                 Math.max(styledBasedKnownDimensions.height, paddingBorderSize.height)
@@ -590,11 +593,9 @@ public class LayoutComputer {
 
         FloatSize measuredSize;
         if (measureFunc != null) {
-            // Subtract content box inset (incl. scrollbar) from known dimensions to get content area
-            FloatSize measureKnownDimensions = new FloatSize(
-                TaffyMath.maybeSub(styledBasedKnownDimensions.width, contentBoxInsetSize.width),
-                TaffyMath.maybeSub(styledBasedKnownDimensions.height, contentBoxInsetSize.height)
-            );
+            FloatSize measureKnownDimensions = inputs.runMode() == RunMode.COMPUTE_SIZE
+                ? knownDimensions
+                : FloatSize.none();
             measuredSize = measureFunc.measure(measureKnownDimensions, contentAvailableSpace);
         } else {
             measuredSize = new FloatSize(0f, 0f);
@@ -643,6 +644,17 @@ public class LayoutComputer {
                                      && size.height == 0
                                      && measuredHeight == 0;
 
+        boolean isScrollContainer = overflow.x.isScrollContainer() || overflow.y.isScrollContainer();
+        TaffyDirection direction = resolveDirection(node);
+        float startPadding = direction.isRtl() ? padding.right : padding.left;
+        float endPadding = direction.isRtl() ? padding.left : padding.right;
+        FloatRect scrollableOverflowRect = FloatRect.ltrb(
+            0f,
+            0f,
+            startPadding + measuredSize.width + (isScrollContainer ? endPadding : 0f),
+            padding.top + measuredSize.height + (isScrollContainer ? padding.bottom : 0f)
+        );
+
         return new LayoutOutput(
             size,
             new FloatSize(
@@ -652,7 +664,9 @@ public class LayoutComputer {
             new FloatPoint(Float.NaN, Float.NaN),
             CollapsibleMarginSet.ZERO,
             CollapsibleMarginSet.ZERO,
-            canCollapseThrough
+            canCollapseThrough,
+            scrollableOverflowRect,
+            Baselines.NONE
         );
     }
 

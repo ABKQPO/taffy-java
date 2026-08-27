@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for CSS calc() expression support.
  */
 @DisplayName("CSS calc() Support")
-class CalcExpressionTest {
+public class CalcExpressionTest {
 
     @Nested
     @DisplayName("CalcExpression Interface")

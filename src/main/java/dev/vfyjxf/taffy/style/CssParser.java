@@ -82,6 +82,21 @@ public class CssParser {
         return keyword(input, Overflow.class, "overflow", new String[] {"visible", "clip", "hidden", "scroll"});
     }
 
+    /** Parse the CSS float property. */
+    public static TaffyFloat parseFloat(String input) {
+        return TaffyFloat.parse(input);
+    }
+
+    /** Parse the CSS clear property. */
+    public static Clear parseClear(String input) {
+        return Clear.parse(input);
+    }
+
+    /** Parse the layout-affecting CSS contain property. */
+    public static Contain parseContain(String input) {
+        return Contain.parse(input);
+    }
+
     public static TaffyDirection parseDirection(String input) {
         return keyword(input, TaffyDirection.class, "direction", new String[] {"inherit", "ltr", "rtl"});
     }
@@ -120,6 +135,46 @@ public class CssParser {
 
     public static FlexWrap parseFlexWrap(String input) {
         return FlexWrap.parse(input);
+    }
+
+    /** Parse an align-self value using the same alignment grammar as align-items. */
+    public static AlignSelf parseAlignSelf(String input) {
+        AlignItems value = parseAlignItems(input);
+        if (value == AlignItems.AUTO) return AlignSelf.AUTO;
+        switch (value) {
+            case START: return AlignSelf.FLEX_START;
+            case END: return AlignSelf.FLEX_END;
+            case FLEX_START: return AlignSelf.FLEX_START;
+            case FLEX_END: return AlignSelf.FLEX_END;
+            case SELF_START: return AlignSelf.SELF_START;
+            case SELF_END: return AlignSelf.SELF_END;
+            case CENTER: return AlignSelf.CENTER;
+            case BASELINE: return AlignSelf.BASELINE;
+            case STRETCH: return AlignSelf.STRETCH;
+            case SAFE_START: return AlignSelf.SAFE_START;
+            case SAFE_END: return AlignSelf.SAFE_END;
+            case SAFE_FLEX_START: return AlignSelf.SAFE_FLEX_START;
+            case SAFE_FLEX_END: return AlignSelf.SAFE_FLEX_END;
+            case SAFE_SELF_START: return AlignSelf.SAFE_SELF_START;
+            case SAFE_SELF_END: return AlignSelf.SAFE_SELF_END;
+            case SAFE_CENTER: return AlignSelf.SAFE_CENTER;
+            default: throw new IllegalStateException("Unexpected align-self value: " + value);
+        }
+    }
+
+    /** Parse a justify-items value. */
+    public static AlignItems parseJustifyItems(String input) {
+        return parseAlignItems(input);
+    }
+
+    /** Parse a justify-self value. */
+    public static AlignSelf parseJustifySelf(String input) {
+        return parseAlignSelf(input);
+    }
+
+    /** Parse a justify-content value. */
+    public static AlignContent parseJustifyContent(String input) {
+        return parseAlignContent(input);
     }
 
     public static AlignItems parseAlignItems(String input) {

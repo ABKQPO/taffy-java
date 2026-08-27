@@ -35,6 +35,11 @@ public enum AlignSelf {
     /** Safe center alignment */
     SAFE_CENTER;
 
+    /** Parse a CSS align-self value. */
+    public static AlignSelf parse(String value) {
+        return CssParser.parseAlignSelf(value);
+    }
+
     /**
      * Creates an AlignSelf from an AlignItems value.
      */

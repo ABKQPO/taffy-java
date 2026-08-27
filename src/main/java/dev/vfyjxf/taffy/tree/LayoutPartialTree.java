@@ -7,7 +7,7 @@ import dev.vfyjxf.taffy.util.MeasureFunc;
  * Data access contract required by Taffy's low-level layout algorithms.
  * Implementations can use any node storage strategy and need only expose direct children.
  */
-public interface LayoutPartialTree extends TraversePartialTree {
+public interface LayoutPartialTree extends TraversePartialTree, CacheTree {
     TaffyStyle getStyle(NodeId node);
 
     void setUnroundedLayout(NodeId node, Layout layout);
@@ -21,6 +21,21 @@ public interface LayoutPartialTree extends TraversePartialTree {
     void storeCacheEntry(NodeId node, LayoutInput input, LayoutOutput output);
 
     void clearCache(NodeId node);
+
+    @Override
+    default LayoutOutput cacheGet(NodeId node, LayoutInput input) {
+        return getCacheEntry(node, input);
+    }
+
+    @Override
+    default void cacheStore(NodeId node, LayoutInput input, LayoutOutput output) {
+        storeCacheEntry(node, input, output);
+    }
+
+    @Override
+    default void cacheClear(NodeId node) {
+        clearCache(node);
+    }
 
     /**
      * Compute a child through the standard low-level dispatcher.

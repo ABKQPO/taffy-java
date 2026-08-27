@@ -31,11 +31,26 @@ public class LayoutAlgorithms {
         return new LayoutComputer(tree, null).computeBlockLayout(node, inputs, tree.getStyle(node));
     }
 
+    /** Computes a block layout through the specialized container contract. */
+    public static LayoutOutput computeBlockLayout(LayoutBlockContainer tree, NodeId node, LayoutInput inputs) {
+        return new LayoutComputer(tree, null).computeBlockLayout(node, inputs, tree.getBlockContainerStyle(node));
+    }
+
     public static LayoutOutput computeFlexboxLayout(LayoutPartialTree tree, NodeId node, LayoutInput inputs) {
         return new LayoutComputer(tree, null).computeFlexboxLayout(node, inputs, tree.getStyle(node));
     }
 
+    /** Computes a Flexbox layout through the specialized container contract. */
+    public static LayoutOutput computeFlexboxLayout(LayoutFlexboxContainer tree, NodeId node, LayoutInput inputs) {
+        return new LayoutComputer(tree, null).computeFlexboxLayout(node, inputs, tree.getFlexboxContainerStyle(node));
+    }
+
     public static LayoutOutput computeGridLayout(LayoutPartialTree tree, NodeId node, LayoutInput inputs) {
         return new LayoutComputer(tree, null).computeGridLayout(node, inputs, tree.getStyle(node));
+    }
+
+    /** Computes a Grid layout through the specialized container contract. */
+    public static LayoutOutput computeGridLayout(LayoutGridContainer tree, NodeId node, LayoutInput inputs) {
+        return new LayoutComputer(tree, null).computeGridLayout(node, inputs, tree.getGridContainerStyle(node));
     }
 }

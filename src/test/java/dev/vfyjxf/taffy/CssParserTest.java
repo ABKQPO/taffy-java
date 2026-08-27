@@ -5,7 +5,10 @@ import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.AlignItemsKeyword;
 import dev.vfyjxf.taffy.style.AlignContentKeyword;
+import dev.vfyjxf.taffy.style.AlignSelf;
 import dev.vfyjxf.taffy.style.BoxSizing;
+import dev.vfyjxf.taffy.style.Clear;
+import dev.vfyjxf.taffy.style.Contain;
 import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
@@ -19,6 +22,7 @@ import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import dev.vfyjxf.taffy.style.TaffyFloat;
 import dev.vfyjxf.taffy.style.TextAlign;
 import dev.vfyjxf.taffy.style.TrackSizingFunction;
 import dev.vfyjxf.taffy.style.GridRepetition;
@@ -124,6 +128,11 @@ public class CssParserTest {
         assertEquals(AlignContent.CENTER, AlignContent.SAFE_CENTER.withoutSafety());
         assertThrows(IllegalArgumentException.class, () -> CssParser.parseAlignItems("safe stretch"));
         assertThrows(IllegalArgumentException.class, () -> CssParser.parseAlignContent("unsafe space-between"));
+        assertEquals(AlignSelf.SAFE_CENTER, CssParser.parseAlignSelf("safe center"));
+        assertEquals(AlignSelf.SELF_END, CssParser.parseJustifySelf("self-end"));
+        assertEquals(TaffyFloat.LEFT, CssParser.parseFloat("left"));
+        assertEquals(Clear.BOTH, CssParser.parseClear("both"));
+        assertEquals(Contain.CONTENT, CssParser.parseContain("layout paint"));
     }
 
     @Test

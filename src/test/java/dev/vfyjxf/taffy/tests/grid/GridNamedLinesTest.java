@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for Grid named lines and areas support.
  * Verifies the NamedLineResolver correctly resolves named line placements.
  */
-class GridNamedLinesTest {
+public class GridNamedLinesTest {
 
     @Test
     void testGridPlacementNamedLineTypes() {

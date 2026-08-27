@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Allows you to build a tree of UI nodes, run Taffy's layout algorithms over that tree,
  * and then access the resultant layout.
  */
-public class TaffyTree implements LayoutPartialTree, RoundTree, PrintTree {
+public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, LayoutBlockContainer, RoundTree, PrintTree {
 
     private static final int DEFAULT_CAPACITY = 16;
 

@@ -41,6 +41,25 @@ public enum JustifyContent {
     /** Safe center alignment. */
     SAFE_CENTER;
 
+    /** Parse a CSS justify-content value. */
+    public static JustifyContent parse(String value) {
+        AlignContent parsed = CssParser.parseJustifyContent(value);
+        boolean safe = parsed.isSafe();
+        switch (parsed.withoutSafety()) {
+            case START: return safe ? SAFE_START : START;
+            case END: return safe ? SAFE_END : END;
+            case FLEX_START: return safe ? SAFE_FLEX_START : FLEX_START;
+            case FLEX_END: return safe ? SAFE_FLEX_END : FLEX_END;
+            case CENTER: return safe ? SAFE_CENTER : CENTER;
+            case STRETCH: return STRETCH;
+            case SPACE_BETWEEN: return SPACE_BETWEEN;
+            case SPACE_EVENLY: return SPACE_EVENLY;
+            case SPACE_AROUND: return SPACE_AROUND;
+            case AUTO: return FLEX_START;
+            default: throw new IllegalStateException("Unexpected justify-content value: " + parsed);
+        }
+    }
+
     /** Returns the underlying distribution keyword. */
     public JustifyContent withoutSafety() {
         switch (this) {

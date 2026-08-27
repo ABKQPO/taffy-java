@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for CSS direction property (LTR/RTL) support.
  */
 @DisplayName("Direction (RTL/LTR)")
-class DirectionTest {
+public class DirectionTest {
 
     private static final float EPSILON = 0.1f;
 

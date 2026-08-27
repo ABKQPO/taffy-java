@@ -64,6 +64,7 @@ public class BlockComputer {
         FloatSize computedSize;
         FloatPoint staticPosition;
         boolean canBeCollapsedThrough;
+        boolean isInSameBfc;
         Layout finalLayout;
     }
 
@@ -528,6 +529,14 @@ public class BlockComputer {
             item.staticPosition = new FloatPoint(0f, 0f);
             item.canBeCollapsedThrough = false;
             item.isTable = childStyle.getItemIsTable();
+            boolean isScrollContainer = item.overflow.x.isScrollContainer() || item.overflow.y.isScrollContainer();
+            item.isInSameBfc = childStyle.getDisplay() == TaffyDisplay.BLOCK
+                && !item.isTable
+                && !item.position.isOutOfFlow()
+                && (item.floatMode == null || !item.floatMode.isFloated())
+                && !isScrollContainer
+                && !hasNonNormalAlignContent(childStyle.getAlignContent())
+                && !childStyle.contain.establishesIndependentFormattingContext();
 
             items.add(item);
         }
@@ -582,6 +591,32 @@ public class BlockComputer {
         while (outerWidth > slot.width + 0.001f && slot.segmentId != null) {
             ContentSlot next = blockContext.findContentSlot(minY, clear, slot.segmentId);
             if (next.y <= slot.y + 0.001f) break;
+            slot = next;
+        }
+        return slot;
+    }
+
+    /** Finds the first independent-formatting-context slot that can contain the border box. */
+    private BfcSlot findBfcSlotForBox(
+        BlockContext blockContext,
+        float minY,
+        FloatRect margins,
+        FloatSize size,
+        FloatSize minSize,
+        FloatSize maxSize,
+        TaffyDirection direction,
+        Clear clear) {
+        float marginSum = margins.left + margins.right;
+        float minimumAutoWidth = -marginSum;
+        BfcSlot slot = blockContext.findBfcSlot(
+            minY, new float[] {margins.left, margins.right}, direction, clear, null);
+        while (slot.segmentId != null) {
+            float width = Float.isNaN(size.width) ? Math.max(slot.stretchWidth, minimumAutoWidth) : size.width;
+            width = TaffyMath.clamp(width, minSize.width, maxSize.width);
+            if (width <= slot.borderWidth + 0.001f) return slot;
+            BfcSlot next = blockContext.findBfcSlot(
+                minY, new float[] {margins.left, margins.right}, direction, clear, slot.segmentId);
+            if (next.y <= slot.y + 0.001f) return slot;
             slot = next;
         }
         return slot;
@@ -685,20 +720,35 @@ public class BlockComputer {
                 continue;
             }
 
-            float requestedOuterWidth = Float.isNaN(item.size.width)
-                ? 0f : item.size.width + itemNonAutoXMarginSum;
-            ContentSlot flowSlot = findContentSlotForBox(
-                blockContext,
-                committedYOffset + activeCollapsibleMarginSet.resolve(),
-                requestedOuterWidth,
-                item.clear
-            );
+            float minimumY = committedYOffset + activeCollapsibleMarginSet.resolve();
+            boolean itemAvoidsFloats = !item.isInSameBfc && blockContext.hasActiveFloats(minimumY);
+            ContentSlot flowSlot = null;
+            BfcSlot bfcSlot = null;
+            float stretchWidth;
+            if (itemAvoidsFloats) {
+                bfcSlot = findBfcSlotForBox(
+                    blockContext,
+                    minimumY,
+                    itemNonAutoMargin,
+                    item.size,
+                    item.minSize,
+                    item.maxSize,
+                    direction,
+                    item.clear
+                );
+                stretchWidth = Math.max(bfcSlot.stretchWidth, -itemNonAutoXMarginSum);
+            } else {
+                float requestedOuterWidth = Float.isNaN(item.size.width)
+                    ? 0f : item.size.width + itemNonAutoXMarginSum;
+                flowSlot = findContentSlotForBox(blockContext, minimumY, requestedOuterWidth, item.clear);
+                stretchWidth = flowSlot.width - itemNonAutoXMarginSum;
+            }
 
             FloatSize knownDimensions;
             if (item.isTable) {
                 knownDimensions = new FloatSize(NaN, NaN);
             } else {
-                float width = Float.isNaN(item.size.width) ? flowSlot.width - itemNonAutoXMarginSum : item.size.width;
+                float width = Float.isNaN(item.size.width) ? stretchWidth : item.size.width;
                 width = TaffyMath.clamp(width, item.minSize.width, item.maxSize.width);
                 knownDimensions = maybeClamp(
                     new FloatSize(width, item.size.height),
@@ -717,22 +767,25 @@ public class BlockComputer {
                 knownDimensions,
                 parentSize,
                 new TaffySize<>(
-                    subtractFromAvailable(availableSpace.width, itemNonAutoXMarginSum),
+                    itemAvoidsFloats ? AvailableSpace.definite(stretchWidth)
+                        : subtractFromAvailable(availableSpace.width, itemNonAutoXMarginSum),
                     availableSpace.height
                 ),
                 SizingMode.INHERENT_SIZE,
-                new TaffyLine<>(true, true),
+                item.isInSameBfc ? new TaffyLine<>(true, true) : TaffyLine.FALSE,
                 childBlockContext
             );
 
             FloatSize finalSize = itemOutput.size();
 
-            flowSlot = findContentSlotForBox(
-                blockContext,
-                committedYOffset + activeCollapsibleMarginSet.resolve(),
-                finalSize.width + itemNonAutoXMarginSum,
-                item.clear
-            );
+            if (!itemAvoidsFloats) {
+                flowSlot = findContentSlotForBox(
+                    blockContext,
+                    minimumY,
+                    finalSize.width + itemNonAutoXMarginSum,
+                    item.clear
+                );
+            }
 
             // Get margin collapse info from child layout
             CollapsibleMarginSet topMarginSet = itemOutput.topMargin().copy()
@@ -784,7 +837,9 @@ public class BlockComputer {
                 committedYOffset + activeCollapsibleMarginSet.resolve()
             );
 
-            float y = blockContext.hasFloats()
+            float y = itemAvoidsFloats
+                ? bfcSlot.y + insetOffsetY
+                : blockContext.hasFloats()
                 ? Math.max(committedYOffset + insetOffsetY + yMarginOffset, flowSlot.y + insetOffsetY)
                 : committedYOffset + insetOffsetY + yMarginOffset;
 
@@ -835,7 +890,11 @@ public class BlockComputer {
                 }
             }
 
-            if (blockContext.hasFloats()) {
+            if (itemAvoidsFloats) {
+                x = isRtl
+                    ? contentBoxInset.left + bfcSlot.x + bfcSlot.borderWidth - finalSize.width + insetOffsetX
+                    : contentBoxInset.left + bfcSlot.x + insetOffsetX;
+            } else if (blockContext.hasFloats()) {
                 x = isRtl
                     ? contentBoxInset.left + flowSlot.x + flowSlot.width - finalSize.width
                         - resolvedMargin.right + insetOffsetX
@@ -892,7 +951,9 @@ public class BlockComputer {
                     .collapseWithSet(bottomMarginSet);
                 yOffsetForAbsolute = committedYOffset + finalSize.height + yMarginOffset;
             } else {
-                committedYOffset += finalSize.height + yMarginOffset;
+                committedYOffset = itemAvoidsFloats
+                    ? y - insetOffsetY + finalSize.height
+                    : committedYOffset + finalSize.height + yMarginOffset;
                 activeCollapsibleMarginSet = bottomMarginSet;
                 yOffsetForAbsolute = committedYOffset + activeCollapsibleMarginSet.resolve();
                 allChildrenCanBeCollapsedThrough = false;

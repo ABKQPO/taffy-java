@@ -5,6 +5,7 @@ import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.Clear;
 import dev.vfyjxf.taffy.style.LengthPercentage;
+import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.Overflow;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
@@ -197,6 +198,111 @@ public class FloatClearTest {
         assertEquals(50f, tree.getLayout(bfc).location().x, 0.01f);
         assertEquals(20f, tree.getLayout(bfc).location().y, 0.01f);
         assertEquals(120f, tree.getLayout(root).size().height, 0.01f);
+    }
+
+    @Test
+    void independentFormattingContextMovesBelowFloatWhenNegativeMarginHidesItsBorderWidth() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(50f, 100f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle bfcStyle = blockStyle(Float.NaN, 50f);
+        bfcStyle.overflow.x = Overflow.HIDDEN;
+        bfcStyle.overflow.y = Overflow.HIDDEN;
+        bfcStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.length(-60f),
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO
+        );
+        NodeId bfc = tree.newLeaf(bfcStyle);
+        NodeId root = tree.newWithChildren(rootStyle, floated, bfc);
+
+        compute(tree, root);
+
+        assertEquals(-60f, tree.getLayout(bfc).location().x, 0.01f);
+        assertEquals(100f, tree.getLayout(bfc).location().y, 0.01f);
+        assertEquals(160f, tree.getLayout(bfc).size().width, 0.01f);
+        assertEquals(150f, tree.getLayout(root).size().height, 0.01f);
+    }
+
+    @Test
+    void independentFormattingContextWithFixedWidthMovesBelowFloat() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(300f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(150f, 150f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle bfcStyle = blockStyle(200f, 150f);
+        bfcStyle.overflow.x = Overflow.HIDDEN;
+        bfcStyle.overflow.y = Overflow.HIDDEN;
+        NodeId bfc = tree.newLeaf(bfcStyle);
+        NodeId root = tree.newWithChildren(rootStyle, floated, bfc);
+
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(300f), AvailableSpace.maxContent()));
+
+        assertEquals(0f, tree.getLayout(bfc).location().x, 0.01f);
+        assertEquals(150f, tree.getLayout(bfc).location().y, 0.01f);
+        assertEquals(300f, tree.getLayout(root).size().height, 0.01f);
+    }
+
+    @Test
+    void independentFormattingContextAbsorbsLeadingMarginAtFloatEdge() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(50f, 100f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle bfcStyle = blockStyle(Float.NaN, 50f);
+        bfcStyle.overflow.x = Overflow.HIDDEN;
+        bfcStyle.overflow.y = Overflow.HIDDEN;
+        bfcStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.length(20f),
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO
+        );
+        NodeId bfc = tree.newLeaf(bfcStyle);
+        NodeId root = tree.newWithChildren(rootStyle, floated, bfc);
+
+        compute(tree, root);
+
+        assertEquals(50f, tree.getLayout(bfc).location().x, 0.01f);
+        assertEquals(50f, tree.getLayout(bfc).size().width, 0.01f);
+    }
+
+    @Test
+    void independentFormattingContextAppliesTrailingMarginToAutomaticWidth() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
+
+        TaffyStyle floatStyle = blockStyle(50f, 100f);
+        floatStyle.floatMode = TaffyFloat.LEFT;
+        NodeId floated = tree.newLeaf(floatStyle);
+
+        TaffyStyle bfcStyle = blockStyle(Float.NaN, 50f);
+        bfcStyle.overflow.x = Overflow.HIDDEN;
+        bfcStyle.overflow.y = Overflow.HIDDEN;
+        bfcStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.ZERO,
+            LengthPercentageAuto.length(10f),
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO
+        );
+        NodeId bfc = tree.newLeaf(bfcStyle);
+        NodeId root = tree.newWithChildren(rootStyle, floated, bfc);
+
+        compute(tree, root);
+
+        assertEquals(50f, tree.getLayout(bfc).location().x, 0.01f);
+        assertEquals(40f, tree.getLayout(bfc).size().width, 0.01f);
     }
 
     private static TaffyStyle blockStyle(float width, float height) {

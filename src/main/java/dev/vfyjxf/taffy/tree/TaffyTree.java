@@ -192,6 +192,7 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
             if (parentChildren != null) {
                 parentChildren.removeIf(n -> n.equals(node));
             }
+            markDirty(parent);
         }
         
         // Remove parent references from this node's children

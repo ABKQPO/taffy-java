@@ -282,6 +282,30 @@ public class TaffyTreeApiTest {
     }
 
     @Test
+    @DisplayName("remove_node_marks_parent_dirty")
+    void removeNodeMarksParentDirty() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.border = TaffyRect.ltrb(
+            LengthPercentage.ZERO,
+            LengthPercentage.ZERO,
+            LengthPercentage.ZERO,
+            LengthPercentage.length(1.0f)
+        );
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(new TaffyStyle(), child);
+
+        tree.computeLayout(root, TaffySize.minContent());
+        assertEquals(1.0f, tree.getLayout(root).size().height);
+
+        tree.remove(child);
+
+        assertTrue(tree.isDirty(root));
+        tree.computeLayout(root, TaffySize.minContent());
+        assertEquals(0.0f, tree.getLayout(root).size().height);
+    }
+
+    @Test
     @DisplayName("remove_last_node")
     void removeLastNode() {
         TaffyTree tree = new TaffyTree();

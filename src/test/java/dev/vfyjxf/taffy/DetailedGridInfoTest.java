@@ -5,6 +5,7 @@ import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.GridPlacement;
+import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
@@ -66,6 +67,46 @@ public class DetailedGridInfoTest {
             FloatRect.ltrb(0f, 0f, 100f, 100f));
         assertEquals(40f, absoluteArea.right, 0.01f);
         assertEquals(50f, absoluteArea.bottom, 0.01f);
+    }
+
+    @Test
+    void gridExplicitTracksAreClampedToRustMaximum() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(100f), TaffyDimension.length(10f));
+        for (int index = 0; index < 10001; index++) {
+            grid.gridTemplateColumns.add(TrackSizingFunction.fixed(1f));
+        }
+        NodeId child = tree.newLeaf(new TaffyStyle());
+        NodeId root = tree.newWithChildren(grid, child);
+
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(100f), AvailableSpace.definite(10f)));
+
+        assertEquals(10000, tree.getDetailedLayoutInfo(root).grid().columns().sizes().size());
+    }
+
+    @Test
+    void repeatedTemplateResolvesNegativeLinesAgainstExpandedTracks() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(2f), TaffyDimension.length(1f));
+        grid.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.repeatCount(
+            2, TrackSizingFunction.fixed(1f)));
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(1f));
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.gridColumn = new TaffyLine<>(GridPlacement.line(-2), GridPlacement.line(-1));
+        childStyle.gridRow = new TaffyLine<>(GridPlacement.line(1), GridPlacement.line(2));
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(grid, child);
+
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(2f), AvailableSpace.definite(1f)));
+
+        FloatRect area = tree.getDetailedLayoutInfo(root).grid().itemGridArea(0);
+        assertEquals(1f, area.left, 0.01f);
+        assertEquals(2f, area.right, 0.01f);
     }
 
     @Test

@@ -57,6 +57,11 @@ import static java.lang.Float.NaN;
  */
 public class GridComputer {
 
+    /** CSS Grid limits origin-zero coordinates to 10,000 tracks on either side. */
+    private static final int MAX_GRID_TRACKS = 10000;
+    private static final int MIN_ORIGIN_ZERO_LINE = -MAX_GRID_TRACKS;
+    private static final int MAX_ORIGIN_ZERO_LINE = MAX_GRID_TRACKS;
+
     private final LayoutComputer layoutComputer;
 
     public GridComputer(LayoutComputer layoutComputer) {
@@ -576,7 +581,7 @@ public class GridComputer {
         List<TrackSizingFunction> expandedRows = getExpandedTemplateRows(style, nodeInnerSize.height, gap.height);
 
         // Generate grid items
-        List<GridItem> items = generateGridItems(node, style, nodeInnerSize);
+        List<GridItem> items = generateGridItems(node, style, nodeInnerSize, expandedColumns, expandedRows);
 
         // Determine grid dimensions based on template or content
         TrackCounts colCounts = computeColumnCounts(items, expandedColumns);
@@ -1227,13 +1232,18 @@ public class GridComputer {
         return offsets;
     }
 
-    private List<GridItem> generateGridItems(NodeId node, TaffyStyle containerStyle, FloatSize nodeInnerSize) {
+    private List<GridItem> generateGridItems(
+        NodeId node,
+        TaffyStyle containerStyle,
+        FloatSize nodeInnerSize,
+        List<TrackSizingFunction> expandedColumns,
+        List<TrackSizingFunction> expandedRows) {
         LayoutPartialTree tree = layoutComputer.getTree();
         List<GridItem> items = new ArrayList<>();
 
         // Get explicit track counts for negative line number resolution
-        List<TrackSizingFunction> templateCols = containerStyle.getGridTemplateColumns();
-        List<TrackSizingFunction> templateRows = containerStyle.getGridTemplateRows();
+        List<TrackSizingFunction> templateCols = expandedColumns;
+        List<TrackSizingFunction> templateRows = expandedRows;
         int explicitColCount = (templateCols != null) ? templateCols.size() : 0;
         int explicitRowCount = (templateRows != null) ? templateRows.size() : 0;
 
@@ -1508,13 +1518,10 @@ public class GridComputer {
             List<TrackSizingFunction> result = new ArrayList<>();
             for (GridTemplateComponent comp : template) {
                 if (comp.isSingle()) {
-                    result.add(comp.getSingle());
+                    appendTrack(result, comp.getSingle());
                 } else if (comp.isRepeat()) {
                     GridRepetition repeat = comp.getRepeat();
-                    int count = repeat.getCount();
-                    for (int i = 0; i < count; i++) {
-                        result.addAll(repeat.getTracks());
-                    }
+                    appendRepeatedTracks(result, repeat.getTracks(), repeat.getCount());
                 }
             }
             return result;
@@ -1540,8 +1547,9 @@ public class GridComputer {
                     }
                 } else if (comp.isRepeat()) {
                     GridRepetition repeat = comp.getRepeat();
-                    for (int j = 0; j < repeat.getCount(); j++) {
+                    for (int j = 0; j < repeat.getCount() && nonRepeatingTrackCount < MAX_GRID_TRACKS; j++) {
                         for (TrackSizingFunction track : repeat.getTracks()) {
+                            if (nonRepeatingTrackCount >= MAX_GRID_TRACKS) break;
                             float val = track.getDefiniteValue(containerSize);
                             if (!Float.isNaN(val)) {
                                 nonRepeatingUsedSpace += val;
@@ -1577,8 +1585,9 @@ public class GridComputer {
                     numRepetitions = 1;
                 } else {
                     float remainingSpace = containerSize - firstRepUsedSpace;
-                    int extraReps = (int) Math.floor(remainingSpace / perRepTotal);
-                    numRepetitions = 1 + extraReps;
+                    long extraReps = (long) Math.floor(remainingSpace / perRepTotal);
+                    int maxRepetitions = Math.max(1, MAX_GRID_TRACKS / Math.max(1, tracksPerRepetition));
+                    numRepetitions = (int) Math.min(maxRepetitions, 1L + extraReps);
                 }
             }
         }
@@ -1589,19 +1598,32 @@ public class GridComputer {
             GridTemplateComponent comp = template.get(i);
             if (i == autoRepeatIndex) {
                 // Expand auto-repetition
-                for (int j = 0; j < numRepetitions; j++) {
-                    result.addAll(autoRepeat.getTracks());
-                }
+                appendRepeatedTracks(result, autoRepeat.getTracks(), numRepetitions);
             } else if (comp.isSingle()) {
-                result.add(comp.getSingle());
+                appendTrack(result, comp.getSingle());
             } else if (comp.isRepeat()) {
                 GridRepetition repeat = comp.getRepeat();
-                for (int j = 0; j < repeat.getCount(); j++) {
-                    result.addAll(repeat.getTracks());
-                }
+                appendRepeatedTracks(result, repeat.getTracks(), repeat.getCount());
             }
         }
         return result;
+    }
+
+    private static void appendTrack(List<TrackSizingFunction> result, TrackSizingFunction track) {
+        if (result.size() < MAX_GRID_TRACKS) result.add(track);
+    }
+
+    private static void appendRepeatedTracks(
+        List<TrackSizingFunction> result,
+        List<TrackSizingFunction> tracks,
+        int count) {
+        if (tracks == null || tracks.isEmpty() || count <= 0) return;
+        for (int repetition = 0; repetition < count && result.size() < MAX_GRID_TRACKS; repetition++) {
+            for (TrackSizingFunction track : tracks) {
+                appendTrack(result, track);
+                if (result.size() >= MAX_GRID_TRACKS) return;
+            }
+        }
     }
 
     /**
@@ -1810,7 +1832,7 @@ public class GridComputer {
         if (style.gridTemplateColumnsWithRepeat != null && !style.gridTemplateColumnsWithRepeat.isEmpty()) {
             return expandAutoRepetition(style.gridTemplateColumnsWithRepeat, containerWidth, gap);
         }
-        return style.getGridTemplateColumns();
+        return capTrackList(style.getGridTemplateColumns());
     }
 
     /**
@@ -1820,7 +1842,14 @@ public class GridComputer {
         if (style.gridTemplateRowsWithRepeat != null && !style.gridTemplateRowsWithRepeat.isEmpty()) {
             return expandAutoRepetition(style.gridTemplateRowsWithRepeat, containerHeight, gap);
         }
-        return style.getGridTemplateRows();
+        return capTrackList(style.getGridTemplateRows());
+    }
+
+    private static List<TrackSizingFunction> capTrackList(List<TrackSizingFunction> tracks) {
+        if (tracks == null || tracks.size() <= MAX_GRID_TRACKS) {
+            return tracks == null ? new ArrayList<>() : tracks;
+        }
+        return new ArrayList<>(tracks.subList(0, MAX_GRID_TRACKS));
     }
 
     /**
@@ -1829,7 +1858,8 @@ public class GridComputer {
      */
     private TrackCounts computeColumnCounts(List<GridItem> items, List<TrackSizingFunction> expandedCols) {
         // Check explicit columns from expanded template (after auto-fill/auto-fit expansion)
-        int explicitCols = (expandedCols != null && !expandedCols.isEmpty()) ? expandedCols.size() : 0;
+        int explicitCols = (expandedCols != null && !expandedCols.isEmpty())
+                           ? Math.min(expandedCols.size(), MAX_GRID_TRACKS) : 0;
 
         // Scan items for min (negative implicit) and max (positive implicit) positions
         int minCol = 0;  // Minimum OriginZero position (can be negative)
@@ -1854,10 +1884,13 @@ public class GridComputer {
         }
 
         // Compute negative implicit tracks (for items positioned before line 0)
+        minCol = Math.max(MIN_ORIGIN_ZERO_LINE, minCol);
+        maxCol = Math.min(MAX_ORIGIN_ZERO_LINE, maxCol);
         int negativeImplicit = minCol < 0 ? -minCol : 0;
 
         // Compute positive implicit tracks (for items positioned after explicit grid)
-        int positiveImplicit = maxCol > explicitCols ? maxCol - explicitCols : 0;
+        int positiveImplicit = maxCol > explicitCols
+                              ? Math.min(MAX_GRID_TRACKS, maxCol - explicitCols) : 0;
 
         // Note: We do NOT estimate extra tracks for auto-placed items here.
         // The auto-placement algorithm will dynamically expand the grid as needed.
@@ -1866,7 +1899,7 @@ public class GridComputer {
         // Ensure we have enough tracks for the max span of any indefinitely placed item
         int totalTracks = negativeImplicit + explicitCols + positiveImplicit;
         if (totalTracks < maxSpan) {
-            positiveImplicit = maxSpan - negativeImplicit - explicitCols;
+            positiveImplicit = Math.min(MAX_GRID_TRACKS, maxSpan - negativeImplicit - explicitCols);
         }
 
         return new TrackCounts(negativeImplicit, explicitCols, positiveImplicit);
@@ -1882,7 +1915,8 @@ public class GridComputer {
      */
     private TrackCounts computeRowCounts(List<GridItem> items, List<TrackSizingFunction> expandedRows) {
         // Check explicit rows from expanded template (after auto-fill/auto-fit expansion)
-        int explicitRows = (expandedRows != null && !expandedRows.isEmpty()) ? expandedRows.size() : 0;
+        int explicitRows = (expandedRows != null && !expandedRows.isEmpty())
+                           ? Math.min(expandedRows.size(), MAX_GRID_TRACKS) : 0;
 
         // Scan items for min (negative implicit) and max (positive implicit) positions
         int minRow = 0;
@@ -1905,8 +1939,11 @@ public class GridComputer {
         }
 
         // Compute negative and positive implicit tracks
+        minRow = Math.max(MIN_ORIGIN_ZERO_LINE, minRow);
+        maxRow = Math.min(MAX_ORIGIN_ZERO_LINE, maxRow);
         int negativeImplicit = minRow < 0 ? -minRow : 0;
-        int positiveImplicit = maxRow > explicitRows ? maxRow - explicitRows : 0;
+        int positiveImplicit = maxRow > explicitRows
+                              ? Math.min(MAX_GRID_TRACKS, maxRow - explicitRows) : 0;
 
         // Note: We do NOT estimate extra tracks for auto-placed items here.
         // The auto-placement algorithm will dynamically expand the grid as needed.
@@ -1915,7 +1952,7 @@ public class GridComputer {
         // Ensure we have enough tracks for the max span of any indefinitely placed item
         int totalTracks = negativeImplicit + explicitRows + positiveImplicit;
         if (totalTracks < maxSpan) {
-            positiveImplicit = maxSpan - negativeImplicit - explicitRows;
+            positiveImplicit = Math.min(MAX_GRID_TRACKS, maxSpan - negativeImplicit - explicitRows);
         }
 
         return new TrackCounts(negativeImplicit, explicitRows, positiveImplicit);
@@ -2183,14 +2220,22 @@ public class GridComputer {
          * Expand the matrix to fit the given OriginZero range.
          */
         private void expandToFit(int ozColStart, int ozRowStart, int colSpan, int rowSpan) {
-            int ozColEnd = ozColStart + colSpan;
-            int ozRowEnd = ozRowStart + rowSpan;
+            int ozColEnd = Math.min(MAX_ORIGIN_ZERO_LINE, ozColStart + Math.max(0, colSpan));
+            int ozRowEnd = Math.min(MAX_ORIGIN_ZERO_LINE, ozRowStart + Math.max(0, rowSpan));
 
             // Calculate required expansion
-            int reqNegCols = Math.max(-ozColStart - colCounts.negativeImplicit, 0);
-            int reqPosCols = Math.max(ozColEnd - (colCounts.explicit + colCounts.positiveImplicit), 0);
-            int reqNegRows = Math.max(-ozRowStart - rowCounts.negativeImplicit, 0);
-            int reqPosRows = Math.max(ozRowEnd - (rowCounts.explicit + rowCounts.positiveImplicit), 0);
+            int reqNegCols = Math.min(
+                Math.max(-ozColStart - colCounts.negativeImplicit, 0),
+                MAX_GRID_TRACKS - colCounts.negativeImplicit);
+            int reqPosCols = Math.min(
+                Math.max(ozColEnd - (colCounts.explicit + colCounts.positiveImplicit), 0),
+                MAX_GRID_TRACKS - colCounts.positiveImplicit);
+            int reqNegRows = Math.min(
+                Math.max(-ozRowStart - rowCounts.negativeImplicit, 0),
+                MAX_GRID_TRACKS - rowCounts.negativeImplicit);
+            int reqPosRows = Math.min(
+                Math.max(ozRowEnd - (rowCounts.explicit + rowCounts.positiveImplicit), 0),
+                MAX_GRID_TRACKS - rowCounts.positiveImplicit);
 
             if (reqNegCols == 0 && reqPosCols == 0 && reqNegRows == 0 && reqPosRows == 0) {
                 return;  // No expansion needed
@@ -2220,13 +2265,20 @@ public class GridComputer {
          * Mark an area as occupied, expanding the matrix if needed.
          */
         void markArea(int ozColStart, int ozRowStart, int colSpan, int rowSpan) {
-            expandToFit(ozColStart, ozRowStart, colSpan, rowSpan);
+            int safeColStart = Math.max(MIN_ORIGIN_ZERO_LINE, ozColStart);
+            int safeRowStart = Math.max(MIN_ORIGIN_ZERO_LINE, ozRowStart);
+            int safeColEnd = Math.min(MAX_ORIGIN_ZERO_LINE, safeColStart + Math.max(0, colSpan));
+            int safeRowEnd = Math.min(MAX_ORIGIN_ZERO_LINE, safeRowStart + Math.max(0, rowSpan));
+            int safeColSpan = Math.max(0, safeColEnd - safeColStart);
+            int safeRowSpan = Math.max(0, safeRowEnd - safeRowStart);
+            if (safeColSpan == 0 || safeRowSpan == 0) return;
+            expandToFit(safeColStart, safeRowStart, safeColSpan, safeRowSpan);
 
-            int colIdx = colToIndex(ozColStart);
-            int rowIdx = rowToIndex(ozRowStart);
+            int colIdx = colToIndex(safeColStart);
+            int rowIdx = rowToIndex(safeRowStart);
 
-            for (int r = rowIdx; r < rowIdx + rowSpan; r++) {
-                for (int c = colIdx; c < colIdx + colSpan; c++) {
+            for (int r = rowIdx; r < rowIdx + safeRowSpan; r++) {
+                for (int c = colIdx; c < colIdx + safeColSpan; c++) {
                     cells[r][c] = true;
                 }
             }

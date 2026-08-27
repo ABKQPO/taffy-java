@@ -613,8 +613,8 @@ public class GridTestAdapter {
         }
 
         int indefiniteSpan() {
-            int startSpan = (startType == Type.SPAN) ? startValue : 1;
-            int endSpan = (endType == Type.SPAN) ? endValue : 1;
+            int startSpan = (startType == Type.SPAN) ? Math.max(1, Math.min(10_000, startValue)) : 1;
+            int endSpan = (endType == Type.SPAN) ? Math.max(1, Math.min(10_000, endValue)) : 1;
             // Rust rule: if two spans, remove end span; if only span for named line, becomes span 1.
             // Our GridPlacement has no named span distinction, so match the basic behavior.
             return startType == Type.SPAN ? startSpan : endSpan;
@@ -638,7 +638,7 @@ public class GridTestAdapter {
             }
         } else if (start.isSpan()) {
             startType = OriginZeroPlacement.Type.SPAN;
-            startValue = start.getValue();
+            startValue = start.getSpan();
         } else {
             startType = OriginZeroPlacement.Type.AUTO;
             startValue = 0;
@@ -657,7 +657,7 @@ public class GridTestAdapter {
             }
         } else if (end.isSpan()) {
             endType = OriginZeroPlacement.Type.SPAN;
-            endValue = end.getValue();
+            endValue = end.getSpan();
         } else {
             endType = OriginZeroPlacement.Type.AUTO;
             endValue = 0;

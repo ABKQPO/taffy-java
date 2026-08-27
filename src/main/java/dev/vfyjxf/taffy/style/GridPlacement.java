@@ -190,6 +190,14 @@ public class GridPlacement {
         return value;
     }
 
+    /**
+     * Returns this placement's span in layout coordinates.
+     * CSS Grid treats zero or omitted spans as one track and caps spans at the grid limit.
+     */
+    public int getSpan() {
+        return Math.max(1, Math.min(10_000, value));
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

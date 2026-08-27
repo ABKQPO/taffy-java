@@ -4,7 +4,9 @@ import dev.vfyjxf.taffy.geometry.FloatRect;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.GridPlacement;
+import dev.vfyjxf.taffy.style.GridRepetition;
 import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyDimension;
@@ -14,15 +16,94 @@ import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.style.TrackSizingFunction;
 import dev.vfyjxf.taffy.tree.DetailedGridInfo;
 import dev.vfyjxf.taffy.tree.DetailedLayoutInfo;
+import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DetailedGridInfoTest {
+
+    @Test
+    @DisplayName("Repeated template line names resolve placement and serialization")
+    void repeatedTemplateLineNamesResolvePlacementAndSerialization() {
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(20f), TaffyDimension.length(10f));
+        grid.gridTemplateColumnsWithRepeat = CssParser.parseGridTemplateComponents(
+            "repeat(2, [start] 10px [end])"
+        );
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(10f));
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.gridColumn = new TaffyLine<>(
+            GridPlacement.namedLine("start", 2),
+            GridPlacement.namedLine("end", 2)
+        );
+
+        TaffyTree tree = new TaffyTree();
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(grid, child);
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(20f), AvailableSpace.definite(10f)));
+
+        Layout childLayout = tree.getLayout(child);
+        assertEquals(10f, childLayout.location().x, 0.01f);
+        assertEquals(10f, childLayout.size().width, 0.01f);
+        assertEquals("[start] 10.0000px [end start] 10.0000px [end]",
+            tree.getDetailedLayoutInfo(root).grid().gridTemplateColumns());
+    }
+
+    @Test
+    @DisplayName("Auto-fill template line names use the expanded repetition count")
+    void autoFillTemplateLineNamesUseExpandedRepetitionCount() {
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(30f), TaffyDimension.length(10f));
+        grid.gridTemplateColumnsWithRepeat = CssParser.parseGridTemplateComponents(
+            "repeat(auto-fill, [column] 10px [after])"
+        );
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(10f));
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.gridColumn = new TaffyLine<>(
+            GridPlacement.namedLine("column", 3),
+            GridPlacement.namedLine("after", 3)
+        );
+
+        TaffyTree tree = new TaffyTree();
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(grid, child);
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(30f), AvailableSpace.definite(10f)));
+
+        assertEquals(20f, tree.getLayout(child).location().x, 0.01f);
+        assertEquals("[column] 10.0000px [after column] 10.0000px [after column] 10.0000px [after]",
+            tree.getDetailedLayoutInfo(root).grid().gridTemplateColumns());
+    }
+
+    @Test
+    @DisplayName("Repeated template line-name groups require one group per line")
+    void repeatedTemplateLineNameGroupsRequireOneGroupPerLine() {
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.gridTemplateColumnsWithRepeat = List.of(GridTemplateComponent.repeat(
+            GridRepetition.count(1, List.of(TrackSizingFunction.fixed(10f)), List.of(List.of("start")))
+        ));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId child = tree.newLeaf(new TaffyStyle());
+        NodeId root = tree.newWithChildren(grid, child);
+
+        assertThrows(IllegalArgumentException.class,
+            () -> tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(10f), AvailableSpace.definite(10f))));
+    }
+
     @Test
     void gridLayoutPublishesTrackAndItemDetails() {
         TaffyTree tree = new TaffyTree();

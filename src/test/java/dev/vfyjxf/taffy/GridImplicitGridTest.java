@@ -78,6 +78,15 @@ public class GridImplicitGridTest {
     }
 
     @Test
+    @DisplayName("zero span is normalized to one track")
+    void zeroSpanIsNormalizedToOneTrack() {
+        TaffyLine<GridPlacement> gridLine = new TaffyLine<>(span(0), auto());
+        GridTestAdapter.ChildMinMaxLineSpan result = GridTestAdapter.childMinMaxLineSpan(gridLine, 0);
+
+        assertEquals(1, result.span);
+    }
+
+    @Test
     @DisplayName("explicit_grid_sizing_with_children")
     void explicitGridSizingWithChildren() {
         int explicitColCount = 6;

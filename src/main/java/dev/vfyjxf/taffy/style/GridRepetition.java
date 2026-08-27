@@ -28,18 +28,32 @@ public class GridRepetition {
     private final RepetitionType type;
     private final int count;
     private final List<TrackSizingFunction> tracks;
+    private final List<List<String>> lineNames;
     
-    private GridRepetition(RepetitionType type, int count, List<TrackSizingFunction> tracks) {
+    private GridRepetition(
+        RepetitionType type,
+        int count,
+        List<TrackSizingFunction> tracks,
+        List<List<String>> lineNames) {
         this.type = type;
         this.count = count;
-        this.tracks = tracks;
+        this.tracks = new ArrayList<>(tracks);
+        this.lineNames = copyLineNames(lineNames);
     }
     
     /**
      * Creates a repeat with a specific count
      */
     public static GridRepetition count(int count, List<TrackSizingFunction> tracks) {
-        return new GridRepetition(RepetitionType.COUNT, count, new ArrayList<>(tracks));
+        return count(count, tracks, List.of());
+    }
+
+    /** Creates a repeat with positional line names for every repeated track line. */
+    public static GridRepetition count(
+        int count,
+        List<TrackSizingFunction> tracks,
+        List<List<String>> lineNames) {
+        return new GridRepetition(RepetitionType.COUNT, count, tracks, lineNames);
     }
     
     /**
@@ -48,14 +62,19 @@ public class GridRepetition {
     public static GridRepetition count(int count, TrackSizingFunction track) {
         List<TrackSizingFunction> tracks = new ArrayList<>();
         tracks.add(track);
-        return new GridRepetition(RepetitionType.COUNT, count, tracks);
+        return count(count, tracks);
     }
     
     /**
      * Creates an auto-fill repeat
      */
     public static GridRepetition autoFill(List<TrackSizingFunction> tracks) {
-        return new GridRepetition(RepetitionType.AUTO_FILL, 0, new ArrayList<>(tracks));
+        return autoFill(tracks, List.of());
+    }
+
+    /** Creates an auto-fill repeat with positional line names. */
+    public static GridRepetition autoFill(List<TrackSizingFunction> tracks, List<List<String>> lineNames) {
+        return new GridRepetition(RepetitionType.AUTO_FILL, 0, tracks, lineNames);
     }
     
     /**
@@ -64,14 +83,19 @@ public class GridRepetition {
     public static GridRepetition autoFill(TrackSizingFunction track) {
         List<TrackSizingFunction> tracks = new ArrayList<>();
         tracks.add(track);
-        return new GridRepetition(RepetitionType.AUTO_FILL, 0, tracks);
+        return autoFill(tracks);
     }
     
     /**
      * Creates an auto-fit repeat
      */
     public static GridRepetition autoFit(List<TrackSizingFunction> tracks) {
-        return new GridRepetition(RepetitionType.AUTO_FIT, 0, new ArrayList<>(tracks));
+        return autoFit(tracks, List.of());
+    }
+
+    /** Creates an auto-fit repeat with positional line names. */
+    public static GridRepetition autoFit(List<TrackSizingFunction> tracks, List<List<String>> lineNames) {
+        return new GridRepetition(RepetitionType.AUTO_FIT, 0, tracks, lineNames);
     }
     
     /**
@@ -80,7 +104,7 @@ public class GridRepetition {
     public static GridRepetition autoFit(TrackSizingFunction track) {
         List<TrackSizingFunction> tracks = new ArrayList<>();
         tracks.add(track);
-        return new GridRepetition(RepetitionType.AUTO_FIT, 0, tracks);
+        return autoFit(tracks);
     }
     
     public RepetitionType getType() {
@@ -93,6 +117,15 @@ public class GridRepetition {
     
     public List<TrackSizingFunction> getTracks() {
         return tracks;
+    }
+
+    /**
+     * Returns positional line-name sets for one repetition.
+     * The list is empty when all repeated lines are unnamed; otherwise it must contain
+     * exactly {@code getTrackCount() + 1} sets, including both edge lines.
+     */
+    public List<List<String>> getLineNames() {
+        return lineNames;
     }
     
     public int getTrackCount() {
@@ -118,7 +151,7 @@ public class GridRepetition {
         GridRepetition that = (GridRepetition) o;
         if (type != that.type) return false;
         if (count != that.count) return false;
-        return Objects.equals(tracks, that.tracks);
+        return Objects.equals(tracks, that.tracks) && Objects.equals(lineNames, that.lineNames);
     }
 
     @Override
@@ -126,6 +159,16 @@ public class GridRepetition {
         int result = type.hashCode();
         result = 31 * result + count;
         result = 31 * result + (tracks != null ? tracks.hashCode() : 0);
+        result = 31 * result + (lineNames != null ? lineNames.hashCode() : 0);
         return result;
+    }
+
+    private static List<List<String>> copyLineNames(List<List<String>> lineNames) {
+        if (lineNames == null || lineNames.isEmpty()) return List.of();
+        List<List<String>> copied = new ArrayList<>(lineNames.size());
+        for (List<String> names : lineNames) {
+            copied.add(names == null ? List.of() : List.copyOf(names));
+        }
+        return List.copyOf(copied);
     }
 }

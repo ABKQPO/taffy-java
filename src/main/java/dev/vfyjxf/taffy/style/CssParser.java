@@ -470,13 +470,16 @@ public class CssParser {
                     List<String> args = functionArguments(value, "repeat");
                     if (args.size() != 2) fail("repeat() requires two arguments");
                     String repetition = args.get(0).trim().toLowerCase(Locale.ROOT);
-                    List<TrackSizingFunction> tracks = new Parser(args.get(1)).trackList();
+                    RepeatedTrackList repeatedTracks = new Parser(args.get(1)).repeatedTrackList();
                     if (repetition.equals("auto-fill")) {
-                        result.add(GridTemplateComponent.repeat(GridRepetition.autoFill(tracks)));
+                        result.add(GridTemplateComponent.repeat(
+                            GridRepetition.autoFill(repeatedTracks.tracks, repeatedTracks.lineNames)));
                     } else if (repetition.equals("auto-fit")) {
-                        result.add(GridTemplateComponent.repeat(GridRepetition.autoFit(tracks)));
+                        result.add(GridTemplateComponent.repeat(
+                            GridRepetition.autoFit(repeatedTracks.tracks, repeatedTracks.lineNames)));
                     } else {
-                        result.add(GridTemplateComponent.repeat(GridRepetition.count(parseCount(repetition), tracks)));
+                        result.add(GridTemplateComponent.repeat(
+                            GridRepetition.count(parseCount(repetition), repeatedTracks.tracks, repeatedTracks.lineNames)));
                     }
                 } else {
                     result.add(GridTemplateComponent.single(new Parser(value).trackSizingFunction()));
@@ -490,6 +493,30 @@ public class CssParser {
             List<TrackSizingFunction> result = new ArrayList<>();
             while (hasMore()) result.add(trackSizingFunction());
             return result;
+        }
+
+        private RepeatedTrackList repeatedTrackList() {
+            List<TrackSizingFunction> tracks = new ArrayList<>();
+            List<List<String>> lineNames = new ArrayList<>();
+            lineNames.add(lineNames());
+            while (hasMore()) {
+                tracks.add(trackSizingFunction());
+                lineNames.add(lineNames());
+            }
+            if (tracks.isEmpty()) fail("repeat() requires at least one track");
+            return new RepeatedTrackList(tracks, lineNames);
+        }
+
+        private List<String> lineNames() {
+            whitespace();
+            if (index >= input.length() || input.charAt(index) != '[') return List.of();
+            int start = ++index;
+            while (index < input.length() && input.charAt(index) != ']') index++;
+            if (index >= input.length()) fail("Unclosed grid line name group");
+            String body = input.substring(start, index).trim();
+            index++;
+            if (body.isEmpty()) return List.of();
+            return List.of(body.split("\\s+"));
         }
 
         private GridPlacement gridPlacement() {
@@ -648,6 +675,16 @@ public class CssParser {
         private ParsedNumber(float value, String unit) {
             this.value = value;
             this.unit = unit;
+        }
+    }
+
+    private static class RepeatedTrackList {
+        private final List<TrackSizingFunction> tracks;
+        private final List<List<String>> lineNames;
+
+        private RepeatedTrackList(List<TrackSizingFunction> tracks, List<List<String>> lineNames) {
+            this.tracks = tracks;
+            this.lineNames = lineNames;
         }
     }
 }

@@ -2,8 +2,10 @@ package dev.vfyjxf.taffy.tree.grid;
 
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.GridPlacement;
+import dev.vfyjxf.taffy.style.GridRepetition;
 import dev.vfyjxf.taffy.style.GridTemplateArea;
 import dev.vfyjxf.taffy.style.GridTemplateAreas;
+import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 
@@ -45,12 +47,15 @@ public class NamedLineResolver {
     
     /** The number of explicit rows in the grid (set after track expansion) */
     private int explicitRowCount;
+
+    private final TaffyStyle style;
     
     /**
      * Create a new NamedLineResolver from container style.
      * @param style The grid container's style
      */
     public NamedLineResolver(TaffyStyle style) {
+        this.style = style;
         this.rowLines = new HashMap<>();
         this.columnLines = new HashMap<>();
         this.areas = new HashMap<>();
@@ -113,6 +118,65 @@ public class NamedLineResolver {
     
     private void upsertLineName(Map<String, List<Integer>> map, String name, int lineNumber) {
         map.computeIfAbsent(name, k -> new ArrayList<>()).add(lineNumber);
+    }
+
+    private void addRepeatedLineNames(
+        Map<String, List<Integer>> lineMap,
+        List<GridTemplateComponent> template,
+        int explicitTrackCount) {
+        if (template == null || template.isEmpty()) return;
+        int fixedTrackCount = 0;
+        int autoTrackCount = 0;
+        for (GridTemplateComponent component : template) {
+            if (component == null) continue;
+            if (component.isSingle()) {
+                fixedTrackCount++;
+                continue;
+            }
+            GridRepetition repetition = component.getRepeat();
+            if (repetition == null) continue;
+            if (repetition.isAutoRepetition()) {
+                autoTrackCount += repetition.getTrackCount();
+            } else {
+                fixedTrackCount += repetition.getCount() * repetition.getTrackCount();
+            }
+        }
+
+        int currentLine = 1;
+        for (GridTemplateComponent component : template) {
+            if (component == null) continue;
+            if (component.isSingle()) {
+                currentLine++;
+                continue;
+            }
+            GridRepetition repetition = component.getRepeat();
+            if (repetition == null || repetition.getTrackCount() == 0) continue;
+            List<List<String>> lineNames = repetition.getLineNames();
+            if (!lineNames.isEmpty() && lineNames.size() != repetition.getTrackCount() + 1) {
+                throw new IllegalArgumentException(
+                    "Grid repetition line names must be empty or contain exactly track count + 1 sets");
+            }
+            int repetitionCount = repetition.isAutoRepetition()
+                ? Math.max(1, (explicitTrackCount - fixedTrackCount) / Math.max(1, autoTrackCount))
+                : repetition.getCount();
+            for (int repeatIndex = 0; repeatIndex < repetitionCount; repeatIndex++) {
+                for (int lineOffset = 0; lineOffset < lineNames.size(); lineOffset++) {
+                    for (String name : lineNames.get(lineOffset)) {
+                        upsertLineName(lineMap, name, currentLine + lineOffset);
+                    }
+                }
+                currentLine += repetition.getTrackCount();
+            }
+        }
+    }
+
+    private void sortAndDeduplicate(Map<String, List<Integer>> lineMap) {
+        for (List<Integer> lines : lineMap.values()) {
+            lines.sort(Integer::compareTo);
+            for (int i = lines.size() - 1; i > 0; i--) {
+                if (lines.get(i).equals(lines.get(i - 1))) lines.remove(i);
+            }
+        }
     }
     
     /**
@@ -184,7 +248,7 @@ public class NamedLineResolver {
             
             // Find nth line with name that comes AFTER normalizedStart
             String spanName = placement.end.getLineName();
-            int spanCount = placement.end.getValue();
+            int spanCount = placement.end.getSpan();
             int endLine = findLineIndex(spanName, spanCount, axis, End.END, 
                 lines -> filterLinesAfter(lines, normalizedStart));
             resolvedEnd = GridPlacement.line(endLine);
@@ -202,7 +266,7 @@ public class NamedLineResolver {
             
             // Find nth line with name that comes BEFORE normalizedEnd
             String spanName = placement.start.getLineName();
-            int spanCount = placement.start.getValue();
+            int spanCount = placement.start.getSpan();
             int startLine = findLineIndex(spanName, spanCount, axis, End.START,
                 lines -> filterLinesBefore(lines, normalizedEnd));
             resolvedStart = GridPlacement.line(startLine);
@@ -341,6 +405,8 @@ public class NamedLineResolver {
      */
     public void setExplicitColumnCount(int count) {
         this.explicitColumnCount = count;
+        addRepeatedLineNames(columnLines, style.gridTemplateColumnsWithRepeat, count);
+        sortAndDeduplicate(columnLines);
     }
     
     /**
@@ -348,6 +414,8 @@ public class NamedLineResolver {
      */
     public void setExplicitRowCount(int count) {
         this.explicitRowCount = count;
+        addRepeatedLineNames(rowLines, style.gridTemplateRowsWithRepeat, count);
+        sortAndDeduplicate(rowLines);
     }
     
     /**

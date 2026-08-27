@@ -1434,10 +1434,10 @@ public class GridComputer {
             endIndex = resolveGridLine(end.getLineNumber(), explicitTrackCount);
         }
         if (start.isSpan()) {
-            span = start.getValue();
+            span = start.getSpan();
         }
         if (end.isSpan()) {
-            span = end.getValue();
+            span = end.getSpan();
         }
 
         // If we have start and end, compute span

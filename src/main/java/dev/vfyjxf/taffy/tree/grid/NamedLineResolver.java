@@ -170,6 +170,50 @@ public class NamedLineResolver {
         }
     }
 
+    private void addTemplateBoundaryNames(
+        Map<String, List<Integer>> lineMap,
+        List<List<String>> lineNames,
+        List<GridTemplateComponent> template,
+        int explicitTrackCount) {
+        if (lineNames == null || lineNames.isEmpty()) return;
+        if (template == null || lineNames.size() != template.size() + 1) {
+            throw new IllegalArgumentException(
+                "Grid template line names must contain one group for every component boundary");
+        }
+        int fixedTrackCount = 0;
+        int autoTrackCount = 0;
+        for (GridTemplateComponent component : template) {
+            if (component == null || component.isSingle()) {
+                fixedTrackCount++;
+                continue;
+            }
+            GridRepetition repetition = component.getRepeat();
+            if (repetition == null) continue;
+            if (repetition.isAutoRepetition()) autoTrackCount += repetition.getTrackCount();
+            else fixedTrackCount += repetition.getCount() * repetition.getTrackCount();
+        }
+        int currentLine = 1;
+        for (int componentIndex = 0; componentIndex < template.size(); componentIndex++) {
+            for (String name : lineNames.get(componentIndex)) {
+                upsertLineName(lineMap, name, currentLine);
+            }
+            GridTemplateComponent component = template.get(componentIndex);
+            if (component == null || component.isSingle()) {
+                currentLine++;
+                continue;
+            }
+            GridRepetition repetition = component.getRepeat();
+            if (repetition == null) continue;
+            int repetitions = repetition.isAutoRepetition()
+                ? Math.max(1, (explicitTrackCount - fixedTrackCount) / Math.max(1, autoTrackCount))
+                : repetition.getCount();
+            currentLine += repetitions * repetition.getTrackCount();
+        }
+        for (String name : lineNames.get(lineNames.size() - 1)) {
+            upsertLineName(lineMap, name, currentLine);
+        }
+    }
+
     private void sortAndDeduplicate(Map<String, List<Integer>> lineMap) {
         for (List<Integer> lines : lineMap.values()) {
             lines.sort(Integer::compareTo);
@@ -405,6 +449,8 @@ public class NamedLineResolver {
      */
     public void setExplicitColumnCount(int count) {
         this.explicitColumnCount = count;
+        addTemplateBoundaryNames(
+            columnLines, style.gridTemplateColumnNameGroups, style.gridTemplateColumnsWithRepeat, count);
         addRepeatedLineNames(columnLines, style.gridTemplateColumnsWithRepeat, count);
         sortAndDeduplicate(columnLines);
     }
@@ -414,6 +460,7 @@ public class NamedLineResolver {
      */
     public void setExplicitRowCount(int count) {
         this.explicitRowCount = count;
+        addTemplateBoundaryNames(rowLines, style.gridTemplateRowNameGroups, style.gridTemplateRowsWithRepeat, count);
         addRepeatedLineNames(rowLines, style.gridTemplateRowsWithRepeat, count);
         sortAndDeduplicate(rowLines);
     }

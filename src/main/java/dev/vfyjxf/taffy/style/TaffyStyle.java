@@ -390,6 +390,9 @@ public class TaffyStyle {
      */
     public List<NamedGridLine> gridTemplateColumnNames = new ArrayList<>();
 
+    /** Positional outer line-name groups for gridTemplateColumnsWithRepeat. */
+    public List<List<String>> gridTemplateColumnNameGroups = new ArrayList<>();
+
     /**
      * Defines named lines for grid rows.
      * Each entry maps a line name to a line index.
@@ -399,6 +402,9 @@ public class TaffyStyle {
      * (but flattened to List&lt;NamedGridLine&gt; for simplicity)
      */
     public List<NamedGridLine> gridTemplateRowNames = new ArrayList<>();
+
+    /** Positional outer line-name groups for gridTemplateRowsWithRepeat. */
+    public List<List<String>> gridTemplateRowNameGroups = new ArrayList<>();
 
     /**
      * Defines the size of implicitly created rows
@@ -484,8 +490,37 @@ public class TaffyStyle {
         copy.gridTemplateAreas = this.gridTemplateAreas == null ? null : this.gridTemplateAreas.copy();
         copy.gridTemplateColumnNames = new ArrayList<>(this.gridTemplateColumnNames);
         copy.gridTemplateRowNames = new ArrayList<>(this.gridTemplateRowNames);
+        copy.gridTemplateColumnNameGroups = copyLineNameGroups(this.gridTemplateColumnNameGroups);
+        copy.gridTemplateRowNameGroups = copyLineNameGroups(this.gridTemplateRowNameGroups);
         copy.gridRow = this.gridRow.copy();
         copy.gridColumn = this.gridColumn.copy();
+        return copy;
+    }
+
+    /** Replace the column template with a complete parsed track-list value. */
+    public TaffyStyle setGridTemplateColumns(GridTemplateTracks template) {
+        this.gridTemplateColumns = new ArrayList<>();
+        this.gridTemplateColumnsWithRepeat = new ArrayList<>(template.getTracks());
+        this.gridTemplateColumnNames = new ArrayList<>();
+        this.gridTemplateColumnNameGroups = copyLineNameGroups(template.getLineNames());
+        return this;
+    }
+
+    /** Replace the row template with a complete parsed track-list value. */
+    public TaffyStyle setGridTemplateRows(GridTemplateTracks template) {
+        this.gridTemplateRows = new ArrayList<>();
+        this.gridTemplateRowsWithRepeat = new ArrayList<>(template.getTracks());
+        this.gridTemplateRowNames = new ArrayList<>();
+        this.gridTemplateRowNameGroups = copyLineNameGroups(template.getLineNames());
+        return this;
+    }
+
+    private static List<List<String>> copyLineNameGroups(List<List<String>> groups) {
+        if (groups == null || groups.isEmpty()) return new ArrayList<>();
+        List<List<String>> copy = new ArrayList<>(groups.size());
+        for (List<String> group : groups) {
+            copy.add(group == null ? List.of() : List.copyOf(group));
+        }
         return copy;
     }
 

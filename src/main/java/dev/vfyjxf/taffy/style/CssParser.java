@@ -60,6 +60,14 @@ public class CssParser {
         return value;
     }
 
+    /** Parse a complete grid-template track list, including outer positional line names. */
+    public static GridTemplateTracks parseGridTemplateTracks(String input) {
+        Parser parser = new Parser(input);
+        GridTemplateTracks value = parser.gridTemplateTracks();
+        parser.end();
+        return value;
+    }
+
     /** Parse a CSS {@code grid-template-areas} value. */
     public static GridTemplateAreas parseGridTemplateAreas(String input) {
         if (input == null) throw new ParseError("Grid template areas value must not be null");
@@ -464,29 +472,43 @@ public class CssParser {
         private List<GridTemplateComponent> gridTemplateComponents() {
             List<GridTemplateComponent> result = new ArrayList<>();
             while (hasMore()) {
-                String value = token();
-                String lower = value.toLowerCase(Locale.ROOT);
-                if (lower.startsWith("repeat(")) {
-                    List<String> args = functionArguments(value, "repeat");
-                    if (args.size() != 2) fail("repeat() requires two arguments");
-                    String repetition = args.get(0).trim().toLowerCase(Locale.ROOT);
-                    RepeatedTrackList repeatedTracks = new Parser(args.get(1)).repeatedTrackList();
-                    if (repetition.equals("auto-fill")) {
-                        result.add(GridTemplateComponent.repeat(
-                            GridRepetition.autoFill(repeatedTracks.tracks, repeatedTracks.lineNames)));
-                    } else if (repetition.equals("auto-fit")) {
-                        result.add(GridTemplateComponent.repeat(
-                            GridRepetition.autoFit(repeatedTracks.tracks, repeatedTracks.lineNames)));
-                    } else {
-                        result.add(GridTemplateComponent.repeat(
-                            GridRepetition.count(parseCount(repetition), repeatedTracks.tracks, repeatedTracks.lineNames)));
-                    }
-                } else {
-                    result.add(GridTemplateComponent.single(new Parser(value).trackSizingFunction()));
-                }
+                result.add(gridTemplateComponent(token()));
             }
             if (result.isEmpty()) fail("Grid template must not be empty");
             return result;
+        }
+
+        private GridTemplateTracks gridTemplateTracks() {
+            List<GridTemplateComponent> tracks = new ArrayList<>();
+            List<List<String>> lineNames = new ArrayList<>();
+            lineNames.add(lineNames());
+            while (hasMore()) {
+                tracks.add(gridTemplateComponent(token()));
+                lineNames.add(lineNames());
+            }
+            if (tracks.isEmpty()) fail("Grid template must not be empty");
+            return new GridTemplateTracks(tracks, lineNames);
+        }
+
+        private GridTemplateComponent gridTemplateComponent(String value) {
+            String lower = value.toLowerCase(Locale.ROOT);
+            if (!lower.startsWith("repeat(")) {
+                return GridTemplateComponent.single(new Parser(value).trackSizingFunction());
+            }
+            List<String> args = functionArguments(value, "repeat");
+            if (args.size() != 2) fail("repeat() requires two arguments");
+            String repetition = args.get(0).trim().toLowerCase(Locale.ROOT);
+            RepeatedTrackList repeatedTracks = new Parser(args.get(1)).repeatedTrackList();
+            if (repetition.equals("auto-fill")) {
+                return GridTemplateComponent.repeat(
+                    GridRepetition.autoFill(repeatedTracks.tracks, repeatedTracks.lineNames));
+            }
+            if (repetition.equals("auto-fit")) {
+                return GridTemplateComponent.repeat(
+                    GridRepetition.autoFit(repeatedTracks.tracks, repeatedTracks.lineNames));
+            }
+            return GridTemplateComponent.repeat(
+                GridRepetition.count(parseCount(repetition), repeatedTracks.tracks, repeatedTracks.lineNames));
         }
 
         private List<TrackSizingFunction> trackList() {

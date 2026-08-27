@@ -8,6 +8,7 @@ import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.GridRepetition;
 import dev.vfyjxf.taffy.style.GridTemplateComponent;
+import dev.vfyjxf.taffy.style.GridTemplateTracks;
 import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
@@ -57,6 +58,61 @@ public class DetailedGridInfoTest {
         assertEquals(10f, childLayout.location().x, 0.01f);
         assertEquals(10f, childLayout.size().width, 0.01f);
         assertEquals("[start] 10.0000px [end start] 10.0000px [end]",
+            tree.getDetailedLayoutInfo(root).grid().gridTemplateColumns());
+    }
+
+    @Test
+    @DisplayName("Outer template line names resolve across repeated tracks")
+    void outerTemplateLineNamesResolveAcrossRepeatedTracks() {
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(20f), TaffyDimension.length(10f));
+        GridTemplateTracks columns = CssParser.parseGridTemplateTracks(
+            "[outer-start] repeat(2, 10px) [outer-end]"
+        );
+        grid.setGridTemplateColumns(columns);
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(10f));
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.gridColumn = new TaffyLine<>(
+            GridPlacement.namedLine("outer-start"),
+            GridPlacement.namedLine("outer-end")
+        );
+
+        TaffyTree tree = new TaffyTree();
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(grid, child);
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(20f), AvailableSpace.definite(10f)));
+
+        assertEquals(20f, tree.getLayout(child).size().width, 0.01f);
+        assertEquals("[outer-start] 10.0000px 10.0000px [outer-end]",
+            tree.getDetailedLayoutInfo(root).grid().gridTemplateColumns());
+    }
+
+    @Test
+    @DisplayName("Outer template line names resolve across auto-fill tracks")
+    void outerTemplateLineNamesResolveAcrossAutoFillTracks() {
+        TaffyStyle grid = new TaffyStyle();
+        grid.display = TaffyDisplay.GRID;
+        grid.size = new TaffySize<>(TaffyDimension.length(30f), TaffyDimension.length(10f));
+        grid.setGridTemplateColumns(CssParser.parseGridTemplateTracks(
+            "[outer-start] repeat(auto-fill, 10px) [outer-end]"
+        ));
+        grid.gridTemplateRows.add(TrackSizingFunction.fixed(10f));
+
+        TaffyStyle childStyle = new TaffyStyle();
+        childStyle.gridColumn = new TaffyLine<>(
+            GridPlacement.namedLine("outer-start"),
+            GridPlacement.namedLine("outer-end")
+        );
+
+        TaffyTree tree = new TaffyTree();
+        NodeId child = tree.newLeaf(childStyle);
+        NodeId root = tree.newWithChildren(grid, child);
+        tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(30f), AvailableSpace.definite(10f)));
+
+        assertEquals(30f, tree.getLayout(child).size().width, 0.01f);
+        assertEquals("[outer-start] 10.0000px 10.0000px 10.0000px [outer-end]",
             tree.getDetailedLayoutInfo(root).grid().gridTemplateColumns());
     }
 

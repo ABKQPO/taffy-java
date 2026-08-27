@@ -25,6 +25,16 @@ dependencies {
 
 The library is built for the configured modern Java toolchain. Consumers should use a compatible Java runtime; the published artifact keeps the normal Maven dependency metadata.
 
+## Fixture Generation
+
+The optional fixture generator uses the upstream Rust `test_fixtures` directory without assuming a sibling checkout. Point it at any Rust Taffy checkout using a Gradle property or environment variable:
+
+```powershell
+.\gradlew.bat :gentest:generateTaffyFixtures -PtaffyFixtureRoot=E:\Github\taffy\test_fixtures
+```
+
+Optional properties are `generatedTestRoot`, `taffyFixtureCategory`, `chromeBinary`, and `chromeDriver`. Their environment equivalents are `TAFFY_GENERATED_TEST_ROOT`, `TAFFY_FIXTURE_CATEGORY`, `CHROME_BINARY`, and `CHROME_DRIVER`.
+
 ## Credits
 
 - Original [Taffy](https://github.com/DioxusLabs/taffy) library by DioxusLabs

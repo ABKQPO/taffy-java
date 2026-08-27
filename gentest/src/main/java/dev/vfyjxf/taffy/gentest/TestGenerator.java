@@ -25,25 +25,15 @@ public class TestGenerator {
     private static final String TEST_PACKAGE = "dev.vfyjxf.taffy.generated";
     
     public static void main(String[] args) throws Exception {
-        Path rootDir = Paths.get(System.getProperty("user.dir"));
-        Path fixturesRoot = rootDir.resolve("taffy/test_fixtures");
-        Path outputRoot = rootDir.resolve("taffy-java/src/test/java/dev/vfyjxf/taffy/generated");
-        // Back-compat: if old generated tests exist under the previous base package, remove them
-        // to avoid stale tests compiling against old package names.
-        Path legacyOutputRoot = rootDir.resolve("taffy-java/src/test/java/com/nicecoder/taffy/generated");
+        Path workingDirectory = Paths.get(System.getProperty("user.dir"));
+        GeneratorOptions generatorOptions = GeneratorOptions.parse(workingDirectory, args);
+        Path fixturesRoot = generatorOptions.fixturesRoot();
+        Path outputRoot = generatorOptions.outputRoot();
+        Path chromeBinary = generatorOptions.chromeBinary();
+        Path chromeDriver = generatorOptions.chromeDriver();
+        String categoryFilter = generatorOptions.categoryFilter();
 
-        String chromeBinary = null;
-        String chromeDriver = null;
-        String categoryFilter = null;
-        for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
-                case "--chromeBinary" -> chromeBinary = args[++i];
-                case "--chromeDriver" -> chromeDriver = args[++i];
-                case "--category" -> categoryFilter = args[++i];
-            }
-        }
-        
-        System.out.println("Root directory: " + rootDir);
+        System.out.println("Working directory: " + workingDirectory.toAbsolutePath().normalize());
         System.out.println("Fixtures root: " + fixturesRoot);
         System.out.println("Output root: " + outputRoot);
         
@@ -74,14 +64,14 @@ public class TestGenerator {
         
         // Setup WebDriver
         if (chromeDriver != null) {
-            System.setProperty("webdriver.chrome.driver", chromeDriver);
+            System.setProperty("webdriver.chrome.driver", chromeDriver.toString());
         } else {
             WebDriverManager.chromedriver().setup();
         }
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless", "--disable-gpu", "--no-sandbox");
         if (chromeBinary != null) {
-            options.setBinary(chromeBinary);
+            options.setBinary(chromeBinary.toString());
         }
         ChromeDriver driver = new ChromeDriver(options);
         
@@ -93,11 +83,6 @@ public class TestGenerator {
             );
             System.out.println("Scrollbar width: " + scrollbarWidth);
             
-            // Clean legacy output directory (if present)
-            if (categoryFilter == null && Files.exists(legacyOutputRoot) && !legacyOutputRoot.equals(outputRoot)) {
-                deleteDirectory(legacyOutputRoot);
-            }
-
             // Clean output directory (only matching categories if filter is set)
             if (categoryFilter == null) {
                 if (Files.exists(outputRoot)) {

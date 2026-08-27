@@ -163,6 +163,23 @@ public class TrackSizingFunction {
         return type;
     }
 
+    /** Expand this track sizing function into a readable tagged representation. */
+    public ExpandedTrackSizingFunction expand() {
+        switch (type) {
+            case FIXED: return ExpandedTrackSizingFunction.fixed(lengthValue);
+            case MIN_CONTENT: return ExpandedTrackSizingFunction.minContent();
+            case MAX_CONTENT: return ExpandedTrackSizingFunction.maxContent();
+            case FIT_CONTENT: return ExpandedTrackSizingFunction.fitContent(lengthValue);
+            case AUTO: return ExpandedTrackSizingFunction.auto();
+            case FLEX: return ExpandedTrackSizingFunction.flex(flexValue);
+            case MINMAX:
+                return ExpandedTrackSizingFunction.minmax(
+                    minFunc == null ? null : minFunc.expand(),
+                    maxFunc == null ? null : maxFunc.expand());
+            default: throw new IllegalStateException("Unexpected track type: " + type);
+        }
+    }
+
     /**
      * Returns the length value (for FIXED and FIT_CONTENT types)
      */

@@ -108,6 +108,16 @@ public class LengthPercentage {
     public boolean isCalc() {
         return type == Type.CALC;
     }
+
+    /** Expand this value into a readable tagged representation. */
+    public ExpandedLengthPercentage expand() {
+        switch (type) {
+            case LENGTH: return ExpandedLengthPercentage.length(value);
+            case PERCENT: return ExpandedLengthPercentage.percent(value);
+            case CALC: return ExpandedLengthPercentage.calc(calcExpression);
+            default: throw new IllegalStateException("Unexpected length type: " + type);
+        }
+    }
     
     /**
      * Returns the calc expression, or null if not a calc type

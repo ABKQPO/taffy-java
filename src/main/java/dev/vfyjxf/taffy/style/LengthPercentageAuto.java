@@ -247,6 +247,21 @@ public class LengthPercentageAuto {
     public boolean isAuto() {
         return type == Type.AUTO;
     }
+
+    /** Expand this value into a readable tagged representation. */
+    public ExpandedLengthPercentageAuto expand() {
+        switch (type) {
+            case LENGTH: return ExpandedLengthPercentageAuto.length(value);
+            case PERCENT: return ExpandedLengthPercentageAuto.percent(value);
+            case AUTO: return ExpandedLengthPercentageAuto.auto();
+            case CALC: return ExpandedLengthPercentageAuto.calc(calcExpression);
+            case MIN_CONTENT: return ExpandedLengthPercentageAuto.minContent();
+            case MAX_CONTENT: return ExpandedLengthPercentageAuto.maxContent();
+            case FIT_CONTENT: return ExpandedLengthPercentageAuto.fitContent(fitContentLimit);
+            case STRETCH: return ExpandedLengthPercentageAuto.stretch();
+            default: throw new IllegalStateException("Unexpected length type: " + type);
+        }
+    }
     
     /**
      * Returns true if this is a calc expression

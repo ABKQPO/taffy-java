@@ -257,6 +257,22 @@ public class TaffyDimension {
     public boolean isAuto() {
         return type == Type.AUTO;
     }
+
+    /** Expand this value into a readable tagged representation. */
+    public ExpandedDimension expand() {
+        switch (type) {
+            case LENGTH: return ExpandedDimension.length(value);
+            case PERCENT: return ExpandedDimension.percent(value);
+            case AUTO: return ExpandedDimension.auto();
+            case CALC: return ExpandedDimension.calc(calcExpression);
+            case MIN_CONTENT: return ExpandedDimension.minContent();
+            case MAX_CONTENT: return ExpandedDimension.maxContent();
+            case FIT_CONTENT: return ExpandedDimension.fitContent(fitContentLimit);
+            case STRETCH: return ExpandedDimension.stretch();
+            case CONTENT: return ExpandedDimension.content();
+            default: throw new IllegalStateException("Unexpected dimension type: " + type);
+        }
+    }
     
     /**
      * Returns true if this is a calc expression

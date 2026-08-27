@@ -1,13 +1,17 @@
 package dev.vfyjxf.taffy;
 
+import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.FlexWrap;
+import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.style.TrackSizingFunction;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
+import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -115,6 +119,53 @@ public class FlexDefinitenessTest {
         assertEquals(200f, tree.getLayout(grandchild).size().height, 0.01f);
     }
 
+    @Test
+    void wrapColumnWithDefiniteMainSizeResolvesPercentFlexBasis() {
+        TaffyTree tree = new TaffyTree();
+        NodeId firstText = tree.newLeafWithMeasure(textStyleWithPercentFlexBasis(), ahemTextMeasure());
+        NodeId secondText = tree.newLeafWithMeasure(blockStyle(), ahemTextMeasure());
+        NodeId inner = tree.newWithChildren(wrappingColumnFlex(), firstText, secondText);
+        TaffyStyle outerStyle = columnFlex(Float.NaN);
+        outerStyle.size = new TaffySize<>(TaffyDimension.length(300f), TaffyDimension.length(500f));
+        NodeId outer = tree.newWithChildren(outerStyle, inner);
+
+        tree.computeLayout(outer, TaffySize.maxContent());
+
+        assertEquals(500f, tree.getLayout(outer).size().height, 0.01f);
+        assertEquals(20f, tree.getLayout(inner).size().height, 0.01f);
+        assertEquals(200f, tree.getLayout(firstText).size().width, 0.01f);
+        assertEquals(20f, tree.getLayout(firstText).size().height, 0.01f);
+        assertEquals(0f, tree.getLayout(firstText).location().x, 0.01f);
+        assertEquals(200f, tree.getLayout(secondText).location().x, 0.01f);
+        assertEquals(0f, tree.getLayout(secondText).location().y, 0.01f);
+        assertEquals(200f, tree.getLayout(secondText).size().width, 0.01f);
+        assertEquals(10f, tree.getLayout(secondText).size().height, 0.01f);
+    }
+
+    @Test
+    void wrapColumnWithIndefiniteMainSizeKeepsPercentFlexBasisAuto() {
+        TaffyTree tree = new TaffyTree();
+        NodeId firstText = tree.newLeafWithMeasure(textStyleWithPercentFlexBasis(), ahemTextMeasure());
+        NodeId secondText = tree.newLeafWithMeasure(blockStyle(), ahemTextMeasure());
+        NodeId inner = tree.newWithChildren(wrappingColumnFlex(), firstText, secondText);
+        TaffyStyle outerStyle = columnFlex(Float.NaN);
+        outerStyle.size = new TaffySize<>(TaffyDimension.length(300f), TaffyDimension.AUTO);
+        NodeId outer = tree.newWithChildren(outerStyle, inner);
+
+        tree.computeLayout(outer, TaffySize.maxContent());
+
+        assertEquals(20f, tree.getLayout(outer).size().height, 0.01f);
+        assertEquals(300f, tree.getLayout(inner).size().width, 0.01f);
+        assertEquals(20f, tree.getLayout(inner).size().height, 0.01f);
+        assertEquals(300f, tree.getLayout(firstText).size().width, 0.01f);
+        assertEquals(10f, tree.getLayout(firstText).size().height, 0.01f);
+        assertEquals(0f, tree.getLayout(firstText).location().x, 0.01f);
+        assertEquals(300f, tree.getLayout(secondText).size().width, 0.01f);
+        assertEquals(10f, tree.getLayout(secondText).size().height, 0.01f);
+        assertEquals(0f, tree.getLayout(secondText).location().x, 0.01f);
+        assertEquals(10f, tree.getLayout(secondText).location().y, 0.01f);
+    }
+
     private static TaffyStyle columnFlex(float minHeight) {
         TaffyStyle style = new TaffyStyle();
         style.display = TaffyDisplay.FLEX;
@@ -135,5 +186,31 @@ public class FlexDefinitenessTest {
         TaffyStyle style = blockStyle();
         style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.percent(1f));
         return style;
+    }
+
+    private static TaffyStyle wrappingColumnFlex() {
+        TaffyStyle style = columnFlex(Float.NaN);
+        style.flexWrap = FlexWrap.WRAP;
+        style.size = new TaffySize<>(TaffyDimension.length(300f), TaffyDimension.AUTO);
+        return style;
+    }
+
+    private static TaffyStyle textStyleWithPercentFlexBasis() {
+        TaffyStyle style = blockStyle();
+        style.flexShrink = 0f;
+        style.flexBasis = TaffyDimension.percent(1f);
+        return style;
+    }
+
+    private static MeasureFunc ahemTextMeasure() {
+        return (knownDimensions, availableSpace) -> {
+            float width = !Float.isNaN(knownDimensions.width)
+                ? knownDimensions.width
+                : availableSpace.width.isMinContent() ? 100f : 200f;
+            float height = !Float.isNaN(knownDimensions.height)
+                ? knownDimensions.height
+                : width <= 100f ? 20f : 10f;
+            return new FloatSize(width, height);
+        };
     }
 }

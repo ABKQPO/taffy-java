@@ -109,6 +109,11 @@ public class FlexboxComputer {
         boolean isWrap = style.getFlexWrap().isMultiLine();
         boolean isWrapReverse = style.getFlexWrap().isReverse();
         boolean isBalance = style.getFlexWrap().isBalance();
+        boolean knownMainSizeIsDefinite = isRow
+                                          ? isNaN(knownDimensions.width)
+                                            || Boolean.TRUE.equals(inputs.knownDimensionsAreDefinite().width)
+                                          : isNaN(knownDimensions.height)
+                                            || Boolean.TRUE.equals(inputs.knownDimensionsAreDefinite().height);
 
         Float aspectRatio = style.getAspectRatio();
         FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
@@ -282,6 +287,7 @@ public class FlexboxComputer {
         determineFlexBaseSize(
             items,
             nodeInnerSize,
+            percentageResolutionSize,
             innerAvailableSpace,
             flexDirection,
             isWrap,
@@ -296,6 +302,7 @@ public class FlexboxComputer {
             innerAvailableSpace,
             mainGap,
             isWrap,
+            knownMainSizeIsDefinite,
             isBalance,
             style.getFlexLineCount(),
             flexDirection,
@@ -745,6 +752,7 @@ public class FlexboxComputer {
     private void determineFlexBaseSize(
         List<FlexItem> items,
         FloatSize nodeInnerSize,
+        FloatSize percentageResolutionSize,
         TaffySize<AvailableSpace> availableSpace,
         FlexDirection flexDirection,
         boolean isWrap,
@@ -831,7 +839,11 @@ public class FlexboxComputer {
                                             : 0f;
 
             float basis;
-            float resolvedFlexBasis = (flexBasis.isAuto() || flexBasis.isContent()) ? NaN : flexBasis.maybeResolve(isRow ? nodeInnerSize.width : nodeInnerSize.height);
+            float resolvedFlexBasis = (flexBasis.isAuto() || flexBasis.isContent())
+                                      ? NaN
+                                      : flexBasis.maybeResolve(
+                isRow ? percentageResolutionSize.width : percentageResolutionSize.height
+            );
             // Add box_sizing_adjustment to resolved flex-basis (matching Rust's maybe_add behavior)
             if (!isNaN(resolvedFlexBasis)) {
                 resolvedFlexBasis = resolvedFlexBasis + boxSizingAdjustmentMain;
@@ -921,7 +933,9 @@ public class FlexboxComputer {
             TaffyDimension mainDimStyle = isRow ? childStyle.getSize().width : childStyle.getSize().height;
             float styleMainSize;
             if (mainDimStyle != null && !mainDimStyle.isAuto()) {
-                float resolved = mainDimStyle.maybeResolve(isRow ? nodeInnerSize.width : nodeInnerSize.height);
+                float resolved = mainDimStyle.maybeResolve(
+                    isRow ? percentageResolutionSize.width : percentageResolutionSize.height
+                );
                 styleMainSize = isNaN(resolved) ? NaN : resolved + boxSizingAdjustmentMain;
             } else {
                 styleMainSize = NaN;
@@ -1305,6 +1319,7 @@ public class FlexboxComputer {
         TaffySize<AvailableSpace> availableSpace,
         float mainGap,
         boolean isWrap,
+        boolean knownMainSizeIsDefinite,
         boolean isBalance,
         int requestedLineCount,
         FlexDirection flexDirection,
@@ -1314,7 +1329,7 @@ public class FlexboxComputer {
         List<FlexLine> lines = new ArrayList<>();
         boolean isRow = flexDirection.isRow();
 
-        if (!isWrap) {
+        if (!isWrap || !knownMainSizeIsDefinite) {
             FlexLine line = new FlexLine();
             line.items = new ArrayList<>(items);
             line.crossSize = 0;

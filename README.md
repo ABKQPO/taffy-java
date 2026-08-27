@@ -35,6 +35,12 @@ The optional fixture generator uses the upstream Rust `test_fixtures` directory 
 
 Optional properties are `generatedTestRoot`, `taffyFixtureCategory`, `chromeBinary`, and `chromeDriver`. Their environment equivalents are `TAFFY_GENERATED_TEST_ROOT`, `TAFFY_FIXTURE_CATEGORY`, `CHROME_BINARY`, and `CHROME_DRIVER`.
 
+Run upstream XML layout assertions directly with an explicit XML root. Restrict a run to one group while expanding the runner's supported style surface:
+
+```powershell
+.\gradlew.bat test -PtaffyXmlRoot=E:\Github\taffy\tests\xml -PtaffyXmlGroup=grid
+```
+
 ## Credits
 
 - Original [Taffy](https://github.com/DioxusLabs/taffy) library by DioxusLabs

@@ -27,4 +27,22 @@ public class XmlFixtureRunnerTest {
             Files.deleteIfExists(fixture);
         }
     }
+
+    @Test
+    void runsGridTemplateAndPlacementFromXml() throws IOException {
+        Path fixture = Files.createTempFile("taffy-grid-xml-fixture", ".xml");
+        Files.writeString(fixture, """
+            <test name="grid" use-rounding="true">
+              <viewport width="max-content" height="max-content"/>
+              <input><div display="grid" width="100px" height="20px" grid-template-columns="40px 60px"><div grid-column-start="2" width="60px" height="20px"/></div></input>
+              <expectations><node x="0" y="0" width="100" height="20" resolved-rows="20.0000px" resolved-columns="40.0000px 60.0000px"><node x="40" y="0" width="60" height="20"/></node></expectations>
+            </test>
+            """);
+
+        try {
+            assertDoesNotThrow(() -> XmlFixtureRunner.run(fixture));
+        } finally {
+            Files.deleteIfExists(fixture);
+        }
+    }
 }

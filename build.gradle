@@ -58,6 +58,14 @@ tasks.named('test') {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(21)
     }
+    def xmlFixtureRoot = providers.gradleProperty('taffyXmlRoot')
+        .orElse(providers.environmentVariable('TAFFY_XML_ROOT'))
+        .orNull
+    def xmlFixtureGroup = providers.gradleProperty('taffyXmlGroup')
+        .orElse(providers.environmentVariable('TAFFY_XML_GROUP'))
+        .orNull
+    if (xmlFixtureRoot != null) systemProperty 'taffy.xml.root', xmlFixtureRoot
+    if (xmlFixtureGroup != null) systemProperty 'taffy.xml.group', xmlFixtureGroup
 }
 
 shadowJar {

@@ -1,16 +1,18 @@
 package dev.vfyjxf.taffy.xml;
 
 import dev.vfyjxf.taffy.geometry.TaffyPoint;
+import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
-import dev.vfyjxf.taffy.style.Overflow;
+import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.Layout;
+import dev.vfyjxf.taffy.tree.DetailedLayoutInfo;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import org.w3c.dom.Document;
@@ -26,12 +28,14 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Runs an upstream Taffy XML fixture against the Java layout tree. */
 public class XmlFixtureRunner {
     private static final float EPSILON = 0.01f;
+    private static final Pattern PIXEL_TOKEN = Pattern.compile("(-?(?:\\d+\\.?\\d*|\\.\\d+))px");
 
     private XmlFixtureRunner() {
     }
@@ -95,9 +99,25 @@ public class XmlFixtureRunner {
         if (element.hasAttribute("aspect-ratio")) style.aspectRatio = number(element, "aspect-ratio", Float.NaN);
         if (element.hasAttribute("flex-direction")) style.flexDirection = CssParser.parseFlexDirection(element.getAttribute("flex-direction"));
         if (element.hasAttribute("flex-wrap")) style.flexWrap = CssParser.parseFlexWrap(element.getAttribute("flex-wrap"));
+        if (element.hasAttribute("align-items")) style.alignItems = CssParser.parseAlignItems(element.getAttribute("align-items"));
+        if (element.hasAttribute("align-self")) style.alignSelf = CssParser.parseAlignItems(element.getAttribute("align-self"));
+        if (element.hasAttribute("justify-items")) style.justifyItems = CssParser.parseJustifyItems(element.getAttribute("justify-items"));
+        if (element.hasAttribute("justify-self")) style.justifySelf = CssParser.parseJustifyItems(element.getAttribute("justify-self"));
+        if (element.hasAttribute("align-content")) style.alignContent = CssParser.parseAlignContent(element.getAttribute("align-content"));
+        if (element.hasAttribute("justify-content")) style.justifyContent = CssParser.parseJustifyContent(element.getAttribute("justify-content"));
         style.flexGrow = number(element, "flex-grow", 0f);
         style.flexShrink = number(element, "flex-shrink", 1f);
         style.flexBasis = CssParser.parseDimension(attribute(element, "flex-basis", "auto"));
+        style.flexLineCount = integer(element, "flex-line-count", 1);
+        if (element.hasAttribute("grid-template-rows")) style.setGridTemplateRows(CssParser.parseGridTemplateTracks(element.getAttribute("grid-template-rows")));
+        if (element.hasAttribute("grid-template-columns")) style.setGridTemplateColumns(CssParser.parseGridTemplateTracks(element.getAttribute("grid-template-columns")));
+        if (element.hasAttribute("grid-auto-flow")) style.gridAutoFlow = CssParser.parseGridAutoFlow(element.getAttribute("grid-auto-flow"));
+        style.gridRow = new TaffyLine<>(
+            CssParser.parseGridPlacement(attribute(element, "grid-row-start", "auto")),
+            CssParser.parseGridPlacement(attribute(element, "grid-row-end", "auto")));
+        style.gridColumn = new TaffyLine<>(
+            CssParser.parseGridPlacement(attribute(element, "grid-column-start", "auto")),
+            CssParser.parseGridPlacement(attribute(element, "grid-column-end", "auto")));
         return style;
     }
 
@@ -107,6 +127,13 @@ public class XmlFixtureRunner {
         assertEquals(number(expected, "y", 0f), layout.location().y, EPSILON, fixtureName + " y");
         assertEquals(number(expected, "width", 0f), layout.size().width, EPSILON, fixtureName + " width");
         assertEquals(number(expected, "height", 0f), layout.size().height, EPSILON, fixtureName + " height");
+        DetailedLayoutInfo detailedLayout = tree.getDetailedLayoutInfo(node);
+        if (expected.hasAttribute("resolved-rows")) {
+            assertEquals(normalizeTrackList(expected.getAttribute("resolved-rows")), normalizeTrackList(detailedLayout.grid().gridTemplateRows()), fixtureName + " resolved rows");
+        }
+        if (expected.hasAttribute("resolved-columns")) {
+            assertEquals(normalizeTrackList(expected.getAttribute("resolved-columns")), normalizeTrackList(detailedLayout.grid().gridTemplateColumns()), fixtureName + " resolved columns");
+        }
         List<Element> expectedChildren = children(expected);
         List<NodeId> childIds = tree.getChildren(node);
         assertEquals(expectedChildren.size(), childIds.size(), fixtureName + " child count");
@@ -150,6 +177,14 @@ public class XmlFixtureRunner {
 
     private static float number(Element element, String name, float fallback) {
         return element.hasAttribute(name) ? Float.parseFloat(element.getAttribute(name).replace("px", "")) : fallback;
+    }
+
+    private static int integer(Element element, String name, int fallback) {
+        return element.hasAttribute(name) ? Integer.parseInt(element.getAttribute(name)) : fallback;
+    }
+
+    private static String normalizeTrackList(String value) {
+        return PIXEL_TOKEN.matcher(value).replaceAll(match -> Float.toString(Float.parseFloat(match.group(1))) + "px");
     }
 
     private static TaffyDimension dimension(Element element, String name) {

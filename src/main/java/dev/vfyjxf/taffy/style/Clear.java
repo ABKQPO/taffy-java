@@ -24,14 +24,14 @@ public enum Clear {
     /** Parse the CSS {@code clear} property. */
     public static Clear parse(String value) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Clear value must not be empty");
+            throw new ParseError("Clear value must not be empty");
         }
         switch (value.trim().toLowerCase(Locale.ROOT)) {
             case "left": return LEFT;
             case "right": return RIGHT;
             case "both": return BOTH;
             case "none": return NONE;
-            default: throw new IllegalArgumentException("Unknown clear keyword: " + value);
+            default: throw new ParseError("Unknown clear keyword: " + value);
         }
     }
 

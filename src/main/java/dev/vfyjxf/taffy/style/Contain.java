@@ -34,7 +34,7 @@ public class Contain {
     /** Parse the layout-affecting CSS contain keywords. */
     public static Contain parse(String value) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Contain value must not be empty");
+            throw new ParseError("Contain value must not be empty");
         }
         String normalized = value.trim().toLowerCase(Locale.ROOT);
         if (normalized.equals("none")) return NONE;
@@ -45,12 +45,12 @@ public class Contain {
         for (String token : normalized.split("\\s+")) {
             switch (token) {
                 case "layout":
-                    if (result.contains(LAYOUT)) throw new IllegalArgumentException("Duplicate contain keyword: layout");
+                    if (result.contains(LAYOUT)) throw new ParseError("Duplicate contain keyword: layout");
                     result = result.union(LAYOUT);
                     sawKeyword = true;
                     break;
                 case "paint":
-                    if (result.contains(PAINT)) throw new IllegalArgumentException("Duplicate contain keyword: paint");
+                    if (result.contains(PAINT)) throw new ParseError("Duplicate contain keyword: paint");
                     result = result.union(PAINT);
                     sawKeyword = true;
                     break;
@@ -58,10 +58,10 @@ public class Contain {
                     sawKeyword = true;
                     break;
                 default:
-                    throw new IllegalArgumentException("Unknown contain keyword: " + token);
+                    throw new ParseError("Unknown contain keyword: " + token);
             }
         }
-        if (!sawKeyword) throw new IllegalArgumentException("Contain value must not be empty");
+        if (!sawKeyword) throw new ParseError("Contain value must not be empty");
         return result;
     }
 

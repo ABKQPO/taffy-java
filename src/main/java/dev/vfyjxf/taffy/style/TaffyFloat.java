@@ -25,13 +25,13 @@ public enum TaffyFloat {
     /** Parse the CSS {@code float} property. */
     public static TaffyFloat parse(String value) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Float value must not be empty");
+            throw new ParseError("Float value must not be empty");
         }
         switch (value.trim().toLowerCase(Locale.ROOT)) {
             case "left": return LEFT;
             case "right": return RIGHT;
             case "none": return NONE;
-            default: throw new IllegalArgumentException("Unknown float keyword: " + value);
+            default: throw new ParseError("Unknown float keyword: " + value);
         }
     }
 

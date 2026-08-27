@@ -61,7 +61,7 @@ public class CssParser {
 
     /** Parse a CSS {@code grid-template-areas} value. */
     public static GridTemplateAreas parseGridTemplateAreas(String input) {
-        if (input == null) throw new IllegalArgumentException("Grid template areas value must not be null");
+        if (input == null) throw new ParseError("Grid template areas value must not be null");
         String value = input.trim();
         if (value.equalsIgnoreCase("none")) return null;
         List<String> rows = new ArrayList<>();
@@ -71,14 +71,14 @@ public class CssParser {
             if (index == value.length()) break;
             char quote = value.charAt(index++);
             if (quote != '\'' && quote != '"') {
-                throw new IllegalArgumentException("Grid template areas rows must be quoted");
+                throw new ParseError("Grid template areas rows must be quoted");
             }
             StringBuilder row = new StringBuilder();
             boolean closed = false;
             while (index < value.length()) {
                 char character = value.charAt(index++);
                 if (character == '\\') {
-                    if (index == value.length()) throw new IllegalArgumentException("Unterminated grid template area escape");
+                    if (index == value.length()) throw new ParseError("Unterminated grid template area escape");
                     row.append(value.charAt(index++));
                 } else if (character == quote) {
                     closed = true;
@@ -87,7 +87,7 @@ public class CssParser {
                     row.append(character);
                 }
             }
-            if (!closed) throw new IllegalArgumentException("Unterminated grid template area row");
+            if (!closed) throw new ParseError("Unterminated grid template area row");
             rows.add(row.toString());
         }
         return GridTemplateAreas.fromRows(rows);
@@ -241,7 +241,7 @@ public class CssParser {
                 default: throw invalidKeyword("align-items", values[1]);
             }
         }
-        throw new IllegalArgumentException("Invalid align-items value: " + input);
+        throw new ParseError("Invalid align-items value: " + input);
     }
 
     public static AlignContent parseAlignContent(String input) {
@@ -272,21 +272,21 @@ public class CssParser {
                 default: throw invalidKeyword("align-content", values[1]);
             }
         }
-        throw new IllegalArgumentException("Invalid align-content value: " + input);
+        throw new ParseError("Invalid align-content value: " + input);
     }
 
     private static String[] alignmentKeywords(String input, String property) {
-        if (input == null) throw new IllegalArgumentException(property + " value must not be null");
+        if (input == null) throw new ParseError(property + " value must not be null");
         String value = input.trim().toLowerCase(Locale.ROOT);
-        if (value.isEmpty()) throw new IllegalArgumentException("Invalid " + property + " value: " + input);
+        if (value.isEmpty()) throw new ParseError("Invalid " + property + " value: " + input);
         return value.split("\\s+");
     }
 
     private static String singleKeyword(String input, String property) {
-        if (input == null) throw new IllegalArgumentException(property + " value must not be null");
+        if (input == null) throw new ParseError(property + " value must not be null");
         String value = input.trim().toLowerCase(Locale.ROOT);
         if (value.isEmpty() || value.indexOf(' ') >= 0 || value.indexOf('\t') >= 0 || value.indexOf('\n') >= 0) {
-            throw new IllegalArgumentException("Invalid " + property + " value: " + input);
+            throw new ParseError("Invalid " + property + " value: " + input);
         }
         return value;
     }
@@ -302,8 +302,8 @@ public class CssParser {
         throw invalidKeyword(property, value);
     }
 
-    private static IllegalArgumentException invalidKeyword(String property, String value) {
-        return new IllegalArgumentException("Unknown " + property + " keyword: " + value);
+    private static ParseError invalidKeyword(String property, String value) {
+        return new ParseError("Unknown " + property + " keyword: " + value);
     }
 
     private static class Parser {
@@ -311,7 +311,7 @@ public class CssParser {
         private int index;
 
         private Parser(String input) {
-            if (input == null) throw new IllegalArgumentException("CSS value must not be null");
+            if (input == null) throw new ParseError("CSS value must not be null");
             this.input = input;
         }
 
@@ -614,7 +614,7 @@ public class CssParser {
         }
 
         private void fail(String message) {
-            throw new IllegalArgumentException(message + " in CSS value '" + input + "'");
+            throw new ParseError(message + " in CSS value '" + input + "'");
         }
 
         private static List<String> splitTopLevel(String value, char separator) {
@@ -626,13 +626,13 @@ public class CssParser {
                 if (character == '(') depth++;
                 else if (character == ')') {
                     depth--;
-                    if (depth < 0) throw new IllegalArgumentException("Unbalanced CSS parentheses");
+                    if (depth < 0) throw new ParseError("Unbalanced CSS parentheses");
                 } else if (character == separator && depth == 0) {
                     result.add(value.substring(start, i));
                     start = i + 1;
                 }
             }
-            if (depth != 0) throw new IllegalArgumentException("Unbalanced CSS parentheses");
+            if (depth != 0) throw new ParseError("Unbalanced CSS parentheses");
             result.add(value.substring(start));
             return result;
         }

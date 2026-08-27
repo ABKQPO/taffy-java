@@ -41,7 +41,7 @@ public enum FlexWrap {
     /** Parse the CSS flex-wrap grammar, including Flexbox Level 2 balance keywords. */
     public static FlexWrap parse(String value) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Flex-wrap value must not be empty");
+            throw new ParseError("Flex-wrap value must not be empty");
         }
         String[] tokens = value.trim().toLowerCase(Locale.ROOT).split("\\s+");
         FlexWrap wrap = null;
@@ -50,23 +50,23 @@ public enum FlexWrap {
             switch (token) {
                 case "nowrap":
                     if (tokens.length != 1 || wrap != null || balance) {
-                        throw new IllegalArgumentException("Invalid flex-wrap value: " + value);
+                        throw new ParseError("Invalid flex-wrap value: " + value);
                     }
                     return NO_WRAP;
                 case "wrap":
-                    if (wrap != null) throw new IllegalArgumentException("Duplicate flex-wrap mode: wrap");
+                    if (wrap != null) throw new ParseError("Duplicate flex-wrap mode: wrap");
                     wrap = WRAP;
                     break;
                 case "wrap-reverse":
-                    if (wrap != null) throw new IllegalArgumentException("Duplicate flex-wrap mode: wrap-reverse");
+                    if (wrap != null) throw new ParseError("Duplicate flex-wrap mode: wrap-reverse");
                     wrap = WRAP_REVERSE;
                     break;
                 case "balance":
-                    if (balance) throw new IllegalArgumentException("Duplicate flex-wrap mode: balance");
+                    if (balance) throw new ParseError("Duplicate flex-wrap mode: balance");
                     balance = true;
                     break;
                 default:
-                    throw new IllegalArgumentException("Unknown flex-wrap keyword: " + token);
+                    throw new ParseError("Unknown flex-wrap keyword: " + token);
             }
         }
         if (!balance) return wrap == null ? NO_WRAP : wrap;

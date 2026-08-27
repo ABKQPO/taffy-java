@@ -18,6 +18,7 @@ import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.Overflow;
+import dev.vfyjxf.taffy.style.ParseError;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
@@ -49,8 +50,8 @@ public class CssParserTest {
         assertEquals(0.3f, dimension.getFitContentLimit().getValue(), EPSILON);
         assertTrue(CssParser.parseLengthPercentageAuto("MAX-CONTENT").isMaxContent());
         assertTrue(CssParser.parseDimension("content").isContent());
-        assertThrows(IllegalArgumentException.class, () -> CssParser.parseLengthPercentage("24em"));
-        assertThrows(IllegalArgumentException.class, () -> CssParser.parseDimension("auto trailing"));
+        assertThrows(ParseError.class, () -> CssParser.parseLengthPercentage("24em"));
+        assertThrows(ParseError.class, () -> CssParser.parseDimension("auto trailing"));
     }
 
     @Test
@@ -58,8 +59,8 @@ public class CssParserTest {
         assertEquals(AvailableSpace.maxContent(), CssParser.parseAvailableSpace("max-content"));
         assertEquals(18f, CssParser.parseAvailableSpace("18px").getValue(), EPSILON);
         assertEquals(GridAutoFlow.COLUMN_DENSE, CssParser.parseGridAutoFlow("dense column"));
-        assertThrows(IllegalArgumentException.class, () -> CssParser.parseAvailableSpace("-1px"));
-        assertThrows(IllegalArgumentException.class, () -> CssParser.parseGridAutoFlow("row column"));
+        assertThrows(ParseError.class, () -> CssParser.parseAvailableSpace("-1px"));
+        assertThrows(ParseError.class, () -> CssParser.parseGridAutoFlow("row column"));
     }
 
     @Test

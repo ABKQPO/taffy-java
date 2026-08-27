@@ -7,6 +7,7 @@ import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.geometry.TaffyPoint;
 import dev.vfyjxf.taffy.geometry.TaffyRect;
 import dev.vfyjxf.taffy.geometry.TaffySize;
+import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxGenerationMode;
 import dev.vfyjxf.taffy.style.BoxSizing;
@@ -63,6 +64,7 @@ public class BlockComputer {
         FloatSize computedSize;
         FloatPoint staticPosition;
         boolean canBeCollapsedThrough;
+        Layout finalLayout;
     }
 
     /**
@@ -74,18 +76,21 @@ public class BlockComputer {
         private final CollapsibleMarginSet lastChildBottomMarginSet;
         private final boolean allChildrenCanBeCollapsedThrough;
         private final float firstVerticalBaseline;
+        private final float floatedContentHeight;
 
         public InFlowLayoutResult(
             float contentHeight, CollapsibleMarginSet firstChildTopMarginSet,
             CollapsibleMarginSet lastChildBottomMarginSet,
             boolean allChildrenCanBeCollapsedThrough,
-            float firstVerticalBaseline
+            float firstVerticalBaseline,
+            float floatedContentHeight
         ) {
             this.contentHeight = contentHeight;
             this.firstChildTopMarginSet = firstChildTopMarginSet;
             this.lastChildBottomMarginSet = lastChildBottomMarginSet;
             this.allChildrenCanBeCollapsedThrough = allChildrenCanBeCollapsedThrough;
             this.firstVerticalBaseline = firstVerticalBaseline;
+            this.floatedContentHeight = floatedContentHeight;
         }
 
         public float contentHeight() { return contentHeight; }
@@ -93,6 +98,7 @@ public class BlockComputer {
         public CollapsibleMarginSet lastChildBottomMarginSet() { return lastChildBottomMarginSet; }
         public boolean allChildrenCanBeCollapsedThrough() { return allChildrenCanBeCollapsedThrough; }
         public float firstVerticalBaseline() { return firstVerticalBaseline; }
+        public float floatedContentHeight() { return floatedContentHeight; }
 
         @Override
         public boolean equals(Object o) {
@@ -102,6 +108,7 @@ public class BlockComputer {
             return Float.compare(contentHeight, that.contentHeight) == 0
                 && allChildrenCanBeCollapsedThrough == that.allChildrenCanBeCollapsedThrough
                 && Float.compare(firstVerticalBaseline, that.firstVerticalBaseline) == 0
+                && Float.compare(floatedContentHeight, that.floatedContentHeight) == 0
                 && Objects.equals(firstChildTopMarginSet, that.firstChildTopMarginSet)
                 && Objects.equals(lastChildBottomMarginSet, that.lastChildBottomMarginSet);
         }
@@ -109,7 +116,8 @@ public class BlockComputer {
         @Override
         public int hashCode() {
             return Objects.hash(contentHeight, firstChildTopMarginSet,
-                lastChildBottomMarginSet, allChildrenCanBeCollapsedThrough, firstVerticalBaseline);
+                lastChildBottomMarginSet, allChildrenCanBeCollapsedThrough, firstVerticalBaseline,
+                floatedContentHeight);
         }
 
         @Override
@@ -165,23 +173,23 @@ public class BlockComputer {
         FloatSize maxSize = Resolve.maybeApplyAspectRatio(size, aspectRatio);
         maxSize = maybeAdd(maxSize, boxSizingAdjustment);
 
+        boolean establishesNewBfc = style.getDisplay() == TaffyDisplay.FLOW_ROOT
+            || style.getOverflow().x.isScrollContainer()
+            || style.getOverflow().y.isScrollContainer()
+            || hasNonNormalAlignContent(style.getAlignContent())
+            || style.contain.establishesIndependentFormattingContext();
+
         // Determine margin collapsing behaviour
         boolean ownMarginsCollapseWithChildrenStart =
             verticalMarginsAreCollapsible.start &&
-            style.getDisplay() != TaffyDisplay.FLOW_ROOT &&
-            !style.getOverflow().x.isScrollContainer() &&
-            !style.getOverflow().y.isScrollContainer() &&
-            !style.contain.establishesIndependentFormattingContext() &&
+            !establishesNewBfc &&
             !style.getPosition().isOutOfFlow() &&
             padding.top == 0 &&
             border.top == 0;
 
         boolean ownMarginsCollapseWithChildrenEnd =
             verticalMarginsAreCollapsible.end &&
-            style.getDisplay() != TaffyDisplay.FLOW_ROOT &&
-            !style.getOverflow().x.isScrollContainer() &&
-            !style.getOverflow().y.isScrollContainer() &&
-            !style.contain.establishesIndependentFormattingContext() &&
+            !establishesNewBfc &&
             !style.getPosition().isOutOfFlow() &&
             padding.bottom == 0 &&
             border.bottom == 0 &&
@@ -192,10 +200,7 @@ public class BlockComputer {
 
         boolean hasStylesPreventingBeingCollapsedThrough =
             !style.isBlock() ||
-            style.getDisplay() == TaffyDisplay.FLOW_ROOT ||
-            style.getOverflow().x.isScrollContainer() ||
-            style.getOverflow().y.isScrollContainer() ||
-            style.contain.establishesIndependentFormattingContext() ||
+            establishesNewBfc ||
             style.getPosition().isOutOfFlow() ||
             (!Float.isNaN(style.getAspectRatio())) ||
             padding.top > 0 ||
@@ -289,9 +294,14 @@ public class BlockComputer {
             ownMarginsCollapseWithChildren
         );
 
+        float intrinsicOuterHeight = layoutResult.contentHeight();
+        if (establishesNewBfc) {
+            intrinsicOuterHeight = Math.max(intrinsicOuterHeight, layoutResult.floatedContentHeight());
+        }
+
         float containerOuterHeight = styledBasedKnownDimensions.height;
         if (Float.isNaN(containerOuterHeight)) {
-            float contentHeight = layoutResult.contentHeight;
+            float contentHeight = intrinsicOuterHeight;
             // Apply aspect-ratio: when height is auto and width is known, derive height from AR.
             // AR applies to the content box, so subtract/add box-sizing adjustment.
             if (!Float.isNaN(aspectRatio) && !Float.isNaN(containerOuterWidth)) {
@@ -307,6 +317,30 @@ public class BlockComputer {
 
         if (runMode == RunMode.COMPUTE_SIZE) {
             return LayoutOutput.fromOuterSize(finalOuterSize);
+        }
+
+        float firstVerticalBaseline = layoutResult.firstVerticalBaseline();
+        if (hasNonNormalAlignContent(style.getAlignContent())) {
+            float containerInnerHeight = finalOuterSize.height - contentBoxInset.top - contentBoxInset.bottom;
+            float inFlowContentHeight = intrinsicOuterHeight - contentBoxInset.top - contentBoxInset.bottom;
+            float groupOffset = blockAlignmentOffset(
+                style.getAlignContent(), containerInnerHeight - inFlowContentHeight);
+            boolean hasDeferredLayout = false;
+            for (BlockItem item : items) {
+                if (item.finalLayout != null) {
+                    item.finalLayout.location().y += groupOffset;
+                    hasDeferredLayout = true;
+                }
+            }
+            if (hasDeferredLayout && !Float.isNaN(firstVerticalBaseline)) {
+                firstVerticalBaseline += groupOffset;
+            }
+        }
+
+        for (BlockItem item : items) {
+            if (item.finalLayout != null) {
+                tree.setUnroundedLayout(item.nodeId, item.finalLayout);
+            }
         }
 
         // Layout absolutely positioned children
@@ -361,9 +395,9 @@ public class BlockComputer {
             bottomMargin = CollapsibleMarginSet.fromMargin(marginBottom);
         }
 
-        float firstVerticalBaseline = style.contain.suppressesBaseline()
+        firstVerticalBaseline = style.contain.suppressesBaseline()
             ? NaN
-            : layoutResult.firstVerticalBaseline();
+            : firstVerticalBaseline;
         return new LayoutOutput(
             finalOuterSize,
             contentSize,
@@ -374,6 +408,32 @@ public class BlockComputer {
             scrollableOverflowRect,
             Baselines.fromLegacy(firstVerticalBaseline)
         );
+    }
+
+    private static boolean hasNonNormalAlignContent(AlignContent alignContent) {
+        return alignContent != null && alignContent != AlignContent.AUTO;
+    }
+
+    private static float blockAlignmentOffset(AlignContent alignment, float freeSpace) {
+        boolean safe = alignment.isSafe();
+        AlignContent keyword = alignment.withoutSafety();
+        if (keyword == AlignContent.STRETCH || keyword == AlignContent.SPACE_BETWEEN) {
+            keyword = AlignContent.START;
+            safe = true;
+        } else if (keyword == AlignContent.SPACE_AROUND || keyword == AlignContent.SPACE_EVENLY) {
+            keyword = AlignContent.CENTER;
+            safe = true;
+        }
+        if (safe && freeSpace <= 0f) return 0f;
+        switch (keyword) {
+            case CENTER:
+                return freeSpace / 2f;
+            case END:
+            case FLEX_END:
+                return freeSpace;
+            default:
+                return 0f;
+        }
     }
 
     private FloatSize computeContentSizeFromChildren(NodeId node) {
@@ -532,6 +592,7 @@ public class BlockComputer {
         boolean isCollapsingWithFirstMarginSet = true;
         boolean allChildrenCanBeCollapsedThrough = true;
         float firstVerticalBaseline = NaN;
+        float floatedContentHeight = Float.NEGATIVE_INFINITY;
 
         // Check RTL once at the start
         boolean isRtl = direction != null && direction.isRtl();
@@ -590,7 +651,7 @@ public class BlockComputer {
                     item.overflow.y == Overflow.SCROLL ? item.scrollbarWidth : 0f,
                     item.overflow.x == Overflow.SCROLL ? item.scrollbarWidth : 0f
                 );
-                tree.setUnroundedLayout(item.nodeId, new Layout(
+                item.finalLayout = new Layout(
                     item.order,
                     new FloatPoint(contentBoxInset.left + floatX, floatY),
                     floatSize,
@@ -601,7 +662,8 @@ public class BlockComputer {
                     itemNonAutoMargin,
                     floatOutput.scrollableOverflowRect(),
                     floatOutput.baselines()
-                ));
+                );
+                floatedContentHeight = Math.max(floatedContentHeight, marginBoxPosition.y + marginBoxHeight);
                 item.computedSize = floatSize;
                 item.canBeCollapsedThrough = false;
                 continue;
@@ -776,7 +838,7 @@ public class BlockComputer {
                 itemOutput.baselines()
             );
 
-            tree.setUnroundedLayout(item.nodeId, layout);
+            item.finalLayout = layout;
 
             if (Float.isNaN(firstVerticalBaseline)) {
                 float childBaseline = itemOutput.baselines().first();
@@ -828,7 +890,8 @@ public class BlockComputer {
             firstChildTopMarginSet,
             lastChildBottomMarginSet,
             allChildrenCanBeCollapsedThrough,
-            firstVerticalBaseline
+            firstVerticalBaseline,
+            floatedContentHeight
         );
     }
 

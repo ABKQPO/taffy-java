@@ -22,19 +22,13 @@ public class RoundLayout {
     }
     
     /**
-     * Round to nearest integer, with ties rounding away from zero (matches Rust's f32::round()).
-     * This differs from Java's Math.round() which rounds ties towards positive infinity.
-     * Example: round(-148.5) returns -149 (Rust) vs -148 (Java Math.round)
+     * Round to nearest integer, with ties rounding away from zero.
      */
     private static float round(float value) {
-        // Math.rint rounds to nearest even for ties, we need round away from zero
-        // For positive: 0.5 -> 1 (same as Math.round)
-        // For negative: -0.5 -> -1 (different from Math.round which gives 0)
         if (value >= 0) {
             return (float) Math.floor(value + 0.5);
-        } else {
-            return (float) Math.ceil(value - 0.5);
         }
+        return (float) Math.ceil(value - 0.5);
     }
 
     /**

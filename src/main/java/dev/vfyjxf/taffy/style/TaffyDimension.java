@@ -232,6 +232,11 @@ public class TaffyDimension {
         return fitContentLimit;
     }
 
+    /** Converts this value to Taffy's compact public sizing representation. */
+    public CompactLength toCompactLength() {
+        return CompactLength.from(this);
+    }
+
     /**
      * Returns true if this is an absolute length
      */
@@ -349,6 +354,18 @@ public class TaffyDimension {
      */
     public float resolveOrZero(float context) {
         float resolved = maybeResolve(context);
+        return Float.isNaN(resolved) ? 0f : resolved;
+    }
+
+    /** Resolve with a caller-supplied calc hook. */
+    public float maybeResolve(float context, CalcValueResolver resolver) {
+        if (type == Type.CALC) return resolver.resolve(calcExpression, context);
+        return maybeResolve(context);
+    }
+
+    /** Resolve with a caller-supplied calc hook, returning zero when unresolvable. */
+    public float resolveOrZero(float context, CalcValueResolver resolver) {
+        float resolved = maybeResolve(context, resolver);
         return Float.isNaN(resolved) ? 0f : resolved;
     }
 

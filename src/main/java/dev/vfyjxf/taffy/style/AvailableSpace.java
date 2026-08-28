@@ -2,6 +2,7 @@ package dev.vfyjxf.taffy.style;
 
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.lang.Float.NaN;
 
@@ -40,6 +41,11 @@ public class AvailableSpace {
      */
     public static AvailableSpace definite(float value) {
         return new AvailableSpace(Type.DEFINITE, value);
+    }
+
+    /** Converts a nullable definite value, using max-content when no value is available. */
+    public static AvailableSpace fromNullable(Float value) {
+        return value == null ? MAX_CONTENT : definite(value);
     }
 
     /**
@@ -162,6 +168,45 @@ public class AvailableSpace {
      */
     public float unwrapOr(float defaultValue) {
         return type == Type.DEFINITE ? value : defaultValue;
+    }
+
+    /** Returns the definite value or throws when this is an intrinsic constraint. */
+    public float unwrap() {
+        if (type != Type.DEFINITE) {
+            throw new IllegalStateException("Available space is not definite");
+        }
+        return value;
+    }
+
+    /** Returns this value when definite, otherwise the supplied fallback constraint. */
+    public AvailableSpace or(AvailableSpace fallback) {
+        return type == Type.DEFINITE ? this : Objects.requireNonNull(fallback, "fallback");
+    }
+
+    /** Returns this value when definite, otherwise evaluates the supplied fallback. */
+    public AvailableSpace orElse(Supplier<AvailableSpace> fallback) {
+        return type == Type.DEFINITE ? this
+            : Objects.requireNonNull(Objects.requireNonNull(fallback, "fallback").get(), "fallback result");
+    }
+
+    /** Returns the definite value or evaluates a fallback value supplier. */
+    public float unwrapOrElse(Supplier<Float> fallback) {
+        return type == Type.DEFINITE ? value
+            : Objects.requireNonNull(Objects.requireNonNull(fallback, "fallback").get(), "fallback result");
+    }
+
+    /** Replaces this constraint with a definite value when the supplied value is present. */
+    public AvailableSpace maybeSet(Float knownDimension) {
+        return knownDimension == null || Float.isNaN(knownDimension) ? this : definite(knownDimension);
+    }
+
+    /** Computes the available free space after subtracting the used size. */
+    public float computeFreeSpace(float usedSpace) {
+        return switch (type) {
+            case DEFINITE -> value - usedSpace;
+            case MIN_CONTENT -> 0f;
+            case MAX_CONTENT -> Float.POSITIVE_INFINITY;
+        };
     }
 
     /**

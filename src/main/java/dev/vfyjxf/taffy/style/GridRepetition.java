@@ -48,6 +48,23 @@ public class GridRepetition {
         return count(count, tracks, List.of());
     }
 
+    /** Creates a repetition from the typed public repeat count value. */
+    public static GridRepetition of(RepetitionCount count, List<TrackSizingFunction> tracks) {
+        return of(count, tracks, List.of());
+    }
+
+    /** Creates a repetition from the typed public repeat count and positional line names. */
+    public static GridRepetition of(
+        RepetitionCount count,
+        List<TrackSizingFunction> tracks,
+        List<List<String>> lineNames) {
+        return switch (Objects.requireNonNull(count, "count").type()) {
+            case COUNT -> count(count.count(), tracks, lineNames);
+            case AUTO_FILL -> autoFill(tracks, lineNames);
+            case AUTO_FIT -> autoFit(tracks, lineNames);
+        };
+    }
+
     /** Creates a repeat with positional line names for every repeated track line. */
     public static GridRepetition count(
         int count,
@@ -113,6 +130,15 @@ public class GridRepetition {
     
     public int getCount() {
         return count;
+    }
+
+    /** Returns the typed public form of this repetition's count. */
+    public RepetitionCount getRepetitionCount() {
+        return switch (type) {
+            case COUNT -> RepetitionCount.count(count);
+            case AUTO_FILL -> RepetitionCount.autoFill();
+            case AUTO_FIT -> RepetitionCount.autoFit();
+        };
     }
     
     public List<TrackSizingFunction> getTracks() {

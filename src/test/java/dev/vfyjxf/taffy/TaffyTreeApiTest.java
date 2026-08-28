@@ -13,6 +13,7 @@ import dev.vfyjxf.taffy.tree.Layout;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import dev.vfyjxf.taffy.util.MeasureFunc;
+import dev.vfyjxf.taffy.util.NodeMeasureFunc;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -590,5 +591,44 @@ public class TaffyTreeApiTest {
         tree.setMeasureFunc(node, measureFunc);
         tree.computeLayout(node, TaffySize.maxContent());
         assertEquals(100f, tree.getLayout(node).size().width, 0.1f);
+    }
+
+    @Test
+    @DisplayName("node context is available to contextual measurement")
+    void nodeContextIsAvailableToContextualMeasurement() {
+        TaffyTree tree = new TaffyTree();
+        FloatSize initialContext = new FloatSize(200f, 40f);
+        NodeId node = tree.newLeafWithContext(new TaffyStyle(), initialContext);
+
+        NodeMeasureFunc<FloatSize> measure = (knownDimensions, availableSpace, nodeId, context, style) -> {
+            assertEquals(node, nodeId);
+            assertSame(initialContext, context);
+            assertEquals(TaffyDisplay.FLEX, style.getDisplay());
+            return context.copy();
+        };
+
+        tree.computeLayoutWithContextMeasure(node, TaffySize.maxContent(), measure);
+        assertEquals(200f, tree.getLayout(node).size().width, 0.1f);
+        assertSame(initialContext, tree.getNodeContext(node));
+
+        FloatSize replacementContext = new FloatSize(100f, 20f);
+        tree.setNodeContext(node, replacementContext);
+        NodeMeasureFunc<FloatSize> replacementMeasure =
+            (knownDimensions, availableSpace, nodeId, context, style) -> context.copy();
+        tree.computeLayoutWithContextMeasure(node, TaffySize.maxContent(), replacementMeasure);
+        assertEquals(100f, tree.getLayout(node).size().width, 0.1f);
+        assertSame(replacementContext, tree.getNodeContext(node));
+    }
+
+    @Test
+    @DisplayName("node context can be cleared independently from tree membership")
+    void nodeContextCanBeCleared() {
+        TaffyTree tree = new TaffyTree();
+        NodeId node = tree.newLeafWithContext(new TaffyStyle(), "measure-data");
+
+        tree.setNodeContext(node, null);
+
+        assertNull(tree.getNodeContext(node));
+        assertTrue(tree.containsNode(node));
     }
 }

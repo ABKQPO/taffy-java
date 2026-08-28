@@ -7,6 +7,7 @@ import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
+import dev.vfyjxf.taffy.style.CalcValueResolver;
 
 /**
  * Utility class for resolving CSS dimension values against parent/context sizes.
@@ -23,6 +24,15 @@ public class Resolve {
         return new FloatSize(
             size.width.maybeResolve(parentSize.width),
             size.height.maybeResolve(parentSize.height)
+        );
+    }
+
+    /** Resolve a dimension pair through a caller-supplied calc hook. */
+    public static FloatSize resolveSize(
+        TaffySize<TaffyDimension> size, FloatSize parentSize, CalcValueResolver resolver) {
+        return new FloatSize(
+            size.width.maybeResolve(parentSize.width, resolver),
+            size.height.maybeResolve(parentSize.height, resolver)
         );
     }
 
@@ -48,6 +58,26 @@ public class Resolve {
         );
     }
 
+    /** Resolve a length-percentage rectangle through a caller-supplied calc hook. */
+    public static FloatRect resolveRectOrZero(
+        TaffyRect<LengthPercentage> rect, float contextWidth, CalcValueResolver resolver) {
+        return new FloatRect(
+            rect.left.resolveOrZero(contextWidth, resolver),
+            rect.right.resolveOrZero(contextWidth, resolver),
+            rect.top.resolveOrZero(contextWidth, resolver),
+            rect.bottom.resolveOrZero(contextWidth, resolver)
+        );
+    }
+
+    /** Resolve a dimension pair through a caller-supplied calc hook, treating auto as zero. */
+    public static FloatSize resolveSizeOrZero(
+        TaffySize<TaffyDimension> size, FloatSize parentSize, CalcValueResolver resolver) {
+        return new FloatSize(
+            size.width.resolveOrZero(parentSize.width, resolver),
+            size.height.resolveOrZero(parentSize.height, resolver)
+        );
+    }
+
     /**
      * Resolve a Rect of LengthPercentageAuto against a context width.
      */
@@ -57,6 +87,17 @@ public class Resolve {
             rect.right.resolveOrZero(contextWidth),
             rect.top.resolveOrZero(contextWidth),
             rect.bottom.resolveOrZero(contextWidth)
+        );
+    }
+
+    /** Resolve a length-percentage-auto rectangle through a caller-supplied calc hook. */
+    public static FloatRect resolveRectLpaOrZero(
+        TaffyRect<LengthPercentageAuto> rect, float contextWidth, CalcValueResolver resolver) {
+        return new FloatRect(
+            rect.left.resolveOrZero(contextWidth, resolver),
+            rect.right.resolveOrZero(contextWidth, resolver),
+            rect.top.resolveOrZero(contextWidth, resolver),
+            rect.bottom.resolveOrZero(contextWidth, resolver)
         );
     }
 
@@ -83,12 +124,41 @@ public class Resolve {
         );
     }
 
+    /** Maybe resolve a length-percentage-auto rectangle through a caller-supplied calc hook. */
+    public static FloatRect maybeResolveRectLpa(
+        TaffyRect<LengthPercentageAuto> rect, float contextWidth, CalcValueResolver resolver) {
+        return new FloatRect(
+            rect.left.maybeResolve(contextWidth, resolver),
+            rect.right.maybeResolve(contextWidth, resolver),
+            rect.top.maybeResolve(contextWidth, resolver),
+            rect.bottom.maybeResolve(contextWidth, resolver)
+        );
+    }
+
+    /** Maybe resolve a sizing pair through a caller-supplied calc hook. */
+    public static FloatSize maybeResolveSize(TaffySize<?> size, FloatSize parentSize, CalcValueResolver resolver) {
+        return new FloatSize(
+            maybeResolve(size.width, parentSize.width, resolver),
+            maybeResolve(size.height, parentSize.height, resolver)
+        );
+    }
+
     private static float maybeResolve(Object value, float context) {
         if (value instanceof LengthPercentageAuto) {
             return ((LengthPercentageAuto) value).maybeResolve(context);
         }
         if (value instanceof TaffyDimension) {
             return ((TaffyDimension) value).maybeResolve(context);
+        }
+        return Float.NaN;
+    }
+
+    private static float maybeResolve(Object value, float context, CalcValueResolver resolver) {
+        if (value instanceof LengthPercentageAuto lengthPercentageAuto) {
+            return lengthPercentageAuto.maybeResolve(context, resolver);
+        }
+        if (value instanceof TaffyDimension dimension) {
+            return dimension.maybeResolve(context, resolver);
         }
         return Float.NaN;
     }
@@ -103,6 +173,15 @@ public class Resolve {
         );
     }
 
+    /** Resolve a length-percentage pair through a caller-supplied calc hook. */
+    public static FloatSize resolveSizeLp(
+        TaffySize<LengthPercentage> size, FloatSize parentSize, CalcValueResolver resolver) {
+        return new FloatSize(
+            size.width.maybeResolve(parentSize.width, resolver),
+            size.height.maybeResolve(parentSize.height, resolver)
+        );
+    }
+
     /**
      * Resolve a Size of LengthPercentage against a size, returning zero for unresolvable.
      */
@@ -110,6 +189,15 @@ public class Resolve {
         return new FloatSize(
             size.width.resolveOrZero(contextSize.width),
             size.height.resolveOrZero(contextSize.height)
+        );
+    }
+
+    /** Resolve a length-percentage pair through a caller-supplied calc hook, treating unresolved values as zero. */
+    public static FloatSize resolveSizeLpOrZero(
+        TaffySize<LengthPercentage> size, FloatSize contextSize, CalcValueResolver resolver) {
+        return new FloatSize(
+            size.width.resolveOrZero(contextSize.width, resolver),
+            size.height.resolveOrZero(contextSize.height, resolver)
         );
     }
 
@@ -173,6 +261,14 @@ public class Resolve {
     public static float resolveLpaOrZero(LengthPercentageAuto lpa, float contextWidth) {
         if (lpa.isAuto()) return 0f;
         float resolved = lpa.maybeResolve(contextWidth);
+        return Float.isNaN(resolved) ? 0f : resolved;
+    }
+
+    /** Resolve a length-percentage-auto value through a caller-supplied calc hook, treating auto as zero. */
+    public static float resolveLpaOrZero(
+        LengthPercentageAuto lpa, float contextWidth, CalcValueResolver resolver) {
+        if (lpa.isAuto()) return 0f;
+        float resolved = lpa.maybeResolve(contextWidth, resolver);
         return Float.isNaN(resolved) ? 0f : resolved;
     }
 

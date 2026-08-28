@@ -80,6 +80,27 @@ public class TaffySize<T> {
         return new TaffySize<>(AvailableSpace.MIN_CONTENT, AvailableSpace.MIN_CONTENT);
     }
 
+    /** Converts an available-space size to its nullable numeric representation using {@link Float#NaN}. */
+    public TaffySize<Float> intoOptions() {
+        if (!(width instanceof AvailableSpace availableWidth)
+            || !(height instanceof AvailableSpace availableHeight)) {
+            throw new IllegalStateException("intoOptions requires TaffySize<AvailableSpace>");
+        }
+        return new TaffySize<>(availableWidth.intoOption(), availableHeight.intoOption());
+    }
+
+    /** Replaces available-space axes with known numeric dimensions when they are present. */
+    public TaffySize<AvailableSpace> maybeSet(FloatSize knownDimensions) {
+        if (!(width instanceof AvailableSpace availableWidth)
+            || !(height instanceof AvailableSpace availableHeight)) {
+            throw new IllegalStateException("maybeSet requires TaffySize<AvailableSpace>");
+        }
+        Objects.requireNonNull(knownDimensions, "knownDimensions");
+        return new TaffySize<>(
+            availableWidth.maybeSet(knownDimensions.width),
+            availableHeight.maybeSet(knownDimensions.height));
+    }
+
     public static final TaffySize<Float> ZERO = zero();
 
     /**

@@ -2,10 +2,14 @@ package dev.vfyjxf.taffy.tree;
 
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import dev.vfyjxf.taffy.style.CustomIdentCodec;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyStyle;
+import dev.vfyjxf.taffy.style.Style;
 import dev.vfyjxf.taffy.util.MeasureFunc;
+import dev.vfyjxf.taffy.util.NodeLayoutMeasureFunc;
+import dev.vfyjxf.taffy.util.NodeMeasureFunc;
 import dev.vfyjxf.taffy.util.RoundLayout;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -19,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Allows you to build a tree of UI nodes, run Taffy's layout algorithms over that tree,
  * and then access the resultant layout.
  */
-public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, LayoutBlockContainer, RoundTree, PrintTree {
+public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, LayoutBlockContainer, RoundTree, PrintTree, CacheTree {
 
     private static final int DEFAULT_CAPACITY = 16;
 
@@ -31,6 +35,9 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
 
     /** Context data (measure functions) storage by node ID */
     private final Long2ObjectOpenHashMap<MeasureFunc> nodeContextData;
+
+    /** Arbitrary user context storage by node ID. */
+    private final Long2ObjectOpenHashMap<Object> nodeContexts;
 
     /** Children of each node */
     private final Long2ObjectOpenHashMap<List<NodeId>> children;
@@ -57,6 +64,7 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
     public TaffyTree(int capacity) {
         this.nodes = new Long2ObjectOpenHashMap<>(capacity);
         this.nodeContextData = new Long2ObjectOpenHashMap<>(capacity);
+        this.nodeContexts = new Long2ObjectOpenHashMap<>(capacity);
         this.children = new Long2ObjectOpenHashMap<>(capacity);
         this.parents = new Long2ObjectOpenHashMap<>(capacity);
     }
@@ -140,6 +148,28 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         return nodeId;
     }
 
+    /** Creates a measured leaf from a generic style after normalizing custom grid identifiers. */
+    public <S> NodeId newLeafWithMeasure(Style<S> style, MeasureFunc measureFunc) {
+        return newLeafWithMeasure(style.toTaffyStyle(), measureFunc);
+    }
+
+    /** Create a leaf from a generic style after normalizing its custom grid identifiers. */
+    public <S> NodeId newLeaf(Style<S> style) {
+        return newLeaf(style.toTaffyStyle());
+    }
+
+    /** Creates an unattached leaf node with arbitrary user context data. */
+    public NodeId newLeafWithContext(TaffyStyle style, Object context) {
+        NodeId node = newLeaf(style);
+        setNodeContext(node, context);
+        return node;
+    }
+
+    /** Creates a contextual leaf from a generic style after normalizing custom grid identifiers. */
+    public <S> NodeId newLeafWithContext(Style<S> style, Object context) {
+        return newLeafWithContext(style.toTaffyStyle(), context);
+    }
+
     /**
      * Creates and adds a new node with children.
      */
@@ -168,6 +198,16 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         return newWithChildren(style, childNodes.toArray(new NodeId[0]));
     }
 
+    /** Creates a node with children from a generic style after normalizing custom grid identifiers. */
+    public <S> NodeId newWithChildren(Style<S> style, NodeId... childNodes) {
+        return newWithChildren(style.toTaffyStyle(), childNodes);
+    }
+
+    /** Creates a node with a child list from a generic style after normalizing custom grid identifiers. */
+    public <S> NodeId newWithChildren(Style<S> style, List<NodeId> childNodes) {
+        return newWithChildren(style.toTaffyStyle(), childNodes);
+    }
+
 
     /**
      * Drops all nodes in the tree.
@@ -175,6 +215,7 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
     public void clear() {
         nodes.clear();
         nodeContextData.clear();
+        nodeContexts.clear();
         children.clear();
         parents.clear();
     }
@@ -207,6 +248,7 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         parents.remove(key);
         nodes.remove(key);
         nodeContextData.remove(key);
+        nodeContexts.remove(key);
     }
 
 
@@ -221,12 +263,11 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         }
         
         if (measureFunc != null) {
-            data.setHasContext(true);
             nodeContextData.put(key, measureFunc);
         } else {
-            data.setHasContext(false);
             nodeContextData.remove(key);
         }
+        data.setHasContext(measureFunc != null || nodeContexts.containsKey(key));
         
         markDirty(node);
     }
@@ -236,6 +277,28 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
      */
     public MeasureFunc getMeasureFunc(NodeId node) {
         return nodeContextData.get(node.getId());
+    }
+
+    /** Stores arbitrary user context and invalidates cached layout for the node. */
+    public void setNodeContext(NodeId node, Object context) {
+        long key = node.getId();
+        NodeData data = nodes.get(key);
+        if (data == null) throw TaffyException.invalidInputNode(node);
+        if (context == null) {
+            nodeContexts.remove(key);
+        } else {
+            nodeContexts.put(key, context);
+        }
+        data.setHasContext(context != null || nodeContextData.containsKey(key));
+        markDirty(node);
+    }
+
+    /** Returns the arbitrary user context stored for a node, or null when none is set. */
+    @Override
+    @SuppressWarnings("unchecked")
+    public <C> C getNodeContext(NodeId node) {
+        if (!nodes.containsKey(node.getId())) throw TaffyException.invalidInputNode(node);
+        return (C) nodeContexts.get(node.getId());
     }
 
 
@@ -486,6 +549,16 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         return data.getStyle();
     }
 
+    /** Restores a typed generic style view with the caller's custom identifier codec. */
+    public <S> Style<S> getStyle(NodeId node, CustomIdentCodec<S> identifierCodec) {
+        return Style.fromTaffyStyle(getStyle(node), identifierCodec);
+    }
+
+    /** Set a generic style after converting its custom identifiers to runtime grid names. */
+    public <S> void setStyle(NodeId node, Style<S> style) {
+        setStyle(node, style.toTaffyStyle());
+    }
+
 
     /**
      * Returns the layout of a node.
@@ -516,6 +589,15 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
     /** Alias matching the Rust API naming. */
     public DetailedLayoutInfo detailedLayoutInfo(NodeId node) {
         return getDetailedLayoutInfo(node);
+    }
+
+    /** Returns typed grid diagnostics by decoding runtime names with the supplied identifier codec. */
+    public <S> GenericDetailedGridInfo<S> getDetailedGridInfo(NodeId node, CustomIdentCodec<S> identifierCodec) {
+        DetailedLayoutInfo detail = getDetailedLayoutInfo(node);
+        if (!detail.isGrid()) {
+            throw new IllegalStateException("Node does not have detailed grid layout information");
+        }
+        return new GenericDetailedGridInfo<>(detail.grid(), identifierCodec);
     }
 
     public void setDetailedLayoutInfo(NodeId node, DetailedLayoutInfo info) {
@@ -705,6 +787,27 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         }
     }
 
+    @Override
+    public LayoutCache getCache(NodeId node) {
+        NodeData data = nodes.get(node.getId());
+        return data == null ? null : data.getCache();
+    }
+
+    @Override
+    public LayoutOutput cacheGet(NodeId node, LayoutInput input) {
+        return getCacheEntry(node, input);
+    }
+
+    @Override
+    public void cacheStore(NodeId node, LayoutInput input, LayoutOutput output) {
+        storeCacheEntry(node, input, output);
+    }
+
+    @Override
+    public void cacheClear(NodeId node) {
+        clearCache(node);
+    }
+
 
     /**
      * Marks the node and its ancestors as needing layout recalculation.
@@ -739,7 +842,7 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
      * Computes the layout for the tree starting from the given root node.
      */
     public void computeLayout(NodeId rootNode, TaffySize<AvailableSpace> availableSpace) {
-        computeLayoutWithMeasure(rootNode, availableSpace, null);
+        computeLayoutWithMeasure(rootNode, availableSpace, (MeasureFunc) null);
     }
 
     /**
@@ -755,6 +858,48 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         ScrollableOverflow.refreshTree(this, computer, rootNode);
         
         // Round layouts if enabled
+        if (useRounding) {
+            RoundLayout.roundLayout(this, rootNode);
+        }
+    }
+
+    /**
+     * Computes layout with a callback that receives the measured node, its stored context, and
+     * its style. This is the context-aware form of Rust's compute-layout-with-measure entry point.
+     */
+    public <C> void computeLayoutWithMeasure(
+        NodeId rootNode,
+        TaffySize<AvailableSpace> availableSpace,
+        NodeMeasureFunc<C> measureFunc) {
+        computeLayoutWithContextMeasure(rootNode, availableSpace, measureFunc);
+    }
+
+    /**
+     * Computes layout with a callback that returns a complete output for each leaf node.
+     * The callback owns leaf size, overflow, baseline, and collapsible-margin metadata.
+     */
+    public <C> void computeLayoutWithMeasure(
+        NodeId rootNode,
+        TaffySize<AvailableSpace> availableSpace,
+        NodeLayoutMeasureFunc<C> measureFunc) {
+        LayoutComputer computer = new LayoutComputer(this, null, null, measureFunc, null);
+        LayoutOutput output = computer.computeLayoutWithOutput(rootNode, availableSpace);
+        new OutOfFlowPositioner().reposition(this, rootNode, output.oofCandidates(), computer);
+        ScrollableOverflow.refreshTree(this, computer, rootNode);
+        if (useRounding) {
+            RoundLayout.roundLayout(this, rootNode);
+        }
+    }
+
+    /** Computes layout using a measure callback that receives node context and style. */
+    public <C> void computeLayoutWithContextMeasure(
+        NodeId rootNode,
+        TaffySize<AvailableSpace> availableSpace,
+        NodeMeasureFunc<C> measureFunc) {
+        LayoutComputer computer = new LayoutComputer(this, null, measureFunc);
+        LayoutOutput output = computer.computeLayoutWithOutput(rootNode, availableSpace);
+        new OutOfFlowPositioner().reposition(this, rootNode, output.oofCandidates(), computer);
+        ScrollableOverflow.refreshTree(this, computer, rootNode);
         if (useRounding) {
             RoundLayout.roundLayout(this, rootNode);
         }

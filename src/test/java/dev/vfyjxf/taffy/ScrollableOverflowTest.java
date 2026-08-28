@@ -98,6 +98,7 @@ public class ScrollableOverflowTest {
         rootStyle.size = new TaffySize<>(TaffyDimension.length(100f), TaffyDimension.length(100f));
 
         TaffyStyle staticParentStyle = new TaffyStyle();
+        staticParentStyle.position = TaffyPosition.STATIC;
         staticParentStyle.size = new TaffySize<>(TaffyDimension.length(30f), TaffyDimension.length(30f));
         staticParentStyle.margin = new TaffyRect<>(
             LengthPercentageAuto.length(50f),

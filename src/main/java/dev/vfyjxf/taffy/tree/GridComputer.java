@@ -14,12 +14,14 @@ import dev.vfyjxf.taffy.style.AlignItemsKeyword;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxGenerationMode;
 import dev.vfyjxf.taffy.style.BoxSizing;
+import dev.vfyjxf.taffy.style.CalcValueResolver;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.GridAutoFlow;
 import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.GridRepetition;
+import dev.vfyjxf.taffy.style.GridRepetition.RepetitionType;
 import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.JustifyContent;
 import dev.vfyjxf.taffy.style.LengthPercentage;
@@ -65,6 +67,18 @@ public class GridComputer {
 
     private final LayoutComputer layoutComputer;
 
+    private static float definiteGutterBasis(
+        float knownSize,
+        float maxSize,
+        AvailableSpace availableSpace,
+        float paddingBorderSize
+    ) {
+        if (!Float.isNaN(knownSize)) return knownSize;
+        if (!Float.isNaN(maxSize)) return maxSize;
+        return availableSpace != null && availableSpace.isDefinite()
+            ? availableSpace.getValue() : NaN;
+    }
+
     public GridComputer(LayoutComputer layoutComputer) {
         this.layoutComputer = layoutComputer;
     }
@@ -86,6 +100,8 @@ public class GridComputer {
         TaffySize<TaffyDimension> rawSize;      // Original unresolved size (for re-resolving with new grid area)
         TaffySize<LengthPercentageAuto> rawMinSize;   // Original unresolved min-size
         TaffySize<LengthPercentageAuto> rawMaxSize;   // Original unresolved max-size
+        TaffyRect<LengthPercentage> rawPadding;
+        TaffyRect<LengthPercentage> rawBorder;
         BoxSizing boxSizing;          // Box sizing mode for padding/border adjustment
         TaffyPosition position;
         TaffyRect<LengthPercentageAuto> inset;
@@ -96,6 +112,7 @@ public class GridComputer {
         TaffyPoint<Overflow> overflow;
         float scrollbarWidth;
         Float aspectRatio;
+        CalcValueResolver calcValueResolver;
 
         // Is this a "compressible replaced element"? (CSS Sizing / Grid min-size-auto behavior)
         // https://drafts.csswg.org/css-sizing-3/#min-content-zero
@@ -120,6 +137,7 @@ public class GridComputer {
         // Computed values
         FloatSize computedSize;
         FloatPoint location;
+        LayoutOutput finalLayoutOutput;
 
         // Track crossing flags (for re-run logic)
         boolean crossesIntrinsicColumn;
@@ -166,6 +184,14 @@ public class GridComputer {
                 && !hasCyclicBlockSizeDependency();
         }
 
+        boolean hasNonPercentageWidth() {
+            return !Float.isNaN(size.width) && (rawSize == null || !rawSize.width.isPercent());
+        }
+
+        boolean hasNonPercentageHeight() {
+            return !Float.isNaN(size.height) && (rawSize == null || !rawSize.height.isPercent());
+        }
+
         /**
          * Compute the item's resolved margins for size contributions.
          * Horizontal percentage margins always resolve to zero if the container size is indefinite
@@ -177,11 +203,11 @@ public class GridComputer {
         FloatSize getMarginAxisSumsWithBaselineShims(float innerNodeWidth) {
             // Horizontal percentage margins resolve against 0 (not the container width)
             // This is per CSS Grid spec to avoid cyclic dependencies
-            float left = Resolve.resolveLpaOrZero(rawMargin.left, 0f);
-            float right = Resolve.resolveLpaOrZero(rawMargin.right, 0f);
+            float left = Resolve.resolveLpaOrZero(rawMargin.left, 0f, calcValueResolver);
+            float right = Resolve.resolveLpaOrZero(rawMargin.right, 0f, calcValueResolver);
             // Vertical percentage margins resolve against inner_node_width
-            float top = Resolve.resolveLpaOrZero(rawMargin.top, innerNodeWidth) + baselineShim;
-            float bottom = Resolve.resolveLpaOrZero(rawMargin.bottom, innerNodeWidth);
+            float top = Resolve.resolveLpaOrZero(rawMargin.top, innerNodeWidth, calcValueResolver) + baselineShim;
+            float bottom = Resolve.resolveLpaOrZero(rawMargin.bottom, innerNodeWidth, calcValueResolver);
             return new FloatSize(left + right, top + bottom);
         }
 
@@ -231,6 +257,21 @@ public class GridComputer {
         }
 
         /**
+         * Get min content contribution for height, using cache if available.
+         */
+        float getMinContentContributionHeightCached(
+            LayoutComputer layoutComputer,
+            FloatSize availableSpace,
+            FloatSize innerNodeSize) {
+            if (minContentContributionHeight != null) {
+                return minContentContributionHeight;
+            }
+            float contribution = computeMinContentContributionHeight(layoutComputer, availableSpace, innerNodeSize);
+            minContentContributionHeight = contribution;
+            return contribution;
+        }
+
+        /**
          * Compute min content contribution for width axis.
          * Uses measureChildSize for efficient sizing without full layout.
          * <p>
@@ -244,12 +285,12 @@ public class GridComputer {
             FloatSize marginAxisSums = getMarginAxisSumsWithBaselineShims(innerNodeSize.width);
 
             // If explicit width is set, use it
-            if (!Float.isNaN(size.width)) {
+            if (hasNonPercentageWidth()) {
                 return size.width + marginAxisSums.width;
             }
 
             // Compute known dimensions with stretch alignment and aspect ratio
-            FloatSize knownDimensions = computeKnownDimensions(availableSpace, innerNodeSize);
+            FloatSize knownDimensions = computeKnownDimensions(layoutComputer, availableSpace, innerNodeSize, true);
 
             // Build available space for measurement - match Rust's available_space.map() logic
             // Both axes: Some(size) -> Definite(size), None -> MinContent
@@ -264,8 +305,8 @@ public class GridComputer {
             FloatSize measuredSize = layoutComputer.measureChildSize(
                 nodeId,
                 knownDimensions,
-                innerNodeSize,
-                new TaffySize<>(widthAvail, heightAvail),
+                availableSpace,
+                keywordAdjustedAvailableSpace(availableSpace, new TaffySize<>(widthAvail, heightAvail)),
                 SizingMode.INHERENT_SIZE,
                 TaffyLine.FALSE
             );
@@ -286,11 +327,11 @@ public class GridComputer {
             FloatSize marginAxisSums = getMarginAxisSumsWithBaselineShims(innerNodeSize.width);
 
             // If explicit width is set, use it
-            if (!Float.isNaN(size.width)) {
+            if (hasNonPercentageWidth()) {
                 return size.width + marginAxisSums.width;
             }
 
-            FloatSize knownDimensions = computeKnownDimensions(availableSpace, innerNodeSize);
+            FloatSize knownDimensions = computeKnownDimensions(layoutComputer, availableSpace, innerNodeSize, true);
 
             // Build available space for measurement - match Rust's available_space.map() logic
             // Both axes: Some(size) -> Definite(size), None -> MaxContent
@@ -304,8 +345,8 @@ public class GridComputer {
             FloatSize measuredSize = layoutComputer.measureChildSize(
                 nodeId,
                 knownDimensions,
-                innerNodeSize,
-                new TaffySize<>(widthAvail, heightAvail),
+                availableSpace,
+                keywordAdjustedAvailableSpace(availableSpace, new TaffySize<>(widthAvail, heightAvail)),
                 SizingMode.INHERENT_SIZE,
                 TaffyLine.FALSE
             );
@@ -323,14 +364,15 @@ public class GridComputer {
             LayoutComputer layoutComputer,
             FloatSize availableSpace,
             FloatSize innerNodeSize) {
-            FloatSize marginAxisSums = getMarginAxisSumsWithBaselineShims(innerNodeSize.width);
+            float marginBasis = !Float.isNaN(availableSpace.width) ? availableSpace.width : innerNodeSize.width;
+            FloatSize marginAxisSums = getMarginAxisSumsWithBaselineShims(marginBasis);
 
             // If explicit height is set, use it
-            if (!Float.isNaN(size.height)) {
+            if (hasNonPercentageHeight()) {
                 return size.height + marginAxisSums.height;
             }
 
-            FloatSize knownDimensions = computeKnownDimensions(availableSpace, innerNodeSize);
+            FloatSize knownDimensions = computeKnownDimensions(layoutComputer, availableSpace, innerNodeSize, false);
 
             // Build available space for measurement - match Rust's available_space.map() logic
             // Both axes: Some(size) -> Definite(size), None -> MaxContent
@@ -344,8 +386,40 @@ public class GridComputer {
             FloatSize measuredSize = layoutComputer.measureChildSize(
                 nodeId,
                 knownDimensions,
-                innerNodeSize,
-                new TaffySize<>(widthAvail, heightAvail),
+                availableSpace,
+                keywordAdjustedAvailableSpace(availableSpace, new TaffySize<>(widthAvail, heightAvail)),
+                SizingMode.INHERENT_SIZE,
+                TaffyLine.FALSE
+            );
+
+            return measuredSize.height + marginAxisSums.height;
+        }
+
+        /**
+         * Compute min content contribution for the block axis without promoting min-height to a known size.
+         */
+        private float computeMinContentContributionHeight(
+            LayoutComputer layoutComputer,
+            FloatSize availableSpace,
+            FloatSize innerNodeSize) {
+            float marginBasis = !Float.isNaN(availableSpace.width) ? availableSpace.width : innerNodeSize.width;
+            FloatSize marginAxisSums = getMarginAxisSumsWithBaselineShims(marginBasis);
+
+            if (hasNonPercentageHeight()) {
+                return size.height + marginAxisSums.height;
+            }
+
+            FloatSize knownDimensions = computeKnownDimensions(layoutComputer, availableSpace, innerNodeSize, false);
+            FloatSize measurementKnownDimensions = new FloatSize(knownDimensions.width, NaN);
+            AvailableSpace widthAvail = !Float.isNaN(availableSpace.width)
+                ? AvailableSpace.definite(availableSpace.width) : AvailableSpace.minContent();
+            AvailableSpace heightAvail = !Float.isNaN(availableSpace.height)
+                ? AvailableSpace.definite(availableSpace.height) : AvailableSpace.minContent();
+            FloatSize measuredSize = layoutComputer.measureChildSize(
+                nodeId,
+                measurementKnownDimensions,
+                availableSpace,
+                keywordAdjustedAvailableSpace(availableSpace, new TaffySize<>(widthAvail, heightAvail)),
                 SizingMode.INHERENT_SIZE,
                 TaffyLine.FALSE
             );
@@ -357,20 +431,28 @@ public class GridComputer {
          * Compute known dimensions for sizing, applying stretch alignment and aspect ratio.
          * This is similar to Rust's GridItem::known_dimensions method.
          */
-        private FloatSize computeKnownDimensions(FloatSize gridAreaSize, FloatSize innerNodeSize) {
-            FloatSize margins = getMarginAxisSumsWithBaselineShims(innerNodeSize.width);
-
-            // Note: item.size, item.minSize, item.maxSize already include boxSizingAdj from generateGridItems.
-            // So we should NOT add boxSizingAdj again here.
-            // Just use them directly with aspect ratio applied.
-            FloatSize inherentSize = maybeApplyAspectRatio(size, aspectRatio);
-            // DO NOT add boxSizingAdj - it's already included in `size`!
-
-            FloatSize minSizeResolved = maybeApplyAspectRatio(minSize, aspectRatio);
-            // DO NOT add boxSizingAdj - it's already included in `minSize`!
-
-            FloatSize maxSizeResolved = maybeApplyAspectRatio(maxSize, aspectRatio);
-            // DO NOT add boxSizingAdj - it's already included in `maxSize`!
+        private FloatSize computeKnownDimensions(
+            LayoutComputer layoutComputer,
+            FloatSize gridAreaSize,
+            FloatSize innerNodeSize,
+            boolean sizingInlineAxis) {
+            FloatSize margins = getMarginAxisSumsWithBaselineShims(gridAreaSize.width);
+            FloatRect resolvedPadding = resolvePadding(gridAreaSize.width);
+            FloatRect resolvedBorder = resolveBorder(gridAreaSize.width);
+            FloatSize paddingBorderSize = new FloatSize(
+                resolvedPadding.left + resolvedPadding.right + resolvedBorder.left + resolvedBorder.right,
+                resolvedPadding.top + resolvedPadding.bottom + resolvedBorder.top + resolvedBorder.bottom
+            );
+            FloatSize boxSizingAdjustment = boxSizing == BoxSizing.CONTENT_BOX ? paddingBorderSize : FloatSize.ZERO;
+            FloatSize inherentSize = resolveStyleSize(rawSize, gridAreaSize, boxSizingAdjustment, size);
+            FloatSize minSizeResolved = resolveStyleSize(rawMinSize, gridAreaSize, boxSizingAdjustment, minSize);
+            FloatSize maxSizeResolved = resolveStyleSize(rawMaxSize, gridAreaSize, boxSizingAdjustment, maxSize);
+            inherentSize = keepMainAxisPercentageIndefinite(inherentSize, rawSize, sizingInlineAxis);
+            minSizeResolved = keepMainAxisPercentageIndefinite(minSizeResolved, rawMinSize, sizingInlineAxis);
+            maxSizeResolved = keepMainAxisPercentageIndefinite(maxSizeResolved, rawMaxSize, sizingInlineAxis);
+            inherentSize = preserveResolvedCrossAxis(inherentSize, size, sizingInlineAxis);
+            minSizeResolved = preserveResolvedCrossAxis(minSizeResolved, minSize, sizingInlineAxis);
+            maxSizeResolved = preserveResolvedCrossAxis(maxSizeResolved, maxSize, sizingInlineAxis);
 
             // Grid area minus margins
             FloatSize gridAreaMinusMargins = new FloatSize(
@@ -378,44 +460,124 @@ public class GridComputer {
                 !Float.isNaN(gridAreaSize.height) ? gridAreaSize.height - margins.height : NaN
             );
 
-            // Apply stretch alignment for width
             float width = inherentSize.width;
+            TaffyDimension widthStyle = rawSize == null ? null : rawSize.width;
             if (Float.isNaN(width)) {
-                // Check if we should stretch
                 boolean leftMarginAuto = rawMargin != null && rawMargin.left != null && rawMargin.left.isAuto();
                 boolean rightMarginAuto = rawMargin != null && rawMargin.right != null && rawMargin.right.isAuto();
-                if (!leftMarginAuto && !rightMarginAuto && justifySelf == AlignItems.STRETCH) {
+                if (widthStyle != null && widthStyle.isStretch()) {
+                    width = gridAreaMinusMargins.width;
+                } else if (!isSizingKeyword(widthStyle) && !leftMarginAuto && !rightMarginAuto
+                    && justifySelf == AlignItems.STRETCH) {
                     width = gridAreaMinusMargins.width;
                 }
             }
 
-            // Reapply aspect ratio after width adjustment
             FloatSize sizeWithWidth = maybeApplyAspectRatio(new FloatSize(width, inherentSize.height), aspectRatio);
             width = sizeWithWidth.width;
             float height = sizeWithWidth.height;
 
-            // Apply stretch alignment for height
-            // Per CSS Grid spec: If item has aspectRatio and no explicit height, 
-            // vertical alignment defaults to START (not STRETCH).
-            boolean shouldStretchHeight = (alignSelf == AlignItems.STRETCH);
-            if (aspectRatio != null && !Float.isNaN(aspectRatio) && Float.isNaN(inherentSize.height)) {
-                // When aspectRatio is set and height is not explicit, default is START not STRETCH
-                shouldStretchHeight = false;
-            }
-
-            if (Float.isNaN(height) && shouldStretchHeight) {
+            TaffyDimension heightStyle = rawSize == null ? null : rawSize.height;
+            if (Float.isNaN(height)) {
                 boolean topMarginAuto = rawMargin != null && rawMargin.top != null && rawMargin.top.isAuto();
                 boolean bottomMarginAuto = rawMargin != null && rawMargin.bottom != null && rawMargin.bottom.isAuto();
-                if (!topMarginAuto && !bottomMarginAuto) {
+                if (heightStyle != null && heightStyle.isStretch()) {
+                    height = gridAreaMinusMargins.height;
+                } else if (!isSizingKeyword(heightStyle) && !topMarginAuto && !bottomMarginAuto
+                    && alignSelf == AlignItems.STRETCH) {
                     height = gridAreaMinusMargins.height;
                 }
             }
 
-            // Reapply aspect ratio after height adjustment
             FloatSize finalSize = maybeApplyAspectRatio(new FloatSize(width, height), aspectRatio);
 
-            // Clamp by min/max
             return maybeClamp(finalSize, minSizeResolved, maxSizeResolved);
+        }
+
+        private TaffySize<AvailableSpace> keywordAdjustedAvailableSpace(
+            FloatSize gridAreaSize,
+            TaffySize<AvailableSpace> availableSpace) {
+            FloatSize margins = getMarginAxisSumsWithBaselineShims(gridAreaSize.width);
+            AvailableSpace width = measurementConstraint(
+                rawSize == null ? null : rawSize.width,
+                gridAreaSize.width - margins.width,
+                gridAreaSize.width,
+                availableSpace.width
+            );
+            AvailableSpace height = measurementConstraint(
+                rawSize == null ? null : rawSize.height,
+                gridAreaSize.height - margins.height,
+                gridAreaSize.height,
+                availableSpace.height
+            );
+            return new TaffySize<>(width, height);
+        }
+
+        private AvailableSpace measurementConstraint(
+            TaffyDimension style,
+            float stretchSize,
+            float percentageBasis,
+            AvailableSpace fallback) {
+            if (style == null) return fallback;
+            if (style.isMinContent()) return AvailableSpace.minContent();
+            if (style.isMaxContent()) return AvailableSpace.maxContent();
+            if (!style.isFitContent()) return fallback;
+            LengthPercentage limit = style.getFitContentLimit();
+            if (limit == null) return Float.isNaN(stretchSize) ? fallback : AvailableSpace.definite(stretchSize);
+            float value = limit.maybeResolve(percentageBasis, calcValueResolver);
+            return Float.isNaN(value) ? fallback : AvailableSpace.definite(value);
+        }
+
+        private boolean isSizingKeyword(TaffyDimension style) {
+            return style != null && (style.isMinContent() || style.isMaxContent()
+                || style.isFitContent() || style.isStretch());
+        }
+
+        FloatRect resolvePadding(float gridAreaWidth) {
+            return rawPadding == null ? padding : Resolve.resolveRectOrZero(rawPadding, gridAreaWidth, calcValueResolver);
+        }
+
+        FloatRect resolveBorder(float gridAreaWidth) {
+            return rawBorder == null ? border : Resolve.resolveRectOrZero(rawBorder, gridAreaWidth, calcValueResolver);
+        }
+
+        FloatSize resolveStyleSize(
+            TaffySize<?> rawStyleSize,
+            FloatSize gridAreaSize,
+            FloatSize boxSizingAdjustment,
+            FloatSize fallback) {
+            if (rawStyleSize == null) {
+                return fallback;
+            }
+            return maybeAdd(maybeApplyAspectRatio(
+                Resolve.maybeResolveSize(rawStyleSize, gridAreaSize, calcValueResolver), aspectRatio), boxSizingAdjustment);
+        }
+
+        FloatSize preserveResolvedCrossAxis(FloatSize resolved, FloatSize fallback, boolean sizingInlineAxis) {
+            return sizingInlineAxis
+                ? new FloatSize(resolved.width, Float.isNaN(resolved.height) ? fallback.height : resolved.height)
+                : new FloatSize(Float.isNaN(resolved.width) ? fallback.width : resolved.width, resolved.height);
+        }
+
+        FloatSize keepMainAxisPercentageIndefinite(
+            FloatSize resolved,
+            TaffySize<?> rawStyleSize,
+            boolean sizingInlineAxis) {
+            if (rawStyleSize == null) {
+                return resolved;
+            }
+            if (sizingInlineAxis && isPercentage(rawStyleSize.width)) {
+                return new FloatSize(NaN, resolved.height);
+            }
+            if (!sizingInlineAxis && isPercentage(rawStyleSize.height)) {
+                return new FloatSize(resolved.width, NaN);
+            }
+            return resolved;
+        }
+
+        boolean isPercentage(Object value) {
+            return (value instanceof TaffyDimension dimension && dimension.isPercent())
+                || (value instanceof LengthPercentageAuto lengthPercentageAuto && lengthPercentageAuto.isPercent());
         }
 
     }
@@ -427,8 +589,8 @@ public class GridComputer {
         float paddingBorderWidth = (item.padding != null ? item.padding.left + item.padding.right : 0f)
                                    + (item.border != null ? item.border.left + item.border.right : 0f);
 
-        float preferred = resolveReplacedCapValueWidth(item.rawSize, item.boxSizing, paddingBorderWidth);
-        float max = resolveReplacedCapValueWidth(item.rawMaxSize, item.boxSizing, paddingBorderWidth);
+        float preferred = resolveReplacedCapValueWidth(item.rawSize, item.boxSizing, paddingBorderWidth, item.calcValueResolver);
+        float max = resolveReplacedCapValueWidth(item.rawMaxSize, item.boxSizing, paddingBorderWidth, item.calcValueResolver);
 
         float capped = currentWithMargin;
         if (!Float.isNaN(preferred)) capped = Math.min(capped, preferred + marginWidth);
@@ -440,14 +602,15 @@ public class GridComputer {
         return capped;
     }
 
-    private static float resolveReplacedCapValueWidth(TaffySize<?> rawSize, BoxSizing boxSizing, float paddingBorderWidth) {
+    private static float resolveReplacedCapValueWidth(
+        TaffySize<?> rawSize, BoxSizing boxSizing, float paddingBorderWidth, CalcValueResolver calcValueResolver) {
         if (rawSize == null || rawSize.width == null) return NaN;
         // Resolve against 0 so that indefinite percentages are treated as definite 0 for capping purposes.
         float v;
         if (rawSize.width instanceof LengthPercentageAuto) {
-            v = ((LengthPercentageAuto) rawSize.width).maybeResolve(0f);
+            v = ((LengthPercentageAuto) rawSize.width).maybeResolve(0f, calcValueResolver);
         } else if (rawSize.width instanceof TaffyDimension) {
-            v = ((TaffyDimension) rawSize.width).maybeResolve(0f);
+            v = ((TaffyDimension) rawSize.width).maybeResolve(0f, calcValueResolver);
         } else {
             return NaN;
         }
@@ -471,8 +634,8 @@ public class GridComputer {
         RunMode runMode = inputs.runMode();
 
         Float aspectRatio = style.getAspectRatio();
-        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
-        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width);
+        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width, layoutComputer::resolveCalcValue);
+        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width, layoutComputer::resolveCalcValue);
         FloatSize paddingBorderSize = new FloatSize(
             padding.left + padding.right + border.left + border.right,
             padding.top + padding.bottom + border.top + border.bottom
@@ -483,12 +646,12 @@ public class GridComputer {
                                         : FloatSize.ZERO;
 
         FloatSize minSize = maybeAdd(maybeApplyAspectRatio(
-            Resolve.maybeResolveSize(style.getMinSize(), parentSize), aspectRatio), boxSizingAdjustment);
+            Resolve.maybeResolveSize(style.getMinSize(), parentSize, layoutComputer::resolveCalcValue), aspectRatio), boxSizingAdjustment);
         FloatSize maxSize = maybeAdd(maybeApplyAspectRatio(
-            Resolve.maybeResolveSize(style.getMaxSize(), parentSize), aspectRatio), boxSizingAdjustment);
+            Resolve.maybeResolveSize(style.getMaxSize(), parentSize, layoutComputer::resolveCalcValue), aspectRatio), boxSizingAdjustment);
         FloatSize clampedStyleSize = inputs.sizingMode() == SizingMode.INHERENT_SIZE
                                      ? maybeClamp(maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(style.getSize(), parentSize), aspectRatio), boxSizingAdjustment),
+                Resolve.maybeResolveSize(style.getSize(), parentSize, layoutComputer::resolveCalcValue), aspectRatio), boxSizingAdjustment),
             minSize, maxSize)
                                      : new FloatSize(NaN, NaN);
 
@@ -517,11 +680,25 @@ public class GridComputer {
         float scrollbarWidth = style.getScrollbarWidth();
         float scrollbarGutterX = overflow.y == Overflow.SCROLL ? scrollbarWidth : 0f;  // vertical scroll needs horizontal space
         float scrollbarGutterY = overflow.x == Overflow.SCROLL ? scrollbarWidth : 0f;  // horizontal scroll needs vertical space
+        float gutterWidthBasis = definiteGutterBasis(
+            styledBasedKnownDimensions.width, maxSize.width, availableSpace.width, paddingBorderSize.width
+        );
+        float gutterHeightBasis = definiteGutterBasis(
+            styledBasedKnownDimensions.height, maxSize.height, availableSpace.height, paddingBorderSize.height
+        );
+        if (!Float.isNaN(gutterWidthBasis)) {
+            scrollbarGutterX = Math.min(scrollbarGutterX, Math.max(0f, gutterWidthBasis - paddingBorderSize.width));
+        }
+        if (!Float.isNaN(gutterHeightBasis)) {
+            scrollbarGutterY = Math.min(scrollbarGutterY, Math.max(0f, gutterHeightBasis - paddingBorderSize.height));
+        }
+
+        TaffyDirection containerDirection = layoutComputer.resolveDirection(node);
 
         // Content box inset (padding + border + scrollbar gutter)
         FloatRect contentBoxInset = new FloatRect(
-            padding.left + border.left,
-            padding.right + border.right + scrollbarGutterX,
+            padding.left + border.left + (containerDirection.isRtl() ? scrollbarGutterX : 0f),
+            padding.right + border.right + (containerDirection.isRtl() ? 0f : scrollbarGutterX),
             padding.top + border.top,
             padding.bottom + border.bottom + scrollbarGutterY
         );
@@ -573,8 +750,8 @@ public class GridComputer {
 
         // Gap
         FloatSize gap = new FloatSize(
-            style.getGap().width.resolveOrZero(nodeInnerSize.width),
-            style.getGap().height.resolveOrZero(nodeInnerSize.height)
+            style.getGap().width.resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue),
+            style.getGap().height.resolveOrZero(nodeInnerSize.height, layoutComputer::resolveCalcValue)
         );
 
         // Expand auto-fill/auto-fit in grid templates
@@ -639,7 +816,7 @@ public class GridComputer {
             // and needs to be re-resolved based on the content-sized content box of the container
             // Re-compute gap if it uses percentages (for use in positioning, NOT for container sizing)
             if (style.getGap().width.isPercent()) {
-                float newGapWidth = style.getGap().width.resolveOrZero(nodeInnerSize.width);
+                float newGapWidth = style.getGap().width.resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                 gap = new FloatSize(newGapWidth, gap.height);
                 // Note: initialColumnSum is NOT recalculated - container size uses the initial value
                 // The new gap is used for child positioning
@@ -663,10 +840,10 @@ public class GridComputer {
                     float resolvedMax = NaN;
 
                     if (minF != null && minF.isFixed() && minF.getFixedValue() != null && minF.getFixedValue().isPercent()) {
-                        resolvedMin = minF.getFixedValue().resolveOrZero(nodeInnerSize.width);
+                        resolvedMin = minF.getFixedValue().resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                     }
                     if (maxF != null && maxF.isFixed() && maxF.getFixedValue() != null && maxF.getFixedValue().isPercent()) {
-                        resolvedMax = maxF.getFixedValue().resolveOrZero(nodeInnerSize.width);
+                        resolvedMax = maxF.getFixedValue().resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                     }
 
                     // Clamp base_size to [min, max] as in Rust's maybe_clamp
@@ -682,7 +859,7 @@ public class GridComputer {
                     }
                 } else if (track != null && track.isFixed() && track.getFixedValue() != null && track.getFixedValue().isPercent()) {
                     // Simple fixed percentage track
-                    float resolvedSize = track.getFixedValue().resolveOrZero(nodeInnerSize.width);
+                    float resolvedSize = track.getFixedValue().resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                     float currentSize = columnSizes.getFloat(i);
                     // Clamp to the resolved percentage value
                     float newSize = Math.max(resolvedSize, Math.min(currentSize, resolvedSize));
@@ -700,6 +877,7 @@ public class GridComputer {
         resolveItemBaselines(items, nodeInnerSize);
 
         FloatList rowSizes = calculateRowSizes(style, nodeInnerSize, availableGridSpace, gap, numRows, items, columnSizes, colCounts, rowCounts, expandedRows);
+        collapseEmptyAutoFitRows(rowSizes, style, items, nodeInnerSize, gap.height, rowCounts);
 
         // Calculate initial row sum (like Rust's initial_row_sum)
         float initialRowSum = 0f;
@@ -716,7 +894,7 @@ public class GridComputer {
             // Per CSS Grid spec step 7: Resolve percentage row base sizes and gap
             // In the case of an indefinitely sized container, percentage gap resolves to zero during initial sizing
             if (style.getGap().height.isPercent()) {
-                float newGapHeight = style.getGap().height.resolveOrZero(nodeInnerSize.height);
+                float newGapHeight = style.getGap().height.resolveOrZero(nodeInnerSize.height, layoutComputer::resolveCalcValue);
                 gap = new FloatSize(gap.width, newGapHeight);
             }
         }
@@ -728,8 +906,8 @@ public class GridComputer {
             for (int i = 0; i < rowSizes.size() && i < expandedRows.size(); i++) {
                 TrackSizingFunction track = expandedRows.get(i);
                 if (track != null && track.isFixed() && track.getFixedValue() != null && track.getFixedValue().isPercent()) {
-                    float resolvedMin = track.getFixedValue().resolveOrZero(nodeInnerSize.height);
-                    float resolvedMax = track.getFixedValue().resolveOrZero(nodeInnerSize.height);
+                    float resolvedMin = track.getFixedValue().resolveOrZero(nodeInnerSize.height, layoutComputer::resolveCalcValue);
+                    float resolvedMax = track.getFixedValue().resolveOrZero(nodeInnerSize.height, layoutComputer::resolveCalcValue);
                     float currentSize = rowSizes.getFloat(i);
                     // Clamp base_size to [min, max] as in Rust's maybe_clamp
                     float newSize = Math.max(resolvedMin, Math.min(currentSize, resolvedMax));
@@ -760,12 +938,6 @@ public class GridComputer {
             for (GridItem item : items) {
                 if (!item.crossesIntrinsicColumn) continue;
 
-                // If no cached contribution from initial track sizing, skip this item
-                // This is critical for performance - avoids triggering recursive measureChildSize
-                if (item.minContentContributionWidth == null) {
-                    continue;
-                }
-
                 // Compute available_space based on known row sizes (like Rust's item.available_space())
                 float itemHeight = computeItemAvailableHeight(item, finalRowSizes, finalGap);
                 FloatSize itemAvailSpace = new FloatSize(NaN, itemHeight);
@@ -782,14 +954,14 @@ public class GridComputer {
                 // Compute new min_content_contribution (non-cached version)
                 FloatSize marginAxisSums = item.getMarginAxisSumsWithBaselineShims(finalNodeInnerSize.width);
                 float newMinContentContribution;
-                if (!Float.isNaN(item.size.width)) {
+                if (item.hasNonPercentageWidth()) {
                     newMinContentContribution = item.size.width + marginAxisSums.width;
                 } else {
-                    FloatSize itemKnownDims = item.computeKnownDimensions(itemAvailSpace, finalNodeInnerSize);
+                    FloatSize itemKnownDims = item.computeKnownDimensions(layoutComputer, itemAvailSpace, finalNodeInnerSize, true);
                     FloatSize measuredSize = layoutComputer.measureChildSize(
                         item.nodeId,
                         itemKnownDims,
-                        finalNodeInnerSize,
+                        itemAvailSpace,
                         new TaffySize<>(AvailableSpace.minContent(),
                             !Float.isNaN(itemHeight) ? AvailableSpace.definite(itemHeight) : AvailableSpace.minContent()),
                         SizingMode.INHERENT_SIZE,
@@ -798,6 +970,11 @@ public class GridComputer {
                     newMinContentContribution = measuredSize.width + marginAxisSums.width;
                 }
 
+                if (item.minContentContributionWidth == null) {
+                    item.minContentContributionWidth = newMinContentContribution;
+                    item.availableSpaceCache = itemAvailSpace;
+                    continue;
+                }
                 // Compare with cached value
                 boolean hasChanged = Math.abs(newMinContentContribution - item.minContentContributionWidth) > 0.001f;
 
@@ -847,11 +1024,6 @@ public class GridComputer {
                 for (GridItem item : items) {
                     if (!item.crossesIntrinsicRow) continue;
 
-                    // If no cached contribution from initial track sizing, skip this item
-                    if (item.minContentContributionHeight == null) {
-                        continue;
-                    }
-
                     // Compute available_space based on known column sizes
                     float itemWidth = computeItemAvailableWidth(item, finalColumnSizes, finalGap);
                     FloatSize itemAvailSpace = new FloatSize(itemWidth, NaN);
@@ -870,11 +1042,11 @@ public class GridComputer {
                     if (!Float.isNaN(item.size.height)) {
                         newMinContentContribution = item.size.height + marginAxisSums.height;
                     } else {
-                        FloatSize itemKnownDims = item.computeKnownDimensions(itemAvailSpace, finalNodeInnerSize);
-                        FloatSize measuredSize = layoutComputer.measureChildSize(
-                            item.nodeId,
-                            itemKnownDims,
-                            finalNodeInnerSize,
+                        FloatSize itemKnownDims = item.computeKnownDimensions(layoutComputer, itemAvailSpace, finalNodeInnerSize, false);
+                    FloatSize measuredSize = layoutComputer.measureChildSize(
+                        item.nodeId,
+                        itemKnownDims,
+                        itemAvailSpace,
                             new TaffySize<>(!Float.isNaN(itemWidth) ? AvailableSpace.definite(itemWidth) : AvailableSpace.minContent(),
                                 AvailableSpace.minContent()),
                             SizingMode.INHERENT_SIZE,
@@ -883,6 +1055,11 @@ public class GridComputer {
                         newMinContentContribution = measuredSize.height + marginAxisSums.height;
                     }
 
+                    if (item.minContentContributionHeight == null) {
+                        item.minContentContributionHeight = newMinContentContribution;
+                        item.availableSpaceCache = itemAvailSpace;
+                        continue;
+                    }
                     // Compare with cached value
                     boolean hasChanged = Math.abs(newMinContentContribution - item.minContentContributionHeight) > 0.001f;
 
@@ -911,16 +1088,13 @@ public class GridComputer {
                 // Re-run row sizing with known column sizes
                 rowSizes = calculateRowSizes(style, nodeInnerSize, availableGridSpace, gap, numRows,
                     items, columnSizes, colCounts, rowCounts, expandedRows);
+                collapseEmptyAutoFitRows(rowSizes, style, items, nodeInnerSize, gap.height, rowCounts);
             }
         }
 
-        // Calculate container size based on tracks
-        // IMPORTANT: Use initialColumnSum for container size calculation (per CSS Grid spec)
-        // This ensures that max-content sizing returns the initial (unrestricted) size,
-        // while columnSizes (potentially re-run) is used for child positioning
+        // Intrinsic container dimensions are based on the initial track sizing pass. Rerun track
+        // sizes are used for child placement after opposite-axis dependencies are resolved.
         float contentWidth = initialColumnSum;
-
-        // IMPORTANT: Use initialRowSum for container size calculation (per CSS Grid spec)
         float contentHeight = initialRowSum;
 
         // If no items, return container size based on template
@@ -941,14 +1115,18 @@ public class GridComputer {
 
             // Calculate track offsets for absolute positioned children
             // Track offsets start from padding+border edge (content box)
-            FloatList colOffsets = calculateTrackOffsets(columnSizes, gap.width, padding.left + border.left);
-            FloatList rowOffsets = calculateTrackOffsets(rowSizes, gap.height, padding.top + border.top);
+            FloatList colOffsets = calculateAlignedColumnOffsets(
+                columnSizes, gap.width, padding.left + border.left,
+                containerSize.width - contentBoxInset.left - contentBoxInset.right, style.getJustifyContent());
+            FloatList rowOffsets = calculateAlignedRowOffsets(
+                rowSizes, gap.height, padding.top + border.top,
+                containerSize.height - contentBoxInset.top - contentBoxInset.bottom, style.getAlignContent());
 
             // Get direction for RTL support (resolve INHERIT)
-            boolean isRtlEmpty = layoutComputer.resolveDirection(node) == TaffyDirection.RTL;
+            boolean isRtlEmpty = containerDirection == TaffyDirection.RTL;
 
             // Layout absolutely positioned children even if no regular items
-            layoutAbsoluteChildren(node, containerSize, border, scrollbarGutterX, scrollbarGutterY, colCounts, rowCounts, colOffsets, rowOffsets, isRtlEmpty);
+            layoutAbsoluteChildren(node, containerSize, border, padding, scrollbarGutterX, scrollbarGutterY, colCounts, rowCounts, colOffsets, rowOffsets, isRtlEmpty);
 
             // Layout hidden children (display: none)
             List<NodeId> children = tree.getChildren(node);
@@ -968,7 +1146,7 @@ public class GridComputer {
             }
 
             FloatSize contentSize = computeContentSizeFromChildren(node);
-            TaffyDirection direction = layoutComputer.resolveDirection(node);
+            TaffyDirection direction = containerDirection;
             FloatRect scrollableOverflowRect = ScrollableOverflow.fromChildren(
                 tree,
                 node,
@@ -979,13 +1157,13 @@ public class GridComputer {
                 direction,
                 overflow
             );
-            tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
+            storeDetailedGridInfo(node, buildDetailedGridInfo(
                 rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, colOffsets, items, style,
                 direction, new FloatRect(
                     contentBoxInset.left,
                     containerSize.width - contentBoxInset.right,
                     contentBoxInset.top,
-                    containerSize.height - contentBoxInset.bottom))));
+                    containerSize.height - contentBoxInset.bottom)));
             return LayoutOutput.fromSizesAndOverflow(containerSize, contentSize, scrollableOverflowRect, Baselines.NONE);
         }
 
@@ -995,11 +1173,11 @@ public class GridComputer {
         FloatList rowOffsets = calculateTrackOffsets(rowSizes, gap.height, padding.top + border.top);
 
         // Get direction for RTL/LTR support (resolve INHERIT)
-        TaffyDirection direction = layoutComputer.resolveDirection(node);
+        TaffyDirection direction = containerDirection;
         boolean isRtl = direction == TaffyDirection.RTL;
 
         // Place items and calculate final positions
-        placeItems(items, columnSizes, rowSizes, gap, contentBoxInset, nodeInnerSize, style, colCounts, rowCounts, isRtl);
+        placeItems(items, columnSizes, rowSizes, gap, contentBoxInset, nodeInnerSize, style, colCounts, rowCounts, direction, parentWidthIndefinite);
 
         float containerWidth = !Float.isNaN(styledBasedKnownDimensions.width)
                                ? styledBasedKnownDimensions.width
@@ -1018,6 +1196,13 @@ public class GridComputer {
 
         FloatSize containerSize = new FloatSize(containerWidth, containerHeight);
 
+        columnOffsets = calculateAlignedColumnOffsets(
+            columnSizes, gap.width, padding.left + border.left,
+            containerSize.width - contentBoxInset.left - contentBoxInset.right, style.getJustifyContent());
+        rowOffsets = calculateAlignedRowOffsets(
+            rowSizes, gap.height, padding.top + border.top,
+            containerSize.height - contentBoxInset.top - contentBoxInset.bottom, style.getAlignContent());
+
         if (runMode == RunMode.COMPUTE_SIZE) {
             return LayoutOutput.fromOuterSize(containerSize);
         }
@@ -1026,7 +1211,7 @@ public class GridComputer {
         performFinalLayout(items);
 
         // Layout absolutely positioned children
-        layoutAbsoluteChildren(node, containerSize, border, scrollbarGutterX, scrollbarGutterY, colCounts, rowCounts, columnOffsets, rowOffsets, isRtl);
+        layoutAbsoluteChildren(node, containerSize, border, padding, scrollbarGutterX, scrollbarGutterY, colCounts, rowCounts, columnOffsets, rowOffsets, isRtl);
 
         // Layout hidden children (display: none)
         List<NodeId> children = tree.getChildren(node);
@@ -1059,13 +1244,13 @@ public class GridComputer {
             direction,
             overflow
         );
-        tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(buildDetailedGridInfo(
+        storeDetailedGridInfo(node, buildDetailedGridInfo(
             rowCounts, colCounts, rowSizes, columnSizes, rowOffsets, columnOffsets, items, style,
             direction, new FloatRect(
                 contentBoxInset.left,
                 containerSize.width - contentBoxInset.right,
                 contentBoxInset.top,
-                containerSize.height - contentBoxInset.bottom))));
+                containerSize.height - contentBoxInset.bottom)));
 
         return LayoutOutput.fromSizesAndOverflow(
             containerSize,
@@ -1073,6 +1258,27 @@ public class GridComputer {
             scrollableOverflowRect,
             Baselines.fromLegacy(containerBaseline)
         );
+    }
+
+    private void storeDetailedGridInfo(NodeId node, DetailedGridInfo info) {
+        LayoutPartialTree tree = layoutComputer.getTree();
+        if (tree instanceof GenericLayoutGridContainer<?> genericTree) {
+            storeGenericDetailedGridInfo(genericTree, node, info);
+        } else if (tree instanceof LayoutGridContainer gridTree) {
+            gridTree.setDetailedGridInfo(node, info);
+        } else {
+            tree.setDetailedLayoutInfo(node, DetailedLayoutInfo.grid(info));
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void storeGenericDetailedGridInfo(
+        GenericLayoutGridContainer<?> tree,
+        NodeId node,
+        DetailedGridInfo info) {
+        GenericLayoutGridContainer rawTree = tree;
+        rawTree.setGenericDetailedGridInfo(node, new GenericDetailedGridInfo(
+            info, tree.getGenericGridContainerStyle(node).identifierCodec()));
     }
 
     private DetailedGridInfo buildDetailedGridInfo(
@@ -1108,7 +1314,7 @@ public class GridComputer {
                 rowStart + Math.max(1, item.rowSpan)));
         }
 
-        return DetailedGridInfo.from(
+        DetailedGridInfo info = DetailedGridInfo.from(
             rowCounts,
             columnCounts,
             rows,
@@ -1121,6 +1327,20 @@ public class GridComputer {
             namedLineResolver,
             direction,
             paddingBox);
+        if (items.isEmpty() && style.getGridTemplateRows().isEmpty() && style.getGridTemplateColumns().isEmpty()
+            && (style.gridTemplateRowsWithRepeat == null || style.gridTemplateRowsWithRepeat.isEmpty())
+            && (style.gridTemplateColumnsWithRepeat == null || style.gridTemplateColumnsWithRepeat.isEmpty())) {
+            return new DetailedGridInfo(
+                info.rows(),
+                info.columns(),
+                info.items(),
+                "none",
+                "none",
+                namedLineResolver,
+                direction,
+                paddingBox);
+        }
+        return info;
     }
 
     private static List<Float> toFloatList(FloatList values) {
@@ -1236,6 +1456,49 @@ public class GridComputer {
         return offsets;
     }
 
+    private FloatList calculateAlignedColumnOffsets(
+        FloatList trackSizes,
+        float gap,
+        float borderStart,
+        float availableSpace,
+        JustifyContent alignment) {
+        int nonCollapsedTracks = countNonCollapsedTracks(trackSizes);
+        float usedSpace = totalTrackSpace(trackSizes, gap, nonCollapsedTracks);
+        float freeSpace = availableSpace - usedSpace;
+        float offset = calculateContentAlignmentOffset(alignment, freeSpace, nonCollapsedTracks);
+        float adjustedGap = calculateAdjustedGap(alignment, freeSpace, nonCollapsedTracks, gap);
+        return calculateTrackOffsets(trackSizes, adjustedGap, borderStart + offset);
+    }
+
+    private FloatList calculateAlignedRowOffsets(
+        FloatList trackSizes,
+        float gap,
+        float borderStart,
+        float availableSpace,
+        AlignContent alignment) {
+        int nonCollapsedTracks = countNonCollapsedTracks(trackSizes);
+        float usedSpace = totalTrackSpace(trackSizes, gap, nonCollapsedTracks);
+        float freeSpace = availableSpace - usedSpace;
+        float offset = calculateContentAlignmentOffset(alignment, freeSpace, nonCollapsedTracks);
+        float adjustedGap = calculateAdjustedGap(alignment, freeSpace, nonCollapsedTracks, gap);
+        return calculateTrackOffsets(trackSizes, adjustedGap, borderStart + offset);
+    }
+
+    private static int countNonCollapsedTracks(FloatList trackSizes) {
+        int count = 0;
+        for (float trackSize : trackSizes) {
+            if (trackSize > 0f) count++;
+        }
+        return count;
+    }
+
+    private static float totalTrackSpace(FloatList trackSizes, float gap, int nonCollapsedTracks) {
+        float size = 0f;
+        for (float trackSize : trackSizes) size += trackSize;
+        return size + gap * Math.max(0, nonCollapsedTracks - 1);
+    }
+
+
     private List<GridItem> generateGridItems(
         NodeId node,
         TaffyStyle containerStyle,
@@ -1268,10 +1531,15 @@ public class GridComputer {
             item.nodeId = childId;
             item.order = order++;
             item.position = childStyle.getPosition();
+            item.calcValueResolver = layoutComputer::resolveCalcValue;
 
             Float aspectRatio = childStyle.getAspectRatio();
-            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), nodeInnerSize.width);
-            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), nodeInnerSize.width);
+            item.rawPadding = childStyle.getPadding();
+            item.rawBorder = childStyle.getBorder();
+            FloatRect itemPadding = Resolve.resolveRectOrZero(
+                item.rawPadding, nodeInnerSize.width, layoutComputer::resolveCalcValue);
+            FloatRect itemBorder = Resolve.resolveRectOrZero(
+                item.rawBorder, nodeInnerSize.width, layoutComputer::resolveCalcValue);
             item.padding = itemPadding;
             item.border = itemBorder;
             item.aspectRatio = aspectRatio;
@@ -1292,20 +1560,21 @@ public class GridComputer {
                                      : FloatSize.ZERO;
 
             item.size = maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(childStyle.getSize(), nodeInnerSize), aspectRatio), boxSizingAdj);
+                Resolve.maybeResolveSize(childStyle.getSize(), nodeInnerSize, layoutComputer::resolveCalcValue), aspectRatio), boxSizingAdj);
             // minSize must be at least paddingBorderSum (CSS spec: size cannot be smaller than padding+border)
             FloatSize resolvedMinSize = maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(childStyle.getMinSize(), nodeInnerSize), aspectRatio), boxSizingAdj);
+                Resolve.maybeResolveSize(childStyle.getMinSize(), nodeInnerSize, layoutComputer::resolveCalcValue), aspectRatio), boxSizingAdj);
             // Ensure minSize is at least paddingBorderSum, even if minSize was not explicitly set
             item.minSize = new FloatSize(
                 Math.max(!Float.isNaN(resolvedMinSize.width) ? resolvedMinSize.width : 0f, paddingBorderSum.width),
                 Math.max(!Float.isNaN(resolvedMinSize.height) ? resolvedMinSize.height : 0f, paddingBorderSum.height)
             );
             item.maxSize = maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(childStyle.getMaxSize(), nodeInnerSize), aspectRatio), boxSizingAdj);
+                Resolve.maybeResolveSize(childStyle.getMaxSize(), nodeInnerSize, layoutComputer::resolveCalcValue), aspectRatio), boxSizingAdj);
 
             item.rawMargin = childStyle.getMargin();
-            item.margin = Resolve.resolveRectLpaOrZero(childStyle.getMargin(), nodeInnerSize.width);
+            item.margin = Resolve.resolveRectLpaOrZero(
+                childStyle.getMargin(), nodeInnerSize.width, layoutComputer::resolveCalcValue);
             item.inset = childStyle.getInset();
             item.overflow = childStyle.getOverflow();
             item.scrollbarWidth = childStyle.getScrollbarWidth();
@@ -1699,7 +1968,7 @@ public class GridComputer {
 
         for (int i = 0; i < template.size(); i++) {
             GridTemplateComponent comp = template.get(i);
-            if (comp.isAutoRepetition() && comp.getRepeat().getType() == GridRepetition.RepetitionType.AUTO_FIT) {
+            if (comp.isAutoRepetition() && comp.getRepeat().getType() == RepetitionType.AUTO_FIT) {
                 autoFit = comp.getRepeat();
                 autoFitIndex = i;
                 break;
@@ -1906,7 +2175,7 @@ public class GridComputer {
 
         // Compute positive implicit tracks (for items positioned after explicit grid)
         int positiveImplicit = maxCol > explicitCols
-                              ? Math.min(MAX_GRID_TRACKS, maxCol - explicitCols) : 0;
+                              ? Math.min(Math.max(0, MAX_GRID_TRACKS - explicitCols), maxCol - explicitCols) : 0;
 
         // Note: We do NOT estimate extra tracks for auto-placed items here.
         // The auto-placement algorithm will dynamically expand the grid as needed.
@@ -1915,7 +2184,7 @@ public class GridComputer {
         // Ensure we have enough tracks for the max span of any indefinitely placed item
         int totalTracks = negativeImplicit + explicitCols + positiveImplicit;
         if (totalTracks < maxSpan) {
-            positiveImplicit = Math.min(MAX_GRID_TRACKS, maxSpan - negativeImplicit - explicitCols);
+            positiveImplicit = Math.min(Math.max(0, MAX_GRID_TRACKS - explicitCols), maxSpan - negativeImplicit - explicitCols);
         }
 
         return new TrackCounts(negativeImplicit, explicitCols, positiveImplicit);
@@ -1959,7 +2228,7 @@ public class GridComputer {
         maxRow = Math.min(MAX_ORIGIN_ZERO_LINE, maxRow);
         int negativeImplicit = minRow < 0 ? -minRow : 0;
         int positiveImplicit = maxRow > explicitRows
-                              ? Math.min(MAX_GRID_TRACKS, maxRow - explicitRows) : 0;
+                              ? Math.min(Math.max(0, MAX_GRID_TRACKS - explicitRows), maxRow - explicitRows) : 0;
 
         // Note: We do NOT estimate extra tracks for auto-placed items here.
         // The auto-placement algorithm will dynamically expand the grid as needed.
@@ -1968,7 +2237,7 @@ public class GridComputer {
         // Ensure we have enough tracks for the max span of any indefinitely placed item
         int totalTracks = negativeImplicit + explicitRows + positiveImplicit;
         if (totalTracks < maxSpan) {
-            positiveImplicit = Math.min(MAX_GRID_TRACKS, maxSpan - negativeImplicit - explicitRows);
+            positiveImplicit = Math.min(Math.max(0, MAX_GRID_TRACKS - explicitRows), maxSpan - negativeImplicit - explicitRows);
         }
 
         return new TrackCounts(negativeImplicit, explicitRows, positiveImplicit);
@@ -2001,6 +2270,10 @@ public class GridComputer {
                                 TrackCounts colCounts, TrackCounts rowCounts) {
         boolean isDense = autoFlow != null && autoFlow.isDense();
         boolean isRowFlow = autoFlow == null || autoFlow.isRow();
+
+        for (GridItem item : items) {
+            clampItemPlacementToLimitedGrid(item);
+        }
 
         // Create a dynamically expanding occupancy matrix
         CellOccupancyMatrix matrix = new CellOccupancyMatrix(colCounts, rowCounts);
@@ -2119,7 +2392,7 @@ public class GridComputer {
                     } else {
                         // Place at new row at end of grid
                         int newRowStart = matrix.rowCounts.positiveImplicitEndLine();
-                        item.columnStart = 0;
+                        item.columnStart = matrix.colCounts.implicitStartLine();
                         item.rowStart = newRowStart;
                         matrix.markArea(item.columnStart, item.rowStart, colSpan, rowSpan);
                         if (!isDense) {
@@ -2169,7 +2442,7 @@ public class GridComputer {
                         // Place at new column at end of grid
                         int newColStart = matrix.colCounts.positiveImplicitEndLine();
                         item.columnStart = newColStart;
-                        item.rowStart = 0;
+                        item.rowStart = matrix.rowCounts.implicitStartLine();
                         matrix.markArea(item.columnStart, item.rowStart, colSpan, rowSpan);
                         if (!isDense) {
                             autoPrimaryIdx = rowSpan;
@@ -2189,6 +2462,53 @@ public class GridComputer {
         rowCounts.update(matrix.rowCounts);
     }
 
+    private void collapseEmptyAutoFitRows(FloatList rowSizes, TaffyStyle style, List<GridItem> items,
+                                          FloatSize nodeInnerSize, float gap, TrackCounts rowCounts) {
+        if (style.gridTemplateRowsWithRepeat == null || style.gridTemplateRowsWithRepeat.isEmpty()) return;
+        AutoFitInfo autoFitInfo = getAutoFitInfo(style.gridTemplateRowsWithRepeat, nodeInnerSize.height, gap);
+        if (autoFitInfo == null) return;
+        boolean[] occupied = new boolean[rowSizes.size()];
+        for (GridItem item : items) {
+            if (item.position.isOutOfFlow()) continue;
+            int start = getItemRowWithCounts(item, 0, rowSizes.size(), rowCounts);
+            for (int row = start; row < start + item.rowSpan && row < rowSizes.size(); row++) {
+                if (row >= 0) occupied[row] = true;
+            }
+        }
+        int start = rowCounts.negativeImplicit + autoFitInfo.startIndex;
+        int end = start + autoFitInfo.trackCount;
+        for (int row = Math.max(0, start); row < end && row < rowSizes.size(); row++) {
+            if (!occupied[row]) rowSizes.set(row, 0f);
+        }
+    }
+
+    /**
+     * Normalizes a definite grid placement into CSS Grid's bounded implicit grid.
+     * The normalized coordinates must be retained by the item as well as the occupancy matrix.
+     */
+    private static void clampItemPlacementToLimitedGrid(GridItem item) {
+        if (item.columnStart != null) {
+            int start = Math.min(MAX_ORIGIN_ZERO_LINE - 1, clampOriginZeroLine(item.columnStart));
+            int end = clampOriginZeroLine((long) item.columnStart + Math.max(1, item.columnSpan));
+            end = Math.max(start + 1, end);
+            item.columnStart = start;
+            item.columnEnd = end;
+            item.columnSpan = end - start;
+        }
+        if (item.rowStart != null) {
+            int start = Math.min(MAX_ORIGIN_ZERO_LINE - 1, clampOriginZeroLine(item.rowStart));
+            int end = clampOriginZeroLine((long) item.rowStart + Math.max(1, item.rowSpan));
+            end = Math.max(start + 1, end);
+            item.rowStart = start;
+            item.rowEnd = end;
+            item.rowSpan = end - start;
+        }
+    }
+
+    private static int clampOriginZeroLine(long value) {
+        return (int) Math.max(MIN_ORIGIN_ZERO_LINE, Math.min(MAX_ORIGIN_ZERO_LINE, value));
+    }
+
     /**
      * A dynamically-expanding cell occupancy matrix for grid auto-placement.
      * This mirrors Rust's CellOccupancyMatrix behavior.
@@ -2196,12 +2516,20 @@ public class GridComputer {
     private static class CellOccupancyMatrix {
         TrackCounts colCounts;
         TrackCounts rowCounts;
-        boolean[][] cells;  // [row][col] in matrix coordinates
+        List<TrackIntervals> rowIntervals;
+        List<TrackIntervals> columnIntervals;
 
         CellOccupancyMatrix(TrackCounts colCounts, TrackCounts rowCounts) {
             this.colCounts = new TrackCounts(colCounts);
             this.rowCounts = new TrackCounts(rowCounts);
-            this.cells = new boolean[rowCounts.len()][colCounts.len()];
+            this.rowIntervals = emptyTracks(rowCounts.len());
+            this.columnIntervals = emptyTracks(colCounts.len());
+        }
+
+        private static List<TrackIntervals> emptyTracks(int count) {
+            List<TrackIntervals> tracks = new ArrayList<>(count);
+            for (int index = 0; index < count; index++) tracks.add(new TrackIntervals());
+            return tracks;
         }
 
         /**
@@ -2236,8 +2564,8 @@ public class GridComputer {
          * Expand the matrix to fit the given OriginZero range.
          */
         private void expandToFit(int ozColStart, int ozRowStart, int colSpan, int rowSpan) {
-            int ozColEnd = Math.min(MAX_ORIGIN_ZERO_LINE, ozColStart + Math.max(0, colSpan));
-            int ozRowEnd = Math.min(MAX_ORIGIN_ZERO_LINE, ozRowStart + Math.max(0, rowSpan));
+            int ozColEnd = clampLine((long) ozColStart + Math.max(0, colSpan));
+            int ozRowEnd = clampLine((long) ozRowStart + Math.max(0, rowSpan));
 
             // Calculate required expansion
             int reqNegCols = Math.min(
@@ -2245,58 +2573,51 @@ public class GridComputer {
                 MAX_GRID_TRACKS - colCounts.negativeImplicit);
             int reqPosCols = Math.min(
                 Math.max(ozColEnd - (colCounts.explicit + colCounts.positiveImplicit), 0),
-                MAX_GRID_TRACKS - colCounts.positiveImplicit);
+                Math.max(0, MAX_GRID_TRACKS - colCounts.explicit - colCounts.positiveImplicit));
             int reqNegRows = Math.min(
                 Math.max(-ozRowStart - rowCounts.negativeImplicit, 0),
                 MAX_GRID_TRACKS - rowCounts.negativeImplicit);
             int reqPosRows = Math.min(
                 Math.max(ozRowEnd - (rowCounts.explicit + rowCounts.positiveImplicit), 0),
-                MAX_GRID_TRACKS - rowCounts.positiveImplicit);
+                Math.max(0, MAX_GRID_TRACKS - rowCounts.explicit - rowCounts.positiveImplicit));
 
             if (reqNegCols == 0 && reqPosCols == 0 && reqNegRows == 0 && reqPosRows == 0) {
                 return;  // No expansion needed
             }
 
-            int oldNumCols = colCounts.len();
-            int oldNumRows = rowCounts.len();
-            int newNumCols = oldNumCols + reqNegCols + reqPosCols;
-            int newNumRows = oldNumRows + reqNegRows + reqPosRows;
-
-            boolean[][] newCells = new boolean[newNumRows][newNumCols];
-
-            // Copy old cells to new matrix, offset by negative expansions
-            for (int r = 0; r < oldNumRows; r++) {
-                if (oldNumCols >= 0)
-                    System.arraycopy(cells[r], 0, newCells[r + reqNegRows], reqNegCols, oldNumCols);
-            }
-
-            cells = newCells;
+            addTracks(rowIntervals, reqNegRows, reqPosRows);
+            addTracks(columnIntervals, reqNegCols, reqPosCols);
             colCounts.negativeImplicit += reqNegCols;
             colCounts.positiveImplicit += reqPosCols;
             rowCounts.negativeImplicit += reqNegRows;
             rowCounts.positiveImplicit += reqPosRows;
         }
 
+        private static void addTracks(List<TrackIntervals> tracks, int before, int after) {
+            for (int index = 0; index < before; index++) tracks.add(0, new TrackIntervals());
+            for (int index = 0; index < after; index++) tracks.add(new TrackIntervals());
+        }
+
         /**
          * Mark an area as occupied, expanding the matrix if needed.
          */
         void markArea(int ozColStart, int ozRowStart, int colSpan, int rowSpan) {
-            int safeColStart = Math.max(MIN_ORIGIN_ZERO_LINE, ozColStart);
-            int safeRowStart = Math.max(MIN_ORIGIN_ZERO_LINE, ozRowStart);
-            int safeColEnd = Math.min(MAX_ORIGIN_ZERO_LINE, safeColStart + Math.max(0, colSpan));
-            int safeRowEnd = Math.min(MAX_ORIGIN_ZERO_LINE, safeRowStart + Math.max(0, rowSpan));
+            int safeColStart = clampLine(ozColStart);
+            int safeRowStart = clampLine(ozRowStart);
+            int safeColEnd = clampLine((long) ozColStart + Math.max(0, colSpan));
+            int safeRowEnd = clampLine((long) ozRowStart + Math.max(0, rowSpan));
             int safeColSpan = Math.max(0, safeColEnd - safeColStart);
             int safeRowSpan = Math.max(0, safeRowEnd - safeRowStart);
             if (safeColSpan == 0 || safeRowSpan == 0) return;
             expandToFit(safeColStart, safeRowStart, safeColSpan, safeRowSpan);
 
-            int colIdx = colToIndex(safeColStart);
-            int rowIdx = rowToIndex(safeRowStart);
-
-            for (int r = rowIdx; r < rowIdx + safeRowSpan; r++) {
-                for (int c = colIdx; c < colIdx + safeColSpan; c++) {
-                    cells[r][c] = true;
-                }
+            int colEnd = safeColStart + safeColSpan;
+            int rowEnd = safeRowStart + safeRowSpan;
+            for (int row = safeRowStart; row < rowEnd; row++) {
+                rowIntervals.get(rowToIndex(row)).paint(safeColStart, colEnd);
+            }
+            for (int column = safeColStart; column < colEnd; column++) {
+                columnIntervals.get(colToIndex(column)).paint(safeRowStart, rowEnd);
             }
         }
 
@@ -2311,12 +2632,16 @@ public class GridComputer {
                 return false;
             }
 
-            for (int r = rowIdx; r < rowIdx + rowSpan; r++) {
-                for (int c = colIdx; c < colIdx + colSpan; c++) {
-                    if (cells[r][c]) return false;
-                }
+            int colStart = indexToCol(colIdx);
+            int colEnd = colStart + colSpan;
+            for (int row = rowIdx; row < rowIdx + rowSpan; row++) {
+                if (rowIntervals.get(row).overlaps(colStart, colEnd)) return false;
             }
             return true;
+        }
+
+        private static int clampLine(long value) {
+            return (int) Math.max(MIN_ORIGIN_ZERO_LINE, Math.min(MAX_ORIGIN_ZERO_LINE, value));
         }
 
         /**
@@ -2386,6 +2711,50 @@ public class GridComputer {
         }
     }
 
+    private static class TrackIntervals {
+        private final List<OccupiedInterval> intervals = new ArrayList<>();
+
+        private boolean overlaps(int start, int end) {
+            for (OccupiedInterval interval : intervals) {
+                if (interval.start >= end) return false;
+                if (interval.end > start) return true;
+            }
+            return false;
+        }
+
+        private void paint(int start, int end) {
+            if (start >= end) return;
+            List<OccupiedInterval> updated = new ArrayList<>();
+            int mergedStart = start;
+            int mergedEnd = end;
+            boolean inserted = false;
+            for (OccupiedInterval interval : intervals) {
+                if (interval.end < mergedStart) {
+                    updated.add(interval);
+                } else if (interval.start > mergedEnd) {
+                    if (!inserted) {
+                        updated.add(new OccupiedInterval(mergedStart, mergedEnd));
+                        inserted = true;
+                    }
+                    updated.add(interval);
+                } else {
+                    mergedStart = Math.min(mergedStart, interval.start);
+                    mergedEnd = Math.max(mergedEnd, interval.end);
+                }
+            }
+            if (!inserted) updated.add(new OccupiedInterval(mergedStart, mergedEnd));
+            intervals.clear();
+            intervals.addAll(updated);
+        }
+
+        private boolean isEmpty() {
+            return intervals.isEmpty();
+        }
+    }
+
+    private record OccupiedInterval(int start, int end) {
+    }
+
     private FloatList calculateColumnSizes(
         TaffyStyle style,
         FloatSize nodeInnerSize,
@@ -2417,7 +2786,7 @@ public class GridComputer {
         FloatList sizes = new FloatArrayList();
         FloatList growthLimits = new FloatArrayList();// Track max size for each column (growth limit)
         List<TrackSizingFunction> templateCols = expandedCols;
-        List<TrackSizingFunction> templateRows = style.getGridTemplateRows();
+        List<TrackSizingFunction> templateRows = getExpandedTemplateRows(style, nodeInnerSize.height, gap.height);
         List<TrackSizingFunction> autoRows = style.getGridAutoRows();
 
         // Use available grid space when node inner size is not definite
@@ -2425,16 +2794,17 @@ public class GridComputer {
         AvailableSpace gridWidthSpace = availableGridSpace.width;
         float availableGridWidth = gridWidthSpace.intoOption();
 
+        float minimumInnerWidth = minInnerWidth(style);
         float availableWidth = !Float.isNaN(nodeInnerSize.width)
                                ? nodeInnerSize.width - gap.width * (numColumns - 1)
-                               : (!Float.isNaN(availableGridWidth)
-                                  ? availableGridWidth - gap.width * (numColumns - 1)
-                                  : 0);
+                               : 0f;
+        boolean hasDefiniteInnerWidth = !Float.isNaN(nodeInnerSize.width);
 
         float totalFr = 0f;  // Sum of all fr values
         float usedSpace = 0;
         IntList frTrackIndices = new IntArrayList();  // Track which indices have fr
         FloatList frValues = new FloatArrayList();  // Store fr values
+        List<TrackSizingFunction> columnTracks = new ArrayList<>(numColumns);
 
         // Get auto columns for implicit tracks
         List<TrackSizingFunction> autoColumns = style.getGridAutoColumns();
@@ -2480,35 +2850,31 @@ public class GridComputer {
                 // No auto columns defined, default to auto
                 track = null;
             }
+            columnTracks.add(track);
 
-            if (track != null && track.isFr()) {
-                totalFr += track.getFrValue();  // Accumulate fr values
+            if (isFlexibleTrack(track)) {
+                float flexFactor = flexibleTrackFactor(track);
+                totalFr += flexFactor;
                 frTrackIndices.add(i);
-                frValues.add(track.getFrValue());
+                frValues.add(flexFactor);
                 sizes.add(0f); // Will be resolved later
             } else if (track == null || track.isAuto() || track.isMinContent() || track.isMaxContent()) {
                 // Auto or content-based track - will be resolved later
                 sizes.add(NaN);
             } else if (track.isMinmax()) {
-                // For minmax, check if max is flexible
                 TrackSizingFunction minF = track.getMinFunc();
                 TrackSizingFunction maxF = track.getMaxFunc();
-                if (maxF != null && maxF.isFr()) {
-                    totalFr += maxF.getFrValue();
-                    frTrackIndices.add(i);
-                    frValues.add(maxF.getFrValue());
-                    sizes.add(0f);
-                } else if (minF != null && minF.isFixed() && maxF != null && maxF.isFixed()) {
+                if (minF != null && minF.isFixed() && maxF != null && maxF.isFixed()) {
                     // minmax(fixed, fixed) - start at min, can grow to max
-                    float minSize = minF.getFixedValue().resolveOrZero(nodeInnerSize.width);
-                    float maxSize = maxF.getFixedValue().resolveOrZero(nodeInnerSize.width);
+                    float minSize = minF.getFixedValue().resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
+                    float maxSize = maxF.getFixedValue().resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                     sizes.add(minSize);
                     usedSpace += minSize;
                     // Set growth limit to max size
                     growthLimits.set(i, maxSize);
                 } else if (maxF != null && maxF.isFixed()) {
                     // minmax(auto/content, fixed) - try to resolve max
-                    float maybeSize = maxF.getFixedValue().maybeResolve(nodeInnerSize.width);
+                    float maybeSize = maxF.getFixedValue().maybeResolve(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                     if (!Float.isNaN(maybeSize)) {
                         // Check if min is intrinsic (auto, min-content, max-content)
                         // For intrinsic min, we need to calculate the contribution first
@@ -2517,7 +2883,7 @@ public class GridComputer {
                             sizes.add(NaN);
                             growthLimits.set(i, maybeSize);
                         } else {
-                            float minSize = minF.getFixedValue().maybeResolve(nodeInnerSize.width);
+                            float minSize = minF.getFixedValue().maybeResolve(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                             if (Float.isNaN(minSize)) {
                                 sizes.add(NaN);
                             } else {
@@ -2553,13 +2919,24 @@ public class GridComputer {
             }
         }
 
+        if (!frTrackIndices.isEmpty()) {
+            usedSpace = 0f;
+            for (int column = 0; column < sizes.size(); column++) {
+                if (!frTrackIndices.contains(column)) {
+                    float size = sizes.getFloat(column);
+                    usedSpace += Float.isNaN(size) ? 0f : size;
+                }
+            }
+        }
+
         // Handle fr tracks (including 0fr which behave like auto for base size)
         if (!frTrackIndices.isEmpty()) {
             // Step 1: Calculate base sizes for fr tracks based on item content (fr = minmax(auto, Nfr))
             // For items in fr tracks, their minimum/min-content contribution sets the track base size
             FloatList frBaseSizes = new FloatArrayList();
             for (int idx = 0; idx < frTrackIndices.size(); idx++) {
-                frBaseSizes.add(0f);
+                int trackIndex = frTrackIndices.getInt(idx);
+                frBaseSizes.add(flexibleTrackMinimumBaseSize(columnTracks.get(trackIndex), nodeInnerSize.width));
             }
 
             // Calculate base sizes from span=1 items in fr tracks
@@ -2570,10 +2947,19 @@ public class GridComputer {
 
                 if (span == 1 && frTrackIndices.contains(col)) {
                     int frIdx = frTrackIndices.indexOf(col);
+                    if (!hasIntrinsicFlexibleTrackMinimum(columnTracks.get(col))) {
+                        continue;
+                    }
                     // Horizontal percentage margins resolve to 0 in track sizing to avoid cyclic dependency
                     FloatSize marginAxisSums = item.getMarginAxisSumsWithBaselineShims(nodeInnerSize.width);
+                    float specifiedMinimum = specifiedStyleSize(
+                        item.rawMinSize == null ? null : item.rawMinSize.width,
+                        item.minSize.width
+                    );
                     float minContribution;
-                    if (!Float.isNaN(item.size.width)) {
+                    if (specifiedMinimum > 0f) {
+                        minContribution = specifiedMinimum + marginAxisSums.width;
+                    } else if (item.hasNonPercentageWidth()) {
                         minContribution = item.size.width + marginAxisSums.width;
                     } else {
                         // Estimate row height for aspect-ratio resolution
@@ -2649,23 +3035,27 @@ public class GridComputer {
             }
 
             // Only distribute flex space if there are actual fr values > 0
-            if (totalFr > 0 && !Float.isNaN(nodeInnerSize.width)) {
+            if (totalFr > 0 && hasDefiniteInnerWidth) {
                 // Definite container - use find_size_of_fr algorithm
                 // Available space for fr tracks = total available - fixed track sizes
-                float spaceForFrTracks = availableWidth - usedSpace;
+                float projectedNonFlexibleSize = projectedNonFlexibleColumnTotal(
+                    items, columnTracks, sizes, nodeInnerSize.width, colCounts);
+                float spaceForFrTracks = availableWidth - usedSpace - projectedNonFlexibleSize;
 
-                if (spaceForFrTracks > 0) {
-                    // Find the size of an fr unit using the algorithm from CSS Grid spec
-                    float flexFraction = findSizeOfFrForDefinite(frBaseSizes, frValues, spaceForFrTracks);
+                distributeSpanningColumnContributionsToFrBaseSizes(
+                    items, columnTracks, frTrackIndices, frValues, frBaseSizes, sizes,
+                    nodeInnerSize, colCounts, gap, templateRows, autoRows, numRows, knownRowSizes
+                );
+                // Find the size of an fr unit using the algorithm from CSS Grid spec
+                float flexFraction = findSizeOfFrForDefinite(frBaseSizes, frValues, spaceForFrTracks);
 
-                    // Apply: base_size = max(base_size, flex_factor * flex_fraction)
-                    for (int idx = 0; idx < frTrackIndices.size(); idx++) {
-                        int i = frTrackIndices.getInt(idx);
-                        float baseSize = frBaseSizes.getFloat(idx);
-                        float frValue = frValues.getFloat(idx);
-                        float flexSize = frValue * flexFraction;
-                        sizes.set(i, Math.max(baseSize, flexSize));
-                    }
+                // Apply: base_size = max(base_size, flex_factor * flex_fraction)
+                for (int idx = 0; idx < frTrackIndices.size(); idx++) {
+                    int i = frTrackIndices.getInt(idx);
+                    float baseSize = frBaseSizes.getFloat(idx);
+                    float frValue = frValues.getFloat(idx);
+                    float flexSize = frValue * flexFraction;
+                    sizes.set(i, Math.max(baseSize, flexSize));
                 }
             } else if (totalFr > 0) {
                 // Indefinite container (MaxContent) - two-phase process
@@ -2693,7 +3083,7 @@ public class GridComputer {
                         FloatSize marginAxisSums = item.getMarginAxisSumsWithBaselineShims(nodeInnerSize.width);
                         // Get item's contribution (max-content for indefinite sizing)
                         float itemContribution;
-                        if (!Float.isNaN(item.size.width)) {
+                        if (item.hasNonPercentageWidth()) {
                             itemContribution = item.size.width + marginAxisSums.width;
                         } else {
                             // Estimate the height available for this item based on row tracks
@@ -2780,6 +3170,9 @@ public class GridComputer {
                 float maxContentSize = 0f;     // For base_size - respects minSize
                 float pureMaxContentSize = 0f; // For growth_limit - pure content max-content, not minSize
                 float minContentSize = 0f;
+                float automaticMinimumSize = 0f;
+                boolean hasSpecifiedAutomaticMinimum = false;
+                boolean hasSingleTrackItem = false;
 
                 for (int itemIdx = 0; itemIdx < items.size(); itemIdx++) {
                     GridItem item = items.get(itemIdx);
@@ -2788,19 +3181,22 @@ public class GridComputer {
 
                     // Only consider items that occupy this track with span of 1
                     if (col == i && span == 1) {
+                        hasSingleTrackItem = true;
                         // Horizontal percentage margins resolve to 0 in track sizing to avoid cyclic dependency
                         FloatSize marginAxisSums = item.getMarginAxisSumsWithBaselineShims(nodeInnerSize.width);
                         // Calculate minimum size from padding+border (size cannot be less than this)
                         float itemPaddingBorderWidth = (item.padding != null ? item.padding.left + item.padding.right : 0f)
                                                        + (item.border != null ? item.border.left + item.border.right : 0f);
 
-                        if (!Float.isNaN(item.size.width)) {
+                        if (item.hasNonPercentageWidth()) {
                             // Size must be at least padding+border
                             float effectiveWidth = Math.max(item.size.width, itemPaddingBorderWidth);
                             float itemWidth = effectiveWidth + marginAxisSums.width;
                             maxContentSize = Math.max(maxContentSize, itemWidth);
                             pureMaxContentSize = Math.max(pureMaxContentSize, itemWidth);  // Explicit size is pure max-content
                             minContentSize = Math.max(minContentSize, itemWidth);
+                            automaticMinimumSize = Math.max(automaticMinimumSize, itemWidth);
+                            hasSpecifiedAutomaticMinimum = true;
                         } else {
                             // Check if item has overflow: hidden/scroll/auto - affects min-content contribution
                             boolean hasOverflow = item.overflow != null &&
@@ -2849,6 +3245,10 @@ public class GridComputer {
                             itemMinWidth = capCompressibleReplacedMinimumContributionWidth(item, itemMinWidth, marginAxisSums.width);
 
                             minContentSize = Math.max(minContentSize, itemMinWidth);
+                            float automaticMinimum = itemMinWidthConstraint > 0f
+                                ? itemMinWidthConstraint : itemMinWidth;
+                            automaticMinimumSize = Math.max(automaticMinimumSize, automaticMinimum);
+                            hasSpecifiedAutomaticMinimum |= itemMinWidthConstraint > 0f;
                         }
                     }
                 }
@@ -2870,10 +3270,10 @@ public class GridComputer {
                             // For percent values, use maybeResolve - returns null if container is indefinite
                             // Check for null or NaN width (indefinite container)
                             float resolveContext = (Float.isNaN(nodeInnerSize.width)) ? NaN : nodeInnerSize.width;
-                            limit = fitContentArg.maybeResolve(resolveContext);
+                            limit = fitContentArg.maybeResolve(resolveContext, layoutComputer::resolveCalcValue);
                         } else {
                             // For absolute lengths, always resolves
-                            limit = fitContentArg.resolveOrZero(nodeInnerSize.width);
+                            limit = fitContentArg.resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                         }
                     }
                     // The growth limit is clamped by fit-content argument
@@ -2896,9 +3296,9 @@ public class GridComputer {
                     } else if (minFunc != null && minFunc.isMaxContent()) {
                         minContribution = maxContentSize;
                     } else if (minFunc != null && minFunc.isAuto()) {
-                        minContribution = minContentSize;  // auto uses min-content as base
+                        minContribution = automaticMinimumSize;
                     } else if (minFunc != null && minFunc.isFixed()) {
-                        float fixedSize = minFunc.getFixedValue().maybeResolve(nodeInnerSize.width);
+                        float fixedSize = minFunc.getFixedValue().maybeResolve(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                         minContribution = !Float.isNaN(fixedSize) ? fixedSize : minContentSize;
                     }
 
@@ -2917,9 +3317,9 @@ public class GridComputer {
                         if (fitContentArg != null) {
                             if (fitContentArg.isPercent()) {
                                 float resolveContext = (Float.isNaN(nodeInnerSize.width)) ? NaN : nodeInnerSize.width;
-                                limit = fitContentArg.maybeResolve(resolveContext);
+                                limit = fitContentArg.maybeResolve(resolveContext, layoutComputer::resolveCalcValue);
                             } else {
-                                limit = fitContentArg.resolveOrZero(nodeInnerSize.width);
+                                limit = fitContentArg.resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                             }
                         }
                         if (!Float.isNaN(limit)) {
@@ -2930,15 +3330,34 @@ public class GridComputer {
                         }
                     } else if (maxFunc != null && maxFunc.isFixed()) {
                         // Use maybeResolve - returns null if percent is unresolvable
-                        maxLimit = maxFunc.getFixedValue().maybeResolve(nodeInnerSize.width);  // Keep as null if unresolvable
+                        maxLimit = maxFunc.getFixedValue().maybeResolve(nodeInnerSize.width, layoutComputer::resolveCalcValue);  // Keep as null if unresolvable
                     }
 
-                    if (!Float.isNaN(maxLimit)) {
-                        if (minFunc != null && minFunc.isAuto() && maxFunc != null && maxFunc.isFixed()) {
-                            size = Math.min(minContribution, maxLimit);
+                    if (!hasSingleTrackItem) {
+                        size = minContribution;
+                    } else if (!Float.isNaN(maxLimit)) {
+                        boolean automaticMinimumWithFixedMaximum = minFunc != null && minFunc.isAuto()
+                            && maxFunc != null && maxFunc.isFixed();
+                        boolean maxContentMeasurement = originalAvailableSpace.width.isMaxContent();
+                        if (automaticMinimumWithFixedMaximum) {
+                            // A specified automatic minimum remains a floor, while an intrinsic
+                            // automatic minimum is capped by the fixed maximum.
+                            size = hasSpecifiedAutomaticMinimum
+                                ? minContribution
+                                : Math.min(minContribution, maxLimit);
+                            growthLimits.set(i, Math.max(size, maxLimit));
+                        } else if (minFunc != null && minFunc.isMinContent()
+                            && maxFunc != null && maxFunc.isAuto() && maxContentMeasurement && maxLimit > 0f) {
+                            size = maxLimit;
                             growthLimits.set(i, maxLimit);
                         } else {
-                            size = Math.max(minContribution, maxLimit);
+                            size = minContribution;
+                            // Intrinsic maximums remain infinitely growable until a positive
+                            // contribution plans their first growth-limit increase.
+                            if (maxLimit > 0f || (maxFunc != null && maxFunc.isFixed())) {
+                                growthLimits.set(i, maxFunc != null && maxFunc.isAuto()
+                                    ? Float.MAX_VALUE : Math.max(minContribution, maxLimit));
+                            }
                         }
                     } else {
                         size = maxContentSize;
@@ -2970,10 +3389,12 @@ public class GridComputer {
                     // Per Rust: growth_limit is set to max_content_contribution after resolve_intrinsic_track_sizes
                     // The key is that maximise_tracks respects growth_limit, but stretch_auto_tracks does not.
                     if (!Float.isNaN(nodeInnerSize.width)) {
-                        // Container has definite size: base = min-content
+                        // A definite grid uses the item's minimum contribution for an auto minimum.
+                        // Intrinsic measurement can resolve an aspect ratio from the stretched cross axis,
+                        // but that derived size must not replace an explicit minimum in the track base size.
                         // growth_limit = max-content (for maximise_tracks limit)
                         // stretch_auto_tracks will distribute additional space if justify-content: stretch
-                        size = minContentSize;
+                        size = automaticMinimumSize;
                         // Use max-content as growth limit for maximise_tracks phase
                         // pureMaxContentSize is the max-content without min-size
                         if (pureMaxContentSize > 0) {
@@ -2984,8 +3405,7 @@ public class GridComputer {
                             // (already initialized to MAX_VALUE)
                         //}
                     } else if (!Float.isNaN(availableGridWidth)) {
-                        // Container is auto-sized but has definite available space:
-                        // Base = min-content, growth_limit = max-content (no stretch beyond max-content)
+                        // A grid constrained by definite available space follows the same auto-minimum rule.
                         // This matches Rust's behavior where growth_limit is updated to max_content_contribution
                         // after resolve_intrinsic_track_sizes for span=1 items
                         size = minContentSize;
@@ -3028,12 +3448,18 @@ public class GridComputer {
 
         boolean isMaxContentSizing = (availableGridSpace.width != null && availableGridSpace.width.isMaxContent());
 
+        resolveNonFlexibleIntrinsicColumnSpans(
+            items, columnTracks, sizes, growthLimits, nodeInnerSize, colCounts, gap,
+            templateRows, autoRows, numRows, knownRowSizes, availableGridSpace.width
+        );
+
         for (int itemIdx = 0; itemIdx < items.size(); itemIdx++) {
             GridItem item = items.get(itemIdx);
             int col = getItemColumnWithCounts(item, itemIdx, numColumns, colCounts);
             int span = item.columnSpan;
 
             if (span > 1 && col >= 0 && col + span <= numColumns) {
+                if (!spansFlexibleTrack(columnTracks, col, span)) continue;
                 // Check if item is a scroll container (overflow: hidden, scroll, clip)
                 boolean isScrollContainer = item.overflow != null &&
                                             (item.overflow.x == Overflow.HIDDEN || item.overflow.x == Overflow.SCROLL ||
@@ -3053,7 +3479,7 @@ public class GridComputer {
                 // Note: cached methods already include margin
                 float itemMaxContent;
                 float itemMinContent;
-                if (!Float.isNaN(item.size.width)) {
+                if (item.hasNonPercentageWidth()) {
                     itemMaxContent = item.size.width + marginAxisSums.width;
                     itemMinContent = itemMaxContent;
                 } else {
@@ -3126,11 +3552,11 @@ public class GridComputer {
                             // For percent values, only resolve if we have a definite container size
                             // If container size is indefinite (null or NaN), percent fit-content acts as unlimited (INFINITY in Rust)
                             float resolveContext = (Float.isNaN(nodeInnerSize.width)) ? NaN : nodeInnerSize.width;
-                            float resolved = limitArg.maybeResolve(resolveContext);
+                            float resolved = limitArg.maybeResolve(resolveContext, layoutComputer::resolveCalcValue);
                             limit = (!Float.isNaN(resolved)) ? resolved : Float.MAX_VALUE;
                         } else {
                             // For absolute lengths, resolve directly
-                            limit = limitArg.resolveOrZero(nodeInnerSize.width);
+                            limit = limitArg.resolveOrZero(nodeInnerSize.width, layoutComputer::resolveCalcValue);
                         }
                         fitContentLimits.put(c, limit);
                     }
@@ -3157,14 +3583,21 @@ public class GridComputer {
                 // This is because flexible tracks will grow to fill available space in expand_flexible_tracks.
 
                 if (crossesFlexTrack) {
+                    if (!hasDefiniteInnerWidth || totalFr == 0f) {
+                    IntList contributionTracks = new IntArrayList();
+                    for (int trackIndex : flexTracks) {
+                        if (hasIntrinsicFlexibleTrackMinimum(columnTracks.get(trackIndex))) {
+                            contributionTracks.add(trackIndex);
+                        }
+                    }
                     // Scale the content contribution by the flex-factor sum of the crossed
                     // flexible tracks. Inflexible tracks are covered first; the minimum
                     // contribution remains a floor so definite-size items still open 0fr tracks.
-                    if (!flexTracks.isEmpty()) {
+                    if (!contributionTracks.isEmpty()) {
                         float inflexibleSize = 0f;
                         float crossedFlexFactorSum = 0f;
                         for (int c = col; c < col + span; c++) {
-                            if (flexTracks.contains(c)) {
+                            if (contributionTracks.contains(c)) {
                                 int frIndex = frTrackIndices.indexOf(c);
                                 if (frIndex >= 0) {
                                     crossedFlexFactorSum += frValues.getFloat(frIndex);
@@ -3177,12 +3610,22 @@ public class GridComputer {
                             }
                         }
 
-                        boolean intrinsicFlexSizing = availableGridSpace.width.isMinContent() || isMaxContentSizing;
+                        boolean intrinsicFlexSizing = totalFr == 0f || availableGridSpace.width.isMinContent()
+                            || isMaxContentSizing;
                         float targetContribution;
                         if (intrinsicFlexSizing) {
                             float scale = Math.min(crossedFlexFactorSum, 1f);
                             float scaledExcess = Math.max(itemMaxContent - inflexibleSize, 0f) * scale;
-                            targetContribution = Math.max(minimumContribution, inflexibleSize + scaledExcess);
+                            float specifiedMinimum = specifiedStyleSize(
+                                item.rawMinSize == null ? null : item.rawMinSize.width,
+                                item.minSize.width
+                            ) + marginAxisSums.width;
+                            float specifiedSize = specifiedStyleSize(
+                                item.rawSize == null ? null : item.rawSize.width,
+                                item.size.width
+                            ) + marginAxisSums.width;
+                            float specifiedFloor = Math.max(specifiedMinimum, specifiedSize);
+                            targetContribution = Math.max(specifiedFloor, inflexibleSize + scaledExcess);
                         } else {
                             targetContribution = itemMaxContent;
                         }
@@ -3190,19 +3633,20 @@ public class GridComputer {
                         float extraNeeded = targetContribution - currentSpannedSize;
                         if (extraNeeded > 0) {
                             if (crossedFlexFactorSum > 0f) {
-                                for (int c : flexTracks) {
+                                for (int c : contributionTracks) {
                                     int frIndex = frTrackIndices.indexOf(c);
                                     float factor = frIndex >= 0 ? frValues.getFloat(frIndex) : 0f;
                                     float share = extraNeeded * factor / crossedFlexFactorSum;
                                     sizes.set(c, sizes.getFloat(c) + share);
                                 }
                             } else {
-                                float extraPerTrack = extraNeeded / flexTracks.size();
-                                for (int c : flexTracks) {
+                                float extraPerTrack = extraNeeded / contributionTracks.size();
+                                for (int c : contributionTracks) {
                                     sizes.set(c, sizes.getFloat(c) + extraPerTrack);
                                 }
                             }
                         }
+                    }
                     }
                 } else {
                     // Item does not cross flex track - normal distribution
@@ -3339,7 +3783,9 @@ public class GridComputer {
                                         ? nodeInnerSize.width - gap.width * (numColumns - 1)
                                         : (!Float.isNaN(availableGridWidth)
                                            ? availableGridWidth - gap.width * (numColumns - 1)
-                                           : -1);  // -1 means indefinite
+                                           : (!Float.isNaN(minimumInnerWidth)
+                                              ? minimumInnerWidth - gap.width * (numColumns - 1)
+                                              : -1));  // -1 means indefinite
 
         if (effectiveAvailableWidth >= 0) {
             // Before distributing free space, initialize null-sized auto tracks to 0
@@ -3405,7 +3851,7 @@ public class GridComputer {
                         canGrow = true;
                     } else if (track == null) {
                         canGrow = true;  // Implicit auto track
-                    } else if (track != null && track.isMinmax()) {
+                    } else if (track != null && track.isMinmax() && !isFlexibleTrack(track)) {
                         // minmax track - check if it has a growth limit set and room to grow
                         if (!Float.isNaN(currentSize) && !Float.isNaN(limit) && currentSize < limit) {
                             canGrow = true;
@@ -3472,13 +3918,18 @@ public class GridComputer {
                     AlignContent justifyContent = style.justifyContent;  // AUTO/null means default = STRETCH for Grid
                     if (justifyContent != null) justifyContent = justifyContent.withoutSafety();
                     boolean shouldStretch = (justifyContent == null || justifyContent == AlignContent.AUTO || justifyContent == AlignContent.STRETCH);
-                    if (!Float.isNaN(nodeInnerSize.width) && shouldStretch) {
+                    float stretchAvailableWidth = !Float.isNaN(nodeInnerSize.width)
+                        ? nodeInnerSize.width - gap.width * (numColumns - 1)
+                        : (!Float.isNaN(minimumInnerWidth)
+                            ? minimumInnerWidth - gap.width * (numColumns - 1)
+                            : NaN);
+                    if (!Float.isNaN(stretchAvailableWidth) && shouldStretch) {
                         // Recalculate free space for stretch (not using remainingSpace from PHASE 1)
                         float stretchUsedSpace = 0;
                         for (float s : sizes) {
                             stretchUsedSpace += (!Float.isNaN(s) ? s : 0);
                         }
-                        float stretchFreeSpace = effectiveAvailableWidth - stretchUsedSpace;
+                        float stretchFreeSpace = stretchAvailableWidth - stretchUsedSpace;
 
                         if (stretchFreeSpace > 0.001f) {
                             // Find auto tracks only (not minmax tracks)
@@ -3493,7 +3944,7 @@ public class GridComputer {
                                     track = null;
                                 }
 
-                                if (track == null || track.isAuto()) {
+                                if (isStretchableAutoTrack(track)) {
                                     autoTracks.add(i);
                                 }
                             }
@@ -3545,7 +3996,850 @@ public class GridComputer {
             }
         }
 
+        if (!hasDefiniteInnerWidth && !Float.isNaN(minimumInnerWidth)) {
+            expandFlexibleTracksToMinimum(
+                columnTracks,
+                sizes,
+                minimumInnerWidth - gap.width * Math.max(0, numColumns - 1));
+        }
+
         return sizes;
+    }
+
+    private enum IntrinsicContributionKind {
+        MINIMUM,
+        MAXIMUM
+    }
+
+    private static class IntrinsicColumnTrack {
+        private final TrackSizingFunction function;
+        private float baseSize;
+        private float growthLimit;
+        private float plannedBaseIncrease;
+        private float plannedGrowthLimit;
+        private boolean infinitelyGrowable;
+
+        private IntrinsicColumnTrack(TrackSizingFunction function, float baseSize, float growthLimit) {
+            this.function = function;
+            this.baseSize = Float.isNaN(baseSize) ? 0f : baseSize;
+            this.growthLimit = Float.isNaN(growthLimit) ? Float.MAX_VALUE : growthLimit;
+        }
+    }
+
+    private record ColumnIntrinsicContributions(
+        float minimum,
+        float minContent,
+        float maxContent,
+        boolean scrollContainer
+    ) {
+    }
+
+    private void resolveNonFlexibleIntrinsicColumnSpans(
+        List<GridItem> items,
+        List<TrackSizingFunction> columnTracks,
+        FloatList sizes,
+        FloatList growthLimits,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap,
+        List<TrackSizingFunction> templateRows,
+        List<TrackSizingFunction> autoRows,
+        int numRows,
+        FloatList knownRowSizes,
+        AvailableSpace availableSpace
+    ) {
+        List<Integer> itemIndices = new ArrayList<>();
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            int column = getItemColumnWithCounts(item, itemIndex, columnTracks.size(), colCounts);
+            if (item.columnSpan > 1 && column >= 0 && column + item.columnSpan <= columnTracks.size()
+                && !spansFlexibleTrack(columnTracks, column, item.columnSpan)) {
+                itemIndices.add(itemIndex);
+            }
+        }
+        if (itemIndices.isEmpty()) return;
+        itemIndices.sort((left, right) -> Integer.compare(items.get(left).columnSpan, items.get(right).columnSpan));
+
+        List<IntrinsicColumnTrack> tracks = new ArrayList<>(columnTracks.size());
+        for (int track = 0; track < columnTracks.size(); track++) {
+            tracks.add(new IntrinsicColumnTrack(
+                columnTracks.get(track), sizes.getFloat(track), growthLimits.getFloat(track)
+            ));
+        }
+
+        int batchStart = 0;
+        while (batchStart < itemIndices.size()) {
+            int span = items.get(itemIndices.get(batchStart)).columnSpan;
+            int batchEnd = batchStart;
+            while (batchEnd < itemIndices.size() && items.get(itemIndices.get(batchEnd)).columnSpan == span) {
+                batchEnd++;
+            }
+
+            distributeColumnBaseSizeBatch(
+                items, itemIndices, batchStart, batchEnd, tracks, nodeInnerSize, colCounts, gap,
+                templateRows, autoRows, numRows, knownRowSizes, availableSpace, 0
+            );
+            distributeColumnBaseSizeBatch(
+                items, itemIndices, batchStart, batchEnd, tracks, nodeInnerSize, colCounts, gap,
+                templateRows, autoRows, numRows, knownRowSizes, availableSpace, 1
+            );
+            if (availableSpace.isMaxContent()) {
+                distributeColumnBaseSizeBatch(
+                    items, itemIndices, batchStart, batchEnd, tracks, nodeInnerSize, colCounts, gap,
+                    templateRows, autoRows, numRows, knownRowSizes, availableSpace, 2
+                );
+            }
+            distributeColumnBaseSizeBatch(
+                items, itemIndices, batchStart, batchEnd, tracks, nodeInnerSize, colCounts, gap,
+                templateRows, autoRows, numRows, knownRowSizes, availableSpace, 3
+            );
+            normalizeGrowthLimits(tracks);
+            distributeColumnGrowthLimitBatch(
+                items, itemIndices, batchStart, batchEnd, tracks, nodeInnerSize, colCounts, gap,
+                templateRows, autoRows, numRows, knownRowSizes, false
+            );
+            flushGrowthLimitIncreases(tracks, true);
+            distributeColumnGrowthLimitBatch(
+                items, itemIndices, batchStart, batchEnd, tracks, nodeInnerSize, colCounts, gap,
+                templateRows, autoRows, numRows, knownRowSizes, true
+            );
+            flushGrowthLimitIncreases(tracks, false);
+            batchStart = batchEnd;
+        }
+
+        for (int track = 0; track < tracks.size(); track++) {
+            IntrinsicColumnTrack state = tracks.get(track);
+            sizes.set(track, state.baseSize);
+            growthLimits.set(track, state.growthLimit == Float.MAX_VALUE ? Float.MAX_VALUE : state.growthLimit);
+        }
+    }
+
+    private void distributeColumnBaseSizeBatch(
+        List<GridItem> items,
+        List<Integer> itemIndices,
+        int batchStart,
+        int batchEnd,
+        List<IntrinsicColumnTrack> tracks,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap,
+        List<TrackSizingFunction> templateRows,
+        List<TrackSizingFunction> autoRows,
+        int numRows,
+        FloatList knownRowSizes,
+        AvailableSpace availableSpace,
+        int phase
+    ) {
+        for (int batchIndex = batchStart; batchIndex < batchEnd; batchIndex++) {
+            int itemIndex = itemIndices.get(batchIndex);
+            GridItem item = items.get(itemIndex);
+            int column = getItemColumnWithCounts(item, itemIndex, tracks.size(), colCounts);
+            ColumnIntrinsicContributions contribution = measureColumnIntrinsicContributions(
+                item, nodeInnerSize, gap, templateRows, autoRows, numRows, knownRowSizes
+            );
+            List<Integer> targets = baseSizeTargets(tracks, column, item.columnSpan, phase, nodeInnerSize.width);
+            if (targets.isEmpty()) continue;
+            float requiredSize = switch (phase) {
+                case 0 -> limitedIntrinsicMinimumContribution(
+                    item, contribution, tracks, column, item.columnSpan, nodeInnerSize.width,
+                    availableSpace.isMinContent() || availableSpace.isMaxContent());
+                case 1 -> contribution.minContent();
+                case 2 -> limitedMaximumContribution(
+                    contribution.maxContent(), tracks, column, item.columnSpan, nodeInnerSize.width);
+                case 3 -> contribution.maxContent();
+                default -> 0f;
+            };
+            float requiredTrackSize = Math.max(0f, requiredSize - gap.width * (item.columnSpan - 1));
+            boolean limitByFitContent = contribution.scrollContainer()
+                || (phase == 2 && targets.stream().noneMatch(track -> hasMaxContentTrackMinimum(tracks.get(track).function)));
+            planBaseSizeIncrease(
+                tracks, column, item.columnSpan, requiredTrackSize, targets,
+                limitByFitContent, phase >= 2 ? IntrinsicContributionKind.MAXIMUM : IntrinsicContributionKind.MINIMUM,
+                nodeInnerSize.width
+            );
+        }
+        flushBaseSizeIncreases(tracks);
+    }
+
+    private void distributeColumnGrowthLimitBatch(
+        List<GridItem> items,
+        List<Integer> itemIndices,
+        int batchStart,
+        int batchEnd,
+        List<IntrinsicColumnTrack> tracks,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap,
+        List<TrackSizingFunction> templateRows,
+        List<TrackSizingFunction> autoRows,
+        int numRows,
+        FloatList knownRowSizes,
+        boolean maxContent
+    ) {
+        for (int batchIndex = batchStart; batchIndex < batchEnd; batchIndex++) {
+            int itemIndex = itemIndices.get(batchIndex);
+            GridItem item = items.get(itemIndex);
+            int column = getItemColumnWithCounts(item, itemIndex, tracks.size(), colCounts);
+            List<Integer> targets = new ArrayList<>();
+            for (int track = column; track < column + item.columnSpan; track++) {
+                TrackSizingFunction function = tracks.get(track).function;
+                boolean include = maxContent
+                    ? hasMaxContentTrackMaximum(function, nodeInnerSize.width)
+                    : hasIntrinsicTrackMaximum(function, nodeInnerSize.width);
+                if (include) targets.add(track);
+            }
+            if (targets.isEmpty()) continue;
+            ColumnIntrinsicContributions contribution = measureColumnIntrinsicContributions(
+                item, nodeInnerSize, gap, templateRows, autoRows, numRows, knownRowSizes
+            );
+            float requiredSize = maxContent ? contribution.maxContent() : contribution.minContent();
+            float requiredTrackSize = Math.max(0f, requiredSize - gap.width * (item.columnSpan - 1));
+            planGrowthLimitIncrease(tracks, column, item.columnSpan, requiredTrackSize, targets, nodeInnerSize.width);
+        }
+    }
+
+    private ColumnIntrinsicContributions measureColumnIntrinsicContributions(
+        GridItem item,
+        FloatSize nodeInnerSize,
+        FloatSize gap,
+        List<TrackSizingFunction> templateRows,
+        List<TrackSizingFunction> autoRows,
+        int numRows,
+        FloatList knownRowSizes
+    ) {
+        boolean scrollContainer = item.overflow != null
+            && (item.overflow.x == Overflow.HIDDEN || item.overflow.x == Overflow.SCROLL
+            || item.overflow.x == Overflow.CLIP);
+        float estimatedRowHeight = estimateItemRowHeightWithKnownSizes(
+            item, templateRows, autoRows, numRows, nodeInnerSize.height, gap, knownRowSizes
+        );
+        FloatSize availableSpace = new FloatSize(NaN, estimatedRowHeight);
+        item.availableSpaceCache = availableSpace;
+        FloatSize margins = item.getMarginAxisSumsWithBaselineShims(nodeInnerSize.width);
+        float maxContent;
+        float minContent;
+        if (item.hasNonPercentageWidth()) {
+            maxContent = item.size.width + margins.width;
+            minContent = maxContent;
+        } else {
+            maxContent = item.getMaxContentContributionWidthCached(layoutComputer, availableSpace, nodeInnerSize);
+            minContent = item.getMinContentContributionWidthCached(layoutComputer, availableSpace, nodeInnerSize);
+        }
+        float minimum = scrollContainer ? 0f : minContent;
+        minimum = capCompressibleReplacedMinimumContributionWidth(item, minimum, margins.width);
+        return new ColumnIntrinsicContributions(minimum, minContent, maxContent, scrollContainer);
+    }
+
+    private static List<Integer> baseSizeTargets(
+        List<IntrinsicColumnTrack> tracks, int column, int span, int phase, float percentageBasis) {
+        List<Integer> targets = new ArrayList<>();
+        boolean hasMaxContentMinimum = false;
+        if (phase == 2) {
+            for (int track = column; track < column + span; track++) {
+                if (hasMaxContentTrackMinimum(tracks.get(track).function)) {
+                    hasMaxContentMinimum = true;
+                    break;
+                }
+            }
+        }
+        for (int track = column; track < column + span; track++) {
+            TrackSizingFunction function = tracks.get(track).function;
+            boolean selected = switch (phase) {
+                case 0 -> hasIntrinsicTrackMinimum(function) || unresolvedPercentageTrackMinimum(function, percentageBasis);
+                case 1 -> hasMinOrMaxContentTrackMinimum(function);
+                case 2 -> hasMaxContentMinimum
+                    ? hasMaxContentTrackMinimum(function) : hasAutomaticTrackMinimum(function);
+                case 3 -> hasMaxContentTrackMinimum(function);
+                default -> false;
+            };
+            if (selected) targets.add(track);
+        }
+        return targets;
+    }
+
+    private static boolean unresolvedPercentageTrackMinimum(TrackSizingFunction function, float percentageBasis) {
+        if (!Float.isNaN(percentageBasis) || function == null) return false;
+        TrackSizingFunction minimum = function.isMinmax() ? function.getMinFunc() : function;
+        return minimum != null && minimum.isFixed() && minimum.getFixedValue() != null
+            && minimum.getFixedValue().isPercent();
+    }
+
+    private float limitedIntrinsicMinimumContribution(
+        GridItem item,
+        ColumnIntrinsicContributions contribution,
+        List<IntrinsicColumnTrack> tracks,
+        int column,
+        int span,
+        float percentageBasis,
+        boolean useMinContentContribution) {
+        if (contribution.scrollContainer()) return contribution.minimum();
+        float fixedMaximumLimit = spannedFixedColumnMaximumLimit(tracks, column, span, percentageBasis);
+        float contributionSize = useMinContentContribution
+            ? Math.max(contribution.minimum(), contribution.minContent()) : contribution.minimum();
+        if (Float.isNaN(fixedMaximumLimit)) return contributionSize;
+        float specifiedMinimum = specifiedStyleSize(
+            item.rawMinSize == null ? null : item.rawMinSize.width, item.minSize.width)
+            + item.getMarginAxisSumsWithBaselineShims(percentageBasis).width;
+        return Math.max(specifiedMinimum, Math.min(contributionSize, fixedMaximumLimit));
+    }
+
+    private float limitedMaximumContribution(
+        float contribution,
+        List<IntrinsicColumnTrack> tracks,
+        int column,
+        int span,
+        float percentageBasis) {
+        float fixedMaximumLimit = spannedFixedColumnMaximumLimit(tracks, column, span, percentageBasis);
+        return Float.isNaN(fixedMaximumLimit) ? contribution : Math.min(contribution, fixedMaximumLimit);
+    }
+
+    private float spannedFixedColumnMaximumLimit(
+        List<IntrinsicColumnTrack> tracks,
+        int start,
+        int span,
+        float percentageBasis) {
+        float total = 0f;
+        for (int track = start; track < start + span; track++) {
+            TrackSizingFunction function = tracks.get(track).function;
+            TrackSizingFunction maximum = function != null && function.isMinmax() ? function.getMaxFunc() : function;
+            if (maximum == null || !maximum.isFixed() || maximum.getFixedValue() == null) return NaN;
+            float limit = maximum.getFixedValue().maybeResolve(percentageBasis, layoutComputer::resolveCalcValue);
+            if (Float.isNaN(limit)) return NaN;
+            total += limit;
+        }
+        return total;
+    }
+
+    private float spannedFixedMaximumLimit(
+        List<TrackSizingFunction> tracks,
+        int start,
+        int span,
+        float percentageBasis) {
+        float total = 0f;
+        for (int track = start; track < start + span; track++) {
+            TrackSizingFunction function = tracks.get(track);
+            TrackSizingFunction maximum = function != null && function.isMinmax() ? function.getMaxFunc() : function;
+            if (maximum == null || !maximum.isFixed() || maximum.getFixedValue() == null) return NaN;
+            float limit = maximum.getFixedValue().maybeResolve(percentageBasis, layoutComputer::resolveCalcValue);
+            if (Float.isNaN(limit)) return NaN;
+            total += limit;
+        }
+        return total;
+    }
+
+    private void planBaseSizeIncrease(
+        List<IntrinsicColumnTrack> tracks,
+        int column,
+        int span,
+        float requiredSize,
+        List<Integer> targets,
+        boolean limitByFitContent,
+        IntrinsicContributionKind kind,
+        float percentageBasis
+    ) {
+        if (requiredSize <= 0f) return;
+        float currentSize = 0f;
+        for (int track = column; track < column + span; track++) currentSize += tracks.get(track).baseSize;
+        float remaining = Math.max(0f, requiredSize - currentSize);
+        distributeBaseIncreaseToLimits(tracks, targets, remaining, limitByFitContent, kind, percentageBasis, true);
+    }
+
+    private void distributeBaseIncreaseToLimits(
+        List<IntrinsicColumnTrack> tracks,
+        List<Integer> targets,
+        float remaining,
+        boolean limitByFitContent,
+        IntrinsicContributionKind kind,
+        float percentageBasis,
+        boolean respectGrowthLimit
+    ) {
+        while (remaining > 0.000001f) {
+            List<Integer> growable = new ArrayList<>();
+            float increment = Float.MAX_VALUE;
+            for (int track : targets) {
+                IntrinsicColumnTrack state = tracks.get(track);
+                float limit = respectGrowthLimit && !limitByFitContent
+                    ? state.growthLimit : fitContentLimit(state.function, percentageBasis);
+                float capacity = limit - state.baseSize - state.plannedBaseIncrease;
+                if (capacity > 0.000001f) {
+                    growable.add(track);
+                    increment = Math.min(increment, capacity);
+                }
+            }
+            if (growable.isEmpty()) break;
+            float share = Math.min(increment, remaining / growable.size());
+            float distributed = 0f;
+            for (int track : growable) {
+                IntrinsicColumnTrack state = tracks.get(track);
+                float capacity = limitForBaseIncrease(state, limitByFitContent, percentageBasis, respectGrowthLimit)
+                    - state.baseSize - state.plannedBaseIncrease;
+                float increase = Math.min(share, capacity);
+                state.plannedBaseIncrease += increase;
+                distributed += increase;
+            }
+            if (distributed <= 0.000001f) break;
+            remaining -= distributed;
+        }
+        if (remaining <= 0.000001f) return;
+        List<Integer> fallback = new ArrayList<>();
+        for (int track : targets) {
+            TrackSizingFunction function = tracks.get(track).function;
+            boolean matches = kind == IntrinsicContributionKind.MINIMUM
+                ? hasIntrinsicTrackMaximum(function, percentageBasis)
+                : hasMaxContentTrackMaximum(function, percentageBasis);
+            if (matches) fallback.add(track);
+        }
+        if (fallback.isEmpty()) fallback = targets;
+        distributeBaseIncreaseToLimits(tracks, fallback, remaining, true, kind, percentageBasis, false);
+    }
+
+    private float limitForBaseIncrease(
+        IntrinsicColumnTrack track,
+        boolean limitByFitContent,
+        float percentageBasis,
+        boolean respectGrowthLimit
+    ) {
+        return respectGrowthLimit && !limitByFitContent
+            ? track.growthLimit : fitContentLimit(track.function, percentageBasis);
+    }
+
+    private static void flushBaseSizeIncreases(List<IntrinsicColumnTrack> tracks) {
+        for (IntrinsicColumnTrack track : tracks) {
+            track.baseSize += track.plannedBaseIncrease;
+            track.plannedBaseIncrease = 0f;
+        }
+    }
+
+    private void planGrowthLimitIncrease(
+        List<IntrinsicColumnTrack> tracks,
+        int column,
+        int span,
+        float requiredSize,
+        List<Integer> targets,
+        float percentageBasis
+    ) {
+        if (requiredSize <= 0f) return;
+        float currentSize = 0f;
+        for (int track = column; track < column + span; track++) {
+            IntrinsicColumnTrack state = tracks.get(track);
+            currentSize += state.growthLimit == Float.MAX_VALUE ? state.baseSize : state.growthLimit;
+        }
+        float remaining = Math.max(0f, requiredSize - currentSize);
+        if (remaining <= 0f) return;
+        List<Integer> growable = new ArrayList<>();
+        for (int track : targets) {
+            IntrinsicColumnTrack state = tracks.get(track);
+            if (state.infinitelyGrowable || growthLimitCap(state, percentageBasis) == Float.MAX_VALUE) {
+                growable.add(track);
+            }
+        }
+        if (!growable.isEmpty()) {
+            float share = remaining / growable.size();
+            for (int track : growable) {
+                IntrinsicColumnTrack state = tracks.get(track);
+                float candidate = (state.growthLimit == Float.MAX_VALUE ? state.baseSize : state.growthLimit) + share;
+                state.plannedGrowthLimit = Math.max(state.plannedGrowthLimit, candidate);
+            }
+            return;
+        }
+        distributeGrowthLimitUpToCaps(tracks, targets, remaining, percentageBasis);
+    }
+
+    private void distributeGrowthLimitUpToCaps(
+        List<IntrinsicColumnTrack> tracks,
+        List<Integer> targets,
+        float remaining,
+        float percentageBasis
+    ) {
+        while (remaining > 0.000001f) {
+            List<Integer> growable = new ArrayList<>();
+            float smallestCapacity = Float.MAX_VALUE;
+            for (int track : targets) {
+                IntrinsicColumnTrack state = tracks.get(track);
+                float current = state.growthLimit == Float.MAX_VALUE ? state.baseSize : state.growthLimit;
+                float plannedCurrent = Math.max(current, state.plannedGrowthLimit);
+                float capacity = growthLimitCap(state, percentageBasis) - plannedCurrent;
+                if (capacity > 0.000001f) {
+                    growable.add(track);
+                    smallestCapacity = Math.min(smallestCapacity, capacity);
+                }
+            }
+            if (growable.isEmpty()) return;
+            float share = Math.min(smallestCapacity, remaining / growable.size());
+            for (int track : growable) {
+                IntrinsicColumnTrack state = tracks.get(track);
+                float current = state.growthLimit == Float.MAX_VALUE ? state.baseSize : state.growthLimit;
+                state.plannedGrowthLimit = Math.max(state.plannedGrowthLimit, current + share);
+            }
+            remaining -= share * growable.size();
+        }
+    }
+
+    private float growthLimitCap(IntrinsicColumnTrack track, float percentageBasis) {
+        return Math.min(track.growthLimit, fitContentLimit(track.function, percentageBasis));
+    }
+
+    private static void normalizeGrowthLimits(List<IntrinsicColumnTrack> tracks) {
+        for (IntrinsicColumnTrack track : tracks) {
+            if (track.growthLimit != Float.MAX_VALUE && track.growthLimit < track.baseSize) {
+                track.growthLimit = track.baseSize;
+            }
+        }
+    }
+
+    private static void flushGrowthLimitIncreases(List<IntrinsicColumnTrack> tracks, boolean markInfinitelyGrowable) {
+        for (IntrinsicColumnTrack track : tracks) {
+            if (track.plannedGrowthLimit > 0f) {
+                boolean wasInfinite = track.growthLimit == Float.MAX_VALUE;
+                track.growthLimit = wasInfinite ? track.plannedGrowthLimit : Math.max(track.growthLimit, track.plannedGrowthLimit);
+                track.infinitelyGrowable = markInfinitelyGrowable && wasInfinite;
+            } else {
+                track.infinitelyGrowable = false;
+            }
+            track.plannedGrowthLimit = 0f;
+            if (track.growthLimit != Float.MAX_VALUE && track.growthLimit < track.baseSize) {
+                track.growthLimit = track.baseSize;
+            }
+        }
+    }
+
+    private static boolean hasMinOrMaxContentTrackMinimum(TrackSizingFunction function) {
+        TrackSizingFunction minimum = function != null && function.isMinmax() ? function.getMinFunc() : function;
+        return minimum != null && (minimum.isMinContent() || minimum.isMaxContent());
+    }
+
+    private static boolean hasMaxContentTrackMinimum(TrackSizingFunction function) {
+        TrackSizingFunction minimum = function != null && function.isMinmax() ? function.getMinFunc() : function;
+        return minimum != null && minimum.isMaxContent();
+    }
+
+    private static boolean hasAutomaticTrackMinimum(TrackSizingFunction function) {
+        TrackSizingFunction minimum = function != null && function.isMinmax() ? function.getMinFunc() : function;
+        TrackSizingFunction maximum = function != null && function.isMinmax() ? function.getMaxFunc() : function;
+        return function == null || (minimum != null && minimum.isAuto()
+            && (maximum == null || !maximum.isMinContent()));
+    }
+
+    private static boolean hasIntrinsicTrackMaximum(TrackSizingFunction function, float percentageBasis) {
+        TrackSizingFunction maximum = function != null && function.isMinmax() ? function.getMaxFunc() : function;
+        if (maximum == null) return true;
+        if (maximum.isAuto() || maximum.isMinContent() || maximum.isMaxContent() || maximum.isFitContent()) return true;
+        return maximum.isFixed() && maximum.getFixedValue() != null && maximum.getFixedValue().isPercent()
+            && Float.isNaN(percentageBasis);
+    }
+
+    private static boolean hasMaxContentTrackMaximum(TrackSizingFunction function, float percentageBasis) {
+        TrackSizingFunction maximum = function != null && function.isMinmax() ? function.getMaxFunc() : function;
+        if (maximum == null) return true;
+        if (maximum.isAuto() || maximum.isMaxContent() || maximum.isFitContent()) return true;
+        return maximum.isFixed() && maximum.getFixedValue() != null && maximum.getFixedValue().isPercent()
+            && Float.isNaN(percentageBasis);
+    }
+
+    private float fitContentLimit(TrackSizingFunction function, float percentageBasis) {
+        TrackSizingFunction maximum = function != null && function.isMinmax() ? function.getMaxFunc() : function;
+        if (maximum == null || !maximum.isFitContent()) return Float.MAX_VALUE;
+        LengthPercentage argument = maximum.getFitContentArgument();
+        if (argument == null) return Float.MAX_VALUE;
+        float resolved = argument.maybeResolve(percentageBasis, layoutComputer::resolveCalcValue);
+        return Float.isNaN(resolved) ? Float.MAX_VALUE : resolved;
+    }
+
+    private float fitContentLimitedGrowthLimit(TrackSizingFunction function, float percentageBasis) {
+        return fitContentLimit(function, percentageBasis);
+    }
+
+    private void distributeNonFlexibleSpanningColumnContributions(
+        List<GridItem> items,
+        List<TrackSizingFunction> columnTracks,
+        FloatList columnBaseSizes,
+        FloatList growthLimits,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap) {
+
+        List<Integer> itemIndices = new ArrayList<>();
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            int column = getItemColumnWithCounts(item, itemIndex, columnTracks.size(), colCounts);
+            if (item.columnSpan > 1 && column >= 0 && column + item.columnSpan <= columnTracks.size()
+                && !spansFlexibleTrack(columnTracks, column, item.columnSpan)
+                && spansFixedMinimumContentBasedMaximum(columnTracks, column, item.columnSpan)
+                && !hasPositiveSingleColumnContribution(
+                    items, columnTracks, column, item.columnSpan, nodeInnerSize.width, colCounts)) {
+                itemIndices.add(itemIndex);
+            }
+        }
+        itemIndices.sort((left, right) -> Integer.compare(items.get(left).columnSpan, items.get(right).columnSpan));
+        boolean[] distributedToContentBasedMaximum = new boolean[columnBaseSizes.size()];
+
+        int batchStart = 0;
+        while (batchStart < itemIndices.size()) {
+            int span = items.get(itemIndices.get(batchStart)).columnSpan;
+            int batchEnd = batchStart;
+            while (batchEnd < itemIndices.size() && items.get(itemIndices.get(batchEnd)).columnSpan == span) {
+                batchEnd++;
+            }
+
+            FloatList initialBaseSizes = copyTrackSizes(columnBaseSizes);
+            FloatList plannedIncreases = zeroTrackSizes(columnBaseSizes.size());
+            for (int batchIndex = batchStart; batchIndex < batchEnd; batchIndex++) {
+                int itemIndex = itemIndices.get(batchIndex);
+                GridItem item = items.get(itemIndex);
+                int column = getItemColumnWithCounts(item, itemIndex, columnTracks.size(), colCounts);
+                IntList candidateTracks = fixedMinimumContentMaximumColumnTracks(
+                    columnTracks, column, item.columnSpan);
+                if (candidateTracks.isEmpty()) continue;
+
+                float contribution = intrinsicColumnMinimumContribution(item, nodeInnerSize);
+                if (contribution <= 0f) continue;
+                float currentSpannedSize = Math.max(0, item.columnSpan - 1) * gap.width;
+                for (int track = column; track < column + item.columnSpan; track++) {
+                    float baseSize = initialBaseSizes.getFloat(track);
+                    currentSpannedSize += Float.isNaN(baseSize) ? 0f : baseSize;
+                }
+
+                float extraSpace = contribution - currentSpannedSize;
+                if (extraSpace <= 0f) continue;
+                float share = extraSpace / candidateTracks.size();
+                for (int track : candidateTracks) {
+                    plannedIncreases.set(track, Math.max(plannedIncreases.getFloat(track), share));
+                    TrackSizingFunction function = columnTracks.get(track);
+                    if (!hasIntrinsicTrackMinimum(function) && hasContentBasedIntrinsicTrackMaximum(function)) {
+                        distributedToContentBasedMaximum[track] = true;
+                    }
+                }
+            }
+            applyPlannedIncreases(columnBaseSizes, plannedIncreases);
+            batchStart = batchEnd;
+        }
+
+        for (int track = 0; track < columnBaseSizes.size(); track++) {
+            if (!distributedToContentBasedMaximum[track]) continue;
+            float baseSize = columnBaseSizes.getFloat(track);
+            growthLimits.set(track, Float.isNaN(baseSize) ? 0f : baseSize);
+        }
+    }
+
+    private boolean hasPositiveSingleColumnContribution(
+        List<GridItem> items,
+        List<TrackSizingFunction> columnTracks,
+        int spanStart,
+        int span,
+        float percentageBasis,
+        TrackCounts colCounts) {
+
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            if (item.columnSpan != 1) continue;
+            int column = getItemColumnWithCounts(item, itemIndex, columnTracks.size(), colCounts);
+            if (column >= spanStart && column < spanStart + span
+                && !isFlexibleTrack(columnTracks.get(column))
+                && explicitGridItemWidthContribution(item, percentageBasis) > 0f) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void distributeSpanningColumnContributionsToFrBaseSizes(
+        List<GridItem> items,
+        List<TrackSizingFunction> columnTracks,
+        IntList frTrackIndices,
+        FloatList frValues,
+        FloatList frBaseSizes,
+        FloatList sizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap,
+        List<TrackSizingFunction> templateRows,
+        List<TrackSizingFunction> autoRows,
+        int numRows,
+        FloatList knownRowSizes) {
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            if (item.columnSpan <= 1) continue;
+            int col = getItemColumnWithCounts(item, itemIndex, columnTracks.size(), colCounts);
+            if (col < 0 || col + item.columnSpan > columnTracks.size()) continue;
+
+            IntList candidates = new IntArrayList();
+            float factorSum = 0f;
+            for (int c = col; c < col + item.columnSpan; c++) {
+                TrackSizingFunction track = columnTracks.get(c);
+                if (isFlexibleTrack(track) && hasIntrinsicFlexibleTrackMinimum(track)) {
+                    candidates.add(c);
+                    int frIndex = frTrackIndices.indexOf(c);
+                    if (frIndex >= 0) factorSum += frValues.getFloat(frIndex);
+                }
+            }
+            if (candidates.isEmpty()) continue;
+
+            float contribution = explicitGridItemWidthContribution(item, nodeInnerSize.width);
+            float nonFlexibleSize = 0f;
+            for (int c = col; c < col + item.columnSpan; c++) {
+                if (!candidates.contains(c)) {
+                    float value = sizes.getFloat(c);
+                    if (Float.isNaN(value)) {
+                        value = projectedNonFlexibleColumnBaseSize(
+                            items, columnTracks, c, nodeInnerSize.width, colCounts);
+                    }
+                    nonFlexibleSize += value;
+                }
+            }
+            float remaining = Math.max(0f,
+                contribution - nonFlexibleSize - Math.max(0, item.columnSpan - 1) * gap.width);
+            if (remaining <= 0f) continue;
+
+            float equalShare = remaining / candidates.size();
+            for (int index = 0; index < candidates.size(); index++) {
+                int c = candidates.getInt(index);
+                int frIndex = frTrackIndices.indexOf(c);
+                if (frIndex < 0) continue;
+                float factor = frValues.getFloat(frIndex);
+                float share = factorSum > 0f ? remaining * factor / factorSum : equalShare;
+                frBaseSizes.set(frIndex, Math.max(frBaseSizes.getFloat(frIndex), share));
+            }
+        }
+    }
+
+    private float projectedNonFlexibleColumnBaseSize(
+        List<GridItem> items,
+        List<TrackSizingFunction> columnTracks,
+        int targetColumn,
+        float percentageBasis,
+        TrackCounts colCounts) {
+        float projectedSize = 0f;
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            if (item.columnSpan <= 1) continue;
+            int column = getItemColumnWithCounts(item, itemIndex, columnTracks.size(), colCounts);
+            if (column < 0 || targetColumn < column || targetColumn >= column + item.columnSpan
+                || spansFlexibleTrack(columnTracks, column, item.columnSpan)) {
+                continue;
+            }
+            IntList candidates = intrinsicNonFlexibleTracks(columnTracks, column, item.columnSpan);
+            if (!candidates.contains(targetColumn)) continue;
+            float contribution = explicitGridItemWidthContribution(item, percentageBasis);
+            if (contribution <= 0f) continue;
+            projectedSize = Math.max(projectedSize, contribution / candidates.size());
+        }
+        return projectedSize;
+    }
+
+    private float projectedNonFlexibleColumnTotal(
+        List<GridItem> items,
+        List<TrackSizingFunction> columnTracks,
+        FloatList sizes,
+        float percentageBasis,
+        TrackCounts colCounts) {
+        float total = 0f;
+        for (int column = 0; column < columnTracks.size(); column++) {
+            if (isFlexibleTrack(columnTracks.get(column)) || !Float.isNaN(sizes.getFloat(column))) continue;
+            total += projectedNonFlexibleColumnBaseSize(
+                items, columnTracks, column, percentageBasis, colCounts);
+        }
+        return total;
+    }
+
+    private static float explicitGridItemWidthContribution(GridItem item, float percentageBasis) {
+        float specifiedSize = specifiedStyleSize(
+            item.rawSize == null ? null : item.rawSize.width,
+            item.size.width);
+        float specifiedMinimum = specifiedStyleSize(
+            item.rawMinSize == null ? null : item.rawMinSize.width,
+            item.minSize.width);
+        float contribution = Math.max(specifiedSize, specifiedMinimum);
+        if (contribution <= 0f) return 0f;
+        return contribution + item.getMarginAxisSumsWithBaselineShims(percentageBasis).width;
+    }
+
+    private float intrinsicColumnMinimumContribution(GridItem item, FloatSize nodeInnerSize) {
+        float definiteWidth = Math.max(
+            specifiedStyleSize(item.rawSize == null ? null : item.rawSize.width, item.size.width),
+            specifiedStyleSize(item.rawMinSize == null ? null : item.rawMinSize.width, item.minSize.width)
+        );
+        FloatSize availableSpace = new FloatSize(NaN, NaN);
+        item.availableSpaceCache = availableSpace;
+        float contentWidth = item.getMinContentContributionWidthCached(
+            layoutComputer, availableSpace, nodeInnerSize);
+        return Math.max(definiteWidth, contentWidth);
+    }
+
+    private static FloatList copyTrackSizes(FloatList sizes) {
+        FloatList copy = new FloatArrayList(sizes.size());
+        for (float size : sizes) {
+            copy.add(size);
+        }
+        return copy;
+    }
+
+    private static FloatList zeroTrackSizes(int count) {
+        FloatList sizes = new FloatArrayList(count);
+        for (int index = 0; index < count; index++) {
+            sizes.add(0f);
+        }
+        return sizes;
+    }
+
+    private static void applyPlannedIncreases(FloatList baseSizes, FloatList plannedIncreases) {
+        for (int track = 0; track < baseSizes.size(); track++) {
+            float increase = plannedIncreases.getFloat(track);
+            if (increase <= 0f) continue;
+            float baseSize = baseSizes.getFloat(track);
+            baseSizes.set(track, (Float.isNaN(baseSize) ? 0f : baseSize) + increase);
+        }
+    }
+
+    private static boolean spansFlexibleTrack(
+        List<TrackSizingFunction> tracks,
+        int start,
+        int span) {
+        for (int track = start; track < start + span; track++) {
+            if (isFlexibleTrack(tracks.get(track))) return true;
+        }
+        return false;
+    }
+
+    private static boolean spansFixedMinimumContentBasedMaximum(
+        List<TrackSizingFunction> tracks,
+        int start,
+        int span) {
+        for (int track = start; track < start + span; track++) {
+            TrackSizingFunction function = tracks.get(track);
+            if (!hasIntrinsicTrackMinimum(function) && hasContentBasedIntrinsicTrackMaximum(function)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static IntList intrinsicNonFlexibleTracks(
+        List<TrackSizingFunction> tracks,
+        int start,
+        int span) {
+        IntList candidates = new IntArrayList();
+        for (int track = start; track < start + span; track++) {
+            TrackSizingFunction function = tracks.get(track);
+            if (!isFlexibleTrack(function) && hasIntrinsicTrackMinimum(function)) {
+                candidates.add(track);
+            }
+        }
+        return candidates;
+    }
+
+    private static IntList fixedMinimumContentMaximumColumnTracks(
+        List<TrackSizingFunction> tracks,
+        int start,
+        int span) {
+        IntList candidates = new IntArrayList();
+        for (int track = start; track < start + span; track++) {
+            TrackSizingFunction function = tracks.get(track);
+            if (!isFlexibleTrack(function)
+                && (hasIntrinsicTrackMinimum(function) || hasContentBasedIntrinsicTrackMaximum(function))) {
+                candidates.add(track);
+            }
+        }
+        return candidates;
     }
 
     /**
@@ -3620,6 +4914,82 @@ public class GridComputer {
         return Math.max(0, flexFraction);
     }
 
+    private void expandFlexibleTracksToMinimum(
+        List<TrackSizingFunction> tracks,
+        FloatList sizes,
+        float minimumTrackSpace) {
+        if (minimumTrackSpace <= 0f) return;
+
+        FloatList flexibleBaseSizes = new FloatArrayList();
+        FloatList flexibleFactors = new FloatArrayList();
+        float inflexibleSize = 0f;
+        for (int index = 0; index < tracks.size(); index++) {
+            float size = sizes.getFloat(index);
+            if (isFlexibleTrack(tracks.get(index))) {
+                flexibleBaseSizes.add(size);
+                flexibleFactors.add(flexibleTrackFactor(tracks.get(index)));
+            } else {
+                inflexibleSize += size;
+            }
+        }
+        if (flexibleFactors.isEmpty()) return;
+
+        float flexFraction = findSizeOfFrForDefinite(
+            flexibleBaseSizes, flexibleFactors, minimumTrackSpace - inflexibleSize);
+        int flexibleIndex = 0;
+        for (int index = 0; index < tracks.size(); index++) {
+            if (!isFlexibleTrack(tracks.get(index))) continue;
+            float baseSize = flexibleBaseSizes.getFloat(flexibleIndex);
+            float factor = flexibleFactors.getFloat(flexibleIndex++);
+            sizes.set(index, Math.max(baseSize, factor * flexFraction));
+        }
+    }
+
+    private static boolean isFlexibleTrack(TrackSizingFunction track) {
+        return track != null && track.isFlexible();
+    }
+
+    private static float flexibleTrackFactor(TrackSizingFunction track) {
+        if (track == null) return 0f;
+        if (track.isFr()) return track.getFrValue();
+        TrackSizingFunction maximum = track.getMaxFunc();
+        return maximum != null && maximum.isFr() ? maximum.getFrValue() : 0f;
+    }
+
+    private static boolean hasIntrinsicFlexibleTrackMinimum(TrackSizingFunction track) {
+        if (!isFlexibleTrack(track)) return false;
+        if (track.isFr()) return true;
+        TrackSizingFunction minimum = track.getMinFunc();
+        return minimum == null || minimum.isAuto() || minimum.isMinContent() || minimum.isMaxContent();
+    }
+
+    private static boolean hasIntrinsicTrackMinimum(TrackSizingFunction track) {
+        if (track == null || track.isAuto() || track.isFitContent()) return true;
+        TrackSizingFunction minimum = track.isMinmax() ? track.getMinFunc() : track;
+        return minimum == null || minimum.isAuto() || minimum.isMinContent() || minimum.isMaxContent();
+    }
+
+    private static boolean hasContentBasedIntrinsicTrackMaximum(TrackSizingFunction track) {
+        if (track == null || !track.isMinmax()) return false;
+        TrackSizingFunction maximum = track.getMaxFunc();
+        return maximum != null && (maximum.isMinContent() || maximum.isMaxContent());
+    }
+
+    private static boolean isStretchableAutoTrack(TrackSizingFunction track) {
+        if (track == null || track.isAuto()) return true;
+        if (!track.isMinmax()) return false;
+        TrackSizingFunction maximum = track.getMaxFunc();
+        return maximum == null || maximum.isAuto();
+    }
+
+    private float flexibleTrackMinimumBaseSize(TrackSizingFunction track, float percentageBasis) {
+        if (track == null || !track.isMinmax()) return 0f;
+        TrackSizingFunction minimum = track.getMinFunc();
+        if (minimum == null || !minimum.isFixed() || minimum.getFixedValue() == null) return 0f;
+        float resolved = minimum.getFixedValue().maybeResolve(percentageBasis, layoutComputer::resolveCalcValue);
+        return Float.isNaN(resolved) ? 0f : resolved;
+    }
+
     /**
      * Determine (in each axis) whether the item crosses any flexible or intrinsic tracks.
      * This is used by the re-run logic to decide whether sizing needs to be recalculated.
@@ -3646,7 +5016,7 @@ public class GridComputer {
             for (int c = col; c < col + item.columnSpan && c < numColumns; c++) {
                 TrackSizingFunction track = getTrackSizingFunctionForIndex(templateColumns, autoColumns, c, colCounts);
                 if (track != null) {
-                    if (track.isFr()) {
+                    if (isFlexibleTrack(track)) {
                         item.crossesFlexibleColumn = true;
                     }
                     if (track.hasIntrinsicSizingFunction()) {
@@ -3661,7 +5031,7 @@ public class GridComputer {
             for (int r = row; r < row + item.rowSpan && r < numRows; r++) {
                 TrackSizingFunction track = getTrackSizingFunctionForIndex(templateRows, autoRows, r, rowCounts);
                 if (track != null) {
-                    if (track.isFr()) {
+                    if (isFlexibleTrack(track)) {
                         item.crossesFlexibleRow = true;
                     }
                     if (track.hasIntrinsicSizingFunction()) {
@@ -3756,9 +5126,12 @@ public class GridComputer {
                 continue;
             }
 
-            // Compute the baselines of all items in the row (not just baseline-aligned ones)
-            // This is needed to calculate the max baseline for the row
+            // Compute the baselines of items that participate in baseline alignment.
             for (GridItem item : rowItems) {
+                if (!item.participatesInBaselineAlignment()) {
+                    continue;
+                }
+
                 // Measure the item to get its baseline
                 LayoutOutput output = layoutComputer.performChildLayout(
                     item.nodeId,
@@ -3773,21 +5146,25 @@ public class GridComputer {
                 float height = output.size().height;
                 float marginTop = item.margin != null ? item.margin.top : 0f;
 
-                // baseline = first_baseline.y or height, plus margin.top
-                item.baseline = (!Float.isNaN(baselineValue) ? baselineValue : height) + marginTop;
+                float baseline = !Float.isNaN(baselineValue) ? baselineValue : height;
+                if (item.overflow.y.isScrollContainer()) {
+                    baseline = TaffyMath.clamp(baseline, 0f, height);
+                }
+
+                item.baseline = baseline + marginTop;
             }
 
-            // Compute the max baseline of all items in the row
+            // Compute the max baseline of participating items in the row.
             float rowMaxBaseline = 0f;
             for (GridItem item : rowItems) {
-                if (!Float.isNaN(item.baseline)) {
+                if (item.participatesInBaselineAlignment() && !Float.isNaN(item.baseline)) {
                     rowMaxBaseline = Math.max(rowMaxBaseline, item.baseline);
                 }
             }
 
-            // Compute the baseline shim for each item in the row
+            // Apply the baseline shim only to participating items.
             for (GridItem item : rowItems) {
-                if (!Float.isNaN(item.baseline)) {
+                if (item.participatesInBaselineAlignment() && !Float.isNaN(item.baseline)) {
                     item.baselineShim = rowMaxBaseline - item.baseline;
                 }
             }
@@ -3832,16 +5209,23 @@ public class GridComputer {
         // Use available grid space when node inner size is not definite
         AvailableSpace gridHeightSpace = availableGridSpace.height;
         float availableGridHeight = gridHeightSpace.intoOption();
+        float minimumInnerHeight = minInnerHeight(style);
 
         float availableHeight = !Float.isNaN(nodeInnerSize.height)
                                 ? nodeInnerSize.height - gap.height * (numRows - 1)
-                                : (!Float.isNaN(availableGridHeight)
-                                   ? availableGridHeight - gap.height * (numRows - 1)
-                                   : 0);
+                                : 0f;
+        float stretchAvailableHeight = !Float.isNaN(nodeInnerSize.height)
+            ? availableHeight
+            : (!Float.isNaN(minimumInnerHeight)
+                ? minimumInnerHeight - gap.height * (numRows - 1)
+                : NaN);
+        boolean hasDefiniteInnerHeight = !Float.isNaN(nodeInnerSize.height);
 
         float totalFr = 0f;
         float usedSpace = 0;
         int autoCount = 0;
+        boolean hasFlexibleRows = false;
+        List<TrackSizingFunction> rowTracks = new ArrayList<>(numRows);
 
         for (int i = 0; i < numRows; i++) {
             growthLimits.add(Float.MAX_VALUE);
@@ -3884,9 +5268,11 @@ public class GridComputer {
                 // No auto rows defined, default to auto
                 track = null;
             }
+            rowTracks.add(track);
 
-            if (track != null && track.isFr()) {
-                totalFr += track.getFrValue();
+            if (isFlexibleTrack(track)) {
+                hasFlexibleRows = true;
+                totalFr += flexibleTrackFactor(track);
                 sizes.add(NaN);
             } else if (track == null || track.isAuto() || track.isMinContent() || track.isMaxContent()) {
                 // Auto or content-based track - will be resolved later
@@ -3895,26 +5281,21 @@ public class GridComputer {
             } else if (track.isMinmax()) {
                 TrackSizingFunction minF = track.getMinFunc();
                 TrackSizingFunction maxF = track.getMaxFunc();
-                if (maxF != null && maxF.isFr()) {
-                    totalFr += maxF.getFrValue();
-                    sizes.add(NaN);
-                } else if (minF != null && minF.isFixed() && maxF != null && maxF.isFixed()) {
-                    float minSize = minF.getFixedValue().resolveOrZero(nodeInnerSize.height);
-                    float maxSize = maxF.getFixedValue().resolveOrZero(nodeInnerSize.height);
+                if (minF != null && minF.isFixed() && maxF != null && maxF.isFixed()) {
+                    float minSize = minF.getFixedValue().resolveOrZero(nodeInnerSize.height, layoutComputer::resolveCalcValue);
+                    float maxSize = maxF.getFixedValue().resolveOrZero(nodeInnerSize.height, layoutComputer::resolveCalcValue);
                     sizes.add(minSize);
                     usedSpace += minSize;
                     growthLimits.set(i, Math.max(minSize, maxSize));
                 } else if (maxF != null && maxF.isFixed()) {
-                    float maxSize = maxF.getFixedValue().maybeResolve(nodeInnerSize.height);
+                    float maxSize = maxF.getFixedValue().maybeResolve(nodeInnerSize.height, layoutComputer::resolveCalcValue);
                     if (!Float.isNaN(maxSize)) {
                         if (minF == null || minF.isAuto() || minF.isMinContent() || minF.isMaxContent()) {
                             sizes.add(NaN);
                             autoCount++;
-                            if (minF == null || minF.isAuto()) {
-                                growthLimits.set(i, maxSize);
-                            }
+                            growthLimits.set(i, maxSize);
                         } else {
-                            float minSize = minF.getFixedValue().maybeResolve(nodeInnerSize.height);
+                            float minSize = minF.getFixedValue().maybeResolve(nodeInnerSize.height, layoutComputer::resolveCalcValue);
                             if (Float.isNaN(minSize)) {
                                 sizes.add(NaN);
                                 autoCount++;
@@ -3952,99 +5333,108 @@ public class GridComputer {
             }
         }
 
+        if (!hasFlexibleRows && autoCount > 0) {
+            initializeNonFlexibleRowBaseSizes(
+                items, itemRows, rowTracks, sizes, columnSizes, nodeInnerSize, colCounts, gap, itemIndicesByRow);
+            distributeNonFlexibleSpanningRowContributions(
+                items, itemRows, rowTracks, sizes, columnSizes, nodeInnerSize, colCounts, gap);
+            distributeNonFlexibleSpanningRowGrowthLimits(
+                items, itemRows, rowTracks, sizes, growthLimits, columnSizes, nodeInnerSize, colCounts, gap);
+        }
+
         // Second pass: handle fr and auto tracks
         // Per CSS Grid spec, fr units are equivalent to minmax(auto, Nfr)
         // This means the track's minimum size is determined by its content (auto),
         // and then it may grow larger based on the fr distribution.
 
 
-        if (totalFr > 0) {
-            if (!Float.isNaN(nodeInnerSize.height)) {
+        if (hasFlexibleRows) {
+            if (hasDefiniteInnerHeight) {
+                initializeNonFlexibleRowBaseSizes(
+                    items, itemRows, rowTracks, sizes, columnSizes, nodeInnerSize, colCounts, gap, itemIndicesByRow);
+                distributeNonFlexibleSpanningRowContributions(
+                    items, itemRows, rowTracks, sizes, columnSizes, nodeInnerSize, colCounts, gap);
+                distributeNonFlexibleSpanningRowGrowthLimits(
+                    items, itemRows, rowTracks, sizes, growthLimits, columnSizes, nodeInnerSize, colCounts, gap);
+
                 // Definite container - first calculate content-based sizes for fr tracks
                 // (implementing the "auto" part of minmax(auto, Nfr))
                 FloatList contentBasedSizes = new FloatArrayList();
                 for (int i = 0; i < sizes.size(); i++) {
-                    if (Float.isNaN(sizes.getFloat(i)) && expandedRows != null && i < expandedRows.size() && expandedRows.get(i).isFr()) {
-                        float contentHeight = calculateAutoRowHeight(items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
-                        contentBasedSizes.add(contentHeight);
+                    if (Float.isNaN(sizes.getFloat(i)) && isFlexibleTrack(rowTracks.get(i))) {
+                        float baseSize = flexibleTrackMinimumBaseSize(rowTracks.get(i), nodeInnerSize.height);
+                        if (hasIntrinsicFlexibleTrackMinimum(rowTracks.get(i))) {
+                            float contentHeight = calculateFlexibleRowMinimumHeight(
+                                items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
+                            contentBasedSizes.add(Math.max(baseSize, contentHeight));
+                        } else {
+                            contentBasedSizes.add(baseSize);
+                        }
                     } else {
                         contentBasedSizes.add(NaN);
                     }
                 }
 
-                // Calculate fr sizes using an iterative approach similar to Rust's find_size_of_fr
-                // This handles the case where some tracks' content exceeds their fr-based allocation
-                float availableForFr = availableHeight - usedSpace;
-                float currentTotalFr = totalFr;
-                float usedByInflexible = 0f;
-                List<Boolean> isInflexible = new ArrayList<>();
+                distributeSpanningRowMinimumContributions(
+                    items,
+                    itemRows,
+                    rowTracks,
+                    contentBasedSizes,
+                    sizes,
+                    columnSizes,
+                    nodeInnerSize,
+                    colCounts,
+                    gap
+                );
+
+                FloatList flexibleBaseSizes = new FloatArrayList();
+                FloatList flexibleFactors = new FloatArrayList();
                 for (int i = 0; i < sizes.size(); i++) {
-                    isInflexible.add(false);
-                }
-
-                // Iterative algorithm: tracks with content > fr*fraction become inflexible
-                boolean changed = true;
-                int maximumIterations = sizes.size() + 1;
-                for (int iteration = 0; iteration < maximumIterations && changed; iteration++) {
-                    changed = false;
-                    float remainingForFr = availableForFr - usedByInflexible;
-                    float flexFraction = currentTotalFr > 0 ? remainingForFr / currentTotalFr : 0f;
-
-                    for (int i = 0; i < sizes.size(); i++) {
-                        if (Float.isNaN(sizes.getFloat(i)) && expandedRows != null && i < expandedRows.size() && expandedRows.get(i).isFr()) {
-                            if (!isInflexible.get(i)) {
-                                float frValue = expandedRows.get(i).getFrValue();
-                                float frBasedSize = frValue * flexFraction;
-                                float contentSize = contentBasedSizes.getFloat(i);
-
-                                // If content exceeds fr-based size, this track becomes inflexible
-                                if (!Float.isNaN(contentSize) && contentSize > frBasedSize) {
-                                    isInflexible.set(i, true);
-                                    usedByInflexible += contentSize;
-                                    currentTotalFr -= frValue;
-                                    changed = true;
-                                }
-                            }
-                        }
+                    if (isFlexibleTrack(rowTracks.get(i))) {
+                        flexibleBaseSizes.add(contentBasedSizes.getFloat(i));
+                        flexibleFactors.add(flexibleTrackFactor(rowTracks.get(i)));
                     }
                 }
 
-                // Now set final sizes
-                float remainingForFr = availableForFr - usedByInflexible;
-                float flexFraction = currentTotalFr > 0 ? remainingForFr / currentTotalFr : 0f;
+                float nonFlexibleUsedSpace = 0f;
+                for (int row = 0; row < sizes.size(); row++) {
+                    if (!isFlexibleTrack(rowTracks.get(row))) {
+                        float size = sizes.getFloat(row);
+                        nonFlexibleUsedSpace += Float.isNaN(size) ? 0f : size;
+                    }
+                }
+                float flexFraction = totalFr > 0f
+                    ? findSizeOfFrForDefinite(flexibleBaseSizes, flexibleFactors,
+                        availableHeight - nonFlexibleUsedSpace)
+                    : 0f;
 
+                int flexibleIndex = 0;
                 for (int i = 0; i < sizes.size(); i++) {
                     if (Float.isNaN(sizes.getFloat(i))) {
-                        if (expandedRows != null && i < expandedRows.size() && expandedRows.get(i).isFr()) {
-                            if (isInflexible.get(i)) {
-                                // Use content size for inflexible tracks
-                                sizes.set(i, contentBasedSizes.getFloat(i));
-                            } else {
-                                // Use fr-based size for flexible tracks
-                                float frValue = expandedRows.get(i).getFrValue();
-                                float frBasedSize = frValue * flexFraction;
-                                float contentSize = contentBasedSizes.getFloat(i);
-                                // Final size = max(content, fr-based) per CSS Grid spec
-                                sizes.set(i, !Float.isNaN(contentSize) ? Math.max(contentSize, frBasedSize) : frBasedSize);
-                            }
+                        if (isFlexibleTrack(rowTracks.get(i))) {
+                            float baseSize = flexibleBaseSizes.getFloat(flexibleIndex);
+                            float factor = flexibleFactors.getFloat(flexibleIndex++);
+                            sizes.set(i, Math.max(baseSize, factor * flexFraction));
                         } else {
                             float maxRowHeight = calculateAutoRowHeight(items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
                             sizes.set(i, maxRowHeight);
                         }
                     }
                 }
+                stretchAutoRows(style, rowTracks, sizes, availableHeight);
             } else {
                 // Indefinite container (MaxContent) - fr tracks without content get 0
                 // Calculate flex fraction based on item content (similar to columns)
                 float flexFraction = 0f;
+                float zeroFactorFlexFraction = 0f;
 
                 // Pre-compute fr track info ONCE outside the item loop (optimization)
                 boolean[] isFrRow = new boolean[numRows];
                 float[] frRowValue = new float[numRows];
                 for (int r = 0; r < numRows; r++) {
-                    if (expandedRows != null && r < expandedRows.size() && expandedRows.get(r).isFr()) {
+                    if (isFlexibleTrack(rowTracks.get(r))) {
                         isFrRow[r] = true;
-                        frRowValue[r] = expandedRows.get(r).getFrValue();
+                        frRowValue[r] = flexibleTrackFactor(rowTracks.get(r));
                     }
                 }
 
@@ -4076,9 +5466,27 @@ public class GridComputer {
                             }
                         }
                         float leftover = item.size.height - usedByNonFr;
-                        if (leftover > 0 && itemFrSum > 0) {
-                            float itemFr = leftover / itemFrSum;
-                            flexFraction = Math.max(flexFraction, itemFr);
+                        if (leftover > 0) {
+                            if (itemFrSum > 0) {
+                                float itemFr = leftover / itemFrSum;
+                                flexFraction = Math.max(flexFraction, itemFr);
+                            } else {
+                                IntList zeroFactorRows = new IntArrayList();
+                                for (int r = row; r < row + span && r < numRows; r++) {
+                                    if (isFrRow[r] && frRowValue[r] == 0f
+                                        && hasIntrinsicFlexibleTrackMinimum(rowTracks.get(r))) {
+                                        zeroFactorRows.add(r);
+                                    }
+                                }
+                                if (!zeroFactorRows.isEmpty()) {
+                                    float share = leftover / zeroFactorRows.size();
+                                    for (int r : zeroFactorRows) {
+                                        float baseSize = sizes.getFloat(r);
+                                        sizes.set(r, Math.max(Float.isNaN(baseSize) ? 0f : baseSize, share));
+                                    }
+                                    zeroFactorFlexFraction = Math.max(zeroFactorFlexFraction, leftover);
+                                }
+                            }
                         }
                     } else if (crossesFr) {
                         // Measure content using cache
@@ -4110,11 +5518,17 @@ public class GridComputer {
                     }
                 }
 
+                if (totalFr > 0f) {
+                    flexFraction = Math.max(flexFraction, zeroFactorFlexFraction);
+                }
+
                 // Apply flex fraction to fr tracks
                 for (int i = 0; i < sizes.size(); i++) {
                     if (Float.isNaN(sizes.getFloat(i))) {
-                        if (expandedRows != null && i < expandedRows.size() && expandedRows.get(i).isFr()) {
-                            sizes.set(i, expandedRows.get(i).getFrValue() * flexFraction);
+                        if (isFlexibleTrack(rowTracks.get(i))) {
+                            sizes.set(i, Math.max(
+                                flexibleTrackMinimumBaseSize(rowTracks.get(i), nodeInnerSize.height),
+                                flexibleTrackFactor(rowTracks.get(i)) * flexFraction));
                         } else {
                             // Auto row - size based on content
                             float maxRowHeight = calculateAutoRowHeight(items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
@@ -4123,50 +5537,97 @@ public class GridComputer {
                     }
                 }
             }
-        } else if (autoCount > 0 && !Float.isNaN(nodeInnerSize.height)) {
+        } else if (autoCount > 0 && !Float.isNaN(stretchAvailableHeight)) {
             // No fr units but have auto tracks with definite container size
             // 11.8 Stretch auto Tracks: expand auto tracks to fill remaining space
 
             // Step 1: Calculate content size for all auto tracks
             FloatList autoContentSizes = new FloatArrayList();
             float autoContentTotal = 0f;
+            IntList stretchableRows = new IntArrayList();
             for (int i = 0; i < sizes.size(); i++) {
                 if (Float.isNaN(sizes.getFloat(i))) {
-                    float maxRowHeight = calculateAutoRowHeight(items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
-                    autoContentSizes.add(maxRowHeight);
-                    autoContentTotal += maxRowHeight;
+                    TrackSizingFunction track = rowTracks.get(i);
+                    float maxRowHeight = calculateIntrinsicRowTrackContentSize(
+                        track, items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
+                    if (track != null && track.isMinmax()) {
+                        float resolved = resolveIntrinsicRowTrackSize(track, maxRowHeight, nodeInnerSize.height);
+                        sizes.set(i, resolved);
+                        autoContentSizes.add(resolved);
+                        if (isStretchableAutoTrack(track)) {
+                            autoContentTotal += resolved;
+                            stretchableRows.add(i);
+                        } else {
+                            growthLimits.set(i, Math.max(growthLimits.getFloat(i), resolved));
+                        }
+                    } else if (track != null && (track.isMinContent() || track.isMaxContent())) {
+                        sizes.set(i, maxRowHeight);
+                        autoContentSizes.add(maxRowHeight);
+                        growthLimits.set(i, maxRowHeight);
+                    } else if (track != null && track.isFitContent()) {
+                        float limit = track.getFitContentArgument() == null
+                            ? Float.MAX_VALUE
+                            : track.getFitContentArgument().maybeResolve(nodeInnerSize.height, layoutComputer::resolveCalcValue);
+                        float resolved = Float.isNaN(limit) ? maxRowHeight : Math.min(maxRowHeight, limit);
+                        sizes.set(i, resolved);
+                        autoContentSizes.add(resolved);
+                        growthLimits.set(i, resolved);
+                    } else {
+                        autoContentSizes.add(maxRowHeight);
+                        autoContentTotal += maxRowHeight;
+                        stretchableRows.add(i);
+                    }
                 } else {
-                    autoContentSizes.add(0f); // Placeholder for non-auto tracks
+                    TrackSizingFunction track = rowTracks.get(i);
+                    if (isStretchableAutoTrack(track)) {
+                        float baseSize = sizes.getFloat(i);
+                        autoContentSizes.add(baseSize);
+                        autoContentTotal += baseSize;
+                        stretchableRows.add(i);
+                    } else {
+                        autoContentSizes.add(0f); // Placeholder for non-auto tracks
+                    }
                 }
             }
 
             // Step 2: Calculate actual remaining space after content sizes
             float totalUsed = usedSpace + autoContentTotal;
-            float freeSpace = availableHeight - totalUsed;
+            float freeSpace = stretchAvailableHeight - totalUsed;
 
             // Step 3: Distribute free space equally among auto tracks (only if positive)
-            float extraPerAutoTrack = freeSpace > 0 ? freeSpace / autoCount : 0f;
+            float extraPerAutoTrack = freeSpace > 0 && !stretchableRows.isEmpty()
+                ? freeSpace / stretchableRows.size() : 0f;
 
             // Step 4: Set auto track sizes = content size + extra space
-            for (int i = 0; i < sizes.size(); i++) {
-                if (Float.isNaN(sizes.getFloat(i))) {
-                    float contentSize = autoContentSizes.getFloat(i);
-                    sizes.set(i, contentSize + extraPerAutoTrack);
-                }
+            for (int i : stretchableRows) {
+                float contentSize = autoContentSizes.getFloat(i);
+                sizes.set(i, contentSize + extraPerAutoTrack);
             }
         } else if (autoCount > 0) {
             // No fr units and indefinite container - calculate based on content
             for (int i = 0; i < sizes.size(); i++) {
                 if (Float.isNaN(sizes.getFloat(i))) {
-                    float maxRowHeight = calculateAutoRowHeight(items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
-                    sizes.set(i, maxRowHeight);
+                    TrackSizingFunction track = rowTracks.get(i);
+                    float maxRowHeight = calculateIntrinsicRowTrackContentSize(
+                        track, items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[i]);
+                    sizes.set(i, track != null && track.isMinmax()
+                        ? resolveIntrinsicRowTrackSize(track, maxRowHeight, nodeInnerSize.height)
+                        : maxRowHeight);
                 }
             }
+        }
+
+        if (hasDefiniteInnerHeight) {
+            maximizeFiniteRowTracks(sizes, growthLimits, availableHeight);
         }
 
         for (int i = 0; i < sizes.size(); i++) {
             float size = sizes.getFloat(i);
             float growthLimit = growthLimits.getFloat(i);
+            if (!Float.isNaN(size) && growthLimit < size) {
+                growthLimit = size;
+                growthLimits.set(i, growthLimit);
+            }
             if (!Float.isNaN(size) && growthLimit != Float.MAX_VALUE) {
                 if (gridHeightSpace.isMaxContent()) {
                     sizes.set(i, growthLimit);
@@ -4185,26 +5646,582 @@ public class GridComputer {
             }
         }
 
+        if (!hasDefiniteInnerHeight && !Float.isNaN(minimumInnerHeight)) {
+            expandFlexibleTracksToMinimum(
+                rowTracks,
+                sizes,
+                minimumInnerHeight - gap.height * Math.max(0, numRows - 1));
+        }
+
         return sizes;
     }
 
-    private float calculateAutoRowHeight(List<GridItem> items, FloatList columnSizes, FloatSize nodeInnerSize, TrackCounts colCounts, float columnGap, IntList rowItemIndices) {
+    private static void stretchAutoRows(
+        TaffyStyle style,
+        List<TrackSizingFunction> rowTracks,
+        FloatList rowSizes,
+        float availableHeight) {
+        AlignContent alignContent = style.alignContent;
+        if (alignContent != null) alignContent = alignContent.withoutSafety();
+        boolean shouldStretch = alignContent == null || alignContent == AlignContent.AUTO
+            || alignContent == AlignContent.STRETCH;
+        if (!shouldStretch) return;
+
+        IntList autoRows = new IntArrayList();
+        float usedSpace = 0f;
+        for (int row = 0; row < rowSizes.size(); row++) {
+            float size = rowSizes.getFloat(row);
+            usedSpace += Float.isNaN(size) ? 0f : size;
+            TrackSizingFunction track = rowTracks.get(row);
+            if (isStretchableAutoTrack(track)) {
+                autoRows.add(row);
+            }
+        }
+        float freeSpace = availableHeight - usedSpace;
+        if (freeSpace <= 0f || autoRows.isEmpty()) return;
+
+        float extraPerRow = freeSpace / autoRows.size();
+        for (int row : autoRows) {
+            float size = rowSizes.getFloat(row);
+            rowSizes.set(row, (Float.isNaN(size) ? 0f : size) + extraPerRow);
+        }
+    }
+
+    /** Distributes definite grid space to finite row growth limits before auto-track stretching. */
+    private static void maximizeFiniteRowTracks(
+        FloatList rowSizes,
+        FloatList growthLimits,
+        float availableHeight) {
+        float usedSpace = 0f;
+        for (float size : rowSizes) {
+            usedSpace += Float.isNaN(size) ? 0f : size;
+        }
+        float remainingSpace = availableHeight - usedSpace;
+        while (remainingSpace > 0.001f) {
+            IntList growableRows = new IntArrayList();
+            for (int row = 0; row < rowSizes.size(); row++) {
+                float size = rowSizes.getFloat(row);
+                float growthLimit = growthLimits.getFloat(row);
+                if (!Float.isNaN(size) && growthLimit != Float.MAX_VALUE && size < growthLimit - 0.001f) {
+                    growableRows.add(row);
+                }
+            }
+            if (growableRows.isEmpty()) return;
+
+            float share = remainingSpace / growableRows.size();
+            float distributed = 0f;
+            for (int row : growableRows) {
+                float size = rowSizes.getFloat(row);
+                float growthLimit = growthLimits.getFloat(row);
+                float increase = Math.min(share, growthLimit - size);
+                rowSizes.set(row, size + increase);
+                distributed += increase;
+            }
+            if (distributed <= 0.001f) return;
+            remainingSpace -= distributed;
+        }
+    }
+
+    private float resolveIntrinsicRowTrackSize(
+        TrackSizingFunction track,
+        float contentSize,
+        float percentageBasis) {
+        TrackSizingFunction minimum = track.getMinFunc();
+        TrackSizingFunction maximum = track.getMaxFunc();
+        float minimumSize = intrinsicRowFunctionSize(minimum, contentSize, percentageBasis);
+        float maximumSize = intrinsicRowFunctionSize(maximum, contentSize, percentageBasis);
+        if (Float.isNaN(maximumSize)) return minimumSize;
+        return Math.max(minimumSize, maximumSize);
+    }
+
+    private float intrinsicRowFunctionSize(
+        TrackSizingFunction function,
+        float contentSize,
+        float percentageBasis) {
+        if (function == null || function.isAuto() || function.isMinContent() || function.isMaxContent()) {
+            return contentSize;
+        }
+        if (function.isFixed() && function.getFixedValue() != null) {
+            float resolved = function.getFixedValue().maybeResolve(percentageBasis, layoutComputer::resolveCalcValue);
+            return Float.isNaN(resolved) ? contentSize : resolved;
+        }
+        return contentSize;
+    }
+
+    private void initializeNonFlexibleRowBaseSizes(
+        List<GridItem> items,
+        int[] itemRows,
+        List<TrackSizingFunction> rowTracks,
+        FloatList rowBaseSizes,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap,
+        IntList[] itemIndicesByRow) {
+
+        for (int row = 0; row < rowTracks.size(); row++) {
+            if (!Float.isNaN(rowBaseSizes.getFloat(row)) || isFlexibleTrack(rowTracks.get(row))
+                || !hasIntrinsicTrackMinimum(rowTracks.get(row))) {
+                continue;
+            }
+            rowBaseSizes.set(row, calculateRowBaseContribution(
+                rowTracks.get(row), items, columnSizes, nodeInnerSize, colCounts, gap.width, itemIndicesByRow[row]));
+        }
+    }
+
+    private void distributeNonFlexibleSpanningRowContributions(
+        List<GridItem> items,
+        int[] itemRows,
+        List<TrackSizingFunction> rowTracks,
+        FloatList rowBaseSizes,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap) {
+
+        List<Integer> itemIndices = new ArrayList<>();
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            int row = itemRows[itemIndex];
+            if (item.rowSpan > 1 && row >= 0 && row + item.rowSpan <= rowTracks.size()
+                && !spansFlexibleTrack(rowTracks, row, item.rowSpan)) {
+                itemIndices.add(itemIndex);
+            }
+        }
+        itemIndices.sort((left, right) -> Integer.compare(items.get(left).rowSpan, items.get(right).rowSpan));
+
+        int batchStart = 0;
+        while (batchStart < itemIndices.size()) {
+            int span = items.get(itemIndices.get(batchStart)).rowSpan;
+            int batchEnd = batchStart;
+            while (batchEnd < itemIndices.size() && items.get(itemIndices.get(batchEnd)).rowSpan == span) {
+                batchEnd++;
+            }
+
+            FloatList initialBaseSizes = copyTrackSizes(rowBaseSizes);
+            FloatList plannedIncreases = zeroTrackSizes(rowBaseSizes.size());
+            for (int batchIndex = batchStart; batchIndex < batchEnd; batchIndex++) {
+                int itemIndex = itemIndices.get(batchIndex);
+                GridItem item = items.get(itemIndex);
+                int row = itemRows[itemIndex];
+                IntList candidateTracks = intrinsicNonFlexibleTracks(rowTracks, row, item.rowSpan);
+                if (candidateTracks.isEmpty()) continue;
+
+                float contribution = intrinsicRowMinimumContribution(
+                    item, itemIndex, columnSizes, nodeInnerSize, colCounts, gap.width,
+                    rowTracks, row);
+                if (contribution <= 0f) continue;
+                float currentSpannedSize = Math.max(0, item.rowSpan - 1) * gap.height;
+                for (int track = row; track < row + item.rowSpan; track++) {
+                    float baseSize = initialBaseSizes.getFloat(track);
+                    currentSpannedSize += Float.isNaN(baseSize) ? 0f : baseSize;
+                }
+
+                float extraSpace = contribution - currentSpannedSize;
+                if (extraSpace <= 0f) continue;
+                float share = extraSpace / candidateTracks.size();
+                for (int track : candidateTracks) {
+                    plannedIncreases.set(track, Math.max(plannedIncreases.getFloat(track), share));
+                }
+            }
+            applyPlannedIncreases(rowBaseSizes, plannedIncreases);
+            batchStart = batchEnd;
+        }
+    }
+
+    private void distributeSpanningRowMinimumContributions(
+        List<GridItem> items,
+        int[] itemRows,
+        List<TrackSizingFunction> rowTracks,
+        FloatList rowBaseSizes,
+        FloatList resolvedRowSizes,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap) {
+
+        FloatList initialBaseSizes = new FloatArrayList(rowBaseSizes.size());
+        FloatList plannedBaseSizes = new FloatArrayList(rowBaseSizes.size());
+        for (int trackIndex = 0; trackIndex < rowBaseSizes.size(); trackIndex++) {
+            initialBaseSizes.add(rowBaseSizes.getFloat(trackIndex));
+            plannedBaseSizes.add(0f);
+        }
+
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            if (item.rowSpan <= 1) continue;
+
+            int row = itemRows[itemIndex];
+            if (row < 0 || row + item.rowSpan > rowTracks.size()) continue;
+
+            IntList flexibleRows = new IntArrayList();
+            float flexFactorSum = 0f;
+            for (int trackIndex = row; trackIndex < row + item.rowSpan; trackIndex++) {
+                TrackSizingFunction track = rowTracks.get(trackIndex);
+                if (isFlexibleTrack(track) && hasIntrinsicFlexibleTrackMinimum(track)) {
+                    flexibleRows.add(trackIndex);
+                    flexFactorSum += flexibleTrackFactor(track);
+                }
+            }
+            if (flexibleRows.isEmpty()) continue;
+
+            float contribution = definiteRowMinimumContribution(
+                item, itemIndex, columnSizes, nodeInnerSize, colCounts, gap.width);
+            if (contribution <= 0f) continue;
+
+            float nonFlexibleSize = 0f;
+            for (int trackIndex = row; trackIndex < row + item.rowSpan; trackIndex++) {
+                if (!flexibleRows.contains(trackIndex)) {
+                    float baseSize = initialBaseSizes.getFloat(trackIndex);
+                    if (Float.isNaN(baseSize)) baseSize = resolvedRowSizes.getFloat(trackIndex);
+                    nonFlexibleSize += Float.isNaN(baseSize) ? 0f : baseSize;
+                }
+            }
+
+            float extraSpace = contribution - nonFlexibleSize - Math.max(0, item.rowSpan - 1) * gap.height;
+            if (extraSpace <= 0f) continue;
+
+            float equalShare = extraSpace / flexibleRows.size();
+            for (int flexibleIndex = 0; flexibleIndex < flexibleRows.size(); flexibleIndex++) {
+                int trackIndex = flexibleRows.getInt(flexibleIndex);
+                float factor = flexibleTrackFactor(rowTracks.get(trackIndex));
+                float share = flexFactorSum > 0f ? extraSpace * factor / flexFactorSum : equalShare;
+                plannedBaseSizes.set(trackIndex, Math.max(plannedBaseSizes.getFloat(trackIndex), share));
+            }
+        }
+
+        for (int trackIndex = 0; trackIndex < rowBaseSizes.size(); trackIndex++) {
+            float plannedBaseSize = plannedBaseSizes.getFloat(trackIndex);
+            if (plannedBaseSize <= 0f) continue;
+            float baseSize = rowBaseSizes.getFloat(trackIndex);
+            rowBaseSizes.set(trackIndex, Math.max(Float.isNaN(baseSize) ? 0f : baseSize, plannedBaseSize));
+        }
+    }
+
+    private void distributeNonFlexibleSpanningRowGrowthLimits(
+        List<GridItem> items,
+        int[] itemRows,
+        List<TrackSizingFunction> rowTracks,
+        FloatList rowBaseSizes,
+        FloatList growthLimits,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap) {
+
+        List<Integer> itemIndices = new ArrayList<>();
+        for (int itemIndex = 0; itemIndex < items.size(); itemIndex++) {
+            GridItem item = items.get(itemIndex);
+            int row = itemRows[itemIndex];
+            if (item.rowSpan > 1 && row >= 0 && row + item.rowSpan <= rowTracks.size()
+                && !spansFlexibleTrack(rowTracks, row, item.rowSpan)) {
+                itemIndices.add(itemIndex);
+            }
+        }
+        itemIndices.sort((left, right) -> Integer.compare(items.get(left).rowSpan, items.get(right).rowSpan));
+
+        int batchStart = 0;
+        while (batchStart < itemIndices.size()) {
+            int span = items.get(itemIndices.get(batchStart)).rowSpan;
+            int batchEnd = batchStart;
+            while (batchEnd < itemIndices.size() && items.get(itemIndices.get(batchEnd)).rowSpan == span) {
+                batchEnd++;
+            }
+
+            distributeSpanningRowGrowthLimitBatch(
+                items, itemIndices, batchStart, batchEnd, itemRows, rowTracks, rowBaseSizes, growthLimits,
+                columnSizes, nodeInnerSize, colCounts, gap, false);
+            distributeSpanningRowGrowthLimitBatch(
+                items, itemIndices, batchStart, batchEnd, itemRows, rowTracks, rowBaseSizes, growthLimits,
+                columnSizes, nodeInnerSize, colCounts, gap, true);
+            batchStart = batchEnd;
+        }
+    }
+
+    private void distributeSpanningRowGrowthLimitBatch(
+        List<GridItem> items,
+        List<Integer> itemIndices,
+        int batchStart,
+        int batchEnd,
+        int[] itemRows,
+        List<TrackSizingFunction> rowTracks,
+        FloatList rowBaseSizes,
+        FloatList growthLimits,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        FloatSize gap,
+        boolean maxContent) {
+
+        FloatList initialGrowthLimits = copyTrackSizes(growthLimits);
+        FloatList plannedGrowthLimits = zeroTrackSizes(growthLimits.size());
+        for (int batchIndex = batchStart; batchIndex < batchEnd; batchIndex++) {
+            int itemIndex = itemIndices.get(batchIndex);
+            GridItem item = items.get(itemIndex);
+            int row = itemRows[itemIndex];
+            IntList targets = new IntArrayList();
+            for (int track = row; track < row + item.rowSpan; track++) {
+                TrackSizingFunction function = rowTracks.get(track);
+                boolean matches = maxContent
+                    ? hasMaxContentTrackMaximum(function, nodeInnerSize.height)
+                    : hasIntrinsicTrackMaximum(function, nodeInnerSize.height);
+                if (matches) targets.add(track);
+            }
+            if (targets.isEmpty()) continue;
+
+            float contribution = intrinsicRowContentContribution(
+                item, itemIndex, columnSizes, nodeInnerSize, colCounts, gap.width, maxContent);
+            float currentSpannedLimit = Math.max(0, item.rowSpan - 1) * gap.height;
+            for (int track = row; track < row + item.rowSpan; track++) {
+                float limit = initialGrowthLimits.getFloat(track);
+                float baseSize = rowBaseSizes.getFloat(track);
+                currentSpannedLimit += limit == Float.MAX_VALUE
+                    ? (Float.isNaN(baseSize) ? 0f : baseSize) : limit;
+            }
+            float remainingSpace = contribution - currentSpannedLimit;
+            if (remainingSpace <= 0f) continue;
+
+            float share = remainingSpace / targets.size();
+            for (int track : targets) {
+                float initialLimit = initialGrowthLimits.getFloat(track);
+                float baseSize = rowBaseSizes.getFloat(track);
+                float currentLimit = initialLimit == Float.MAX_VALUE
+                    ? (Float.isNaN(baseSize) ? 0f : baseSize) : initialLimit;
+                plannedGrowthLimits.set(track, Math.max(plannedGrowthLimits.getFloat(track), currentLimit + share));
+            }
+        }
+
+        for (int track = 0; track < growthLimits.size(); track++) {
+            float plannedLimit = plannedGrowthLimits.getFloat(track);
+            if (plannedLimit <= 0f) continue;
+            float limit = growthLimits.getFloat(track);
+            growthLimits.set(track, limit == Float.MAX_VALUE ? plannedLimit : Math.max(limit, plannedLimit));
+            float baseSize = rowBaseSizes.getFloat(track);
+            if (!Float.isNaN(baseSize) && growthLimits.getFloat(track) < baseSize) {
+                growthLimits.set(track, baseSize);
+            }
+        }
+    }
+
+    private float intrinsicRowMinimumContribution(
+        GridItem item,
+        int itemIndex,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        List<TrackSizingFunction> rowTracks,
+        int row) {
+
+        float definiteHeight = Math.max(
+            specifiedStyleSize(item.rawSize == null ? null : item.rawSize.height, item.size.height),
+            specifiedStyleSize(item.rawMinSize == null ? null : item.rawMinSize.height, item.minSize.height)
+        );
+        int column = getItemColumnWithCounts(item, itemIndex, columnSizes.size(), colCounts);
+        if (column < 0) return 0f;
+
+        float gridAreaWidth = 0f;
+        int endColumn = Math.min(column + item.columnSpan, columnSizes.size());
+        for (int trackIndex = column; trackIndex < endColumn; trackIndex++) {
+            gridAreaWidth += columnSizes.getFloat(trackIndex);
+        }
+        gridAreaWidth += Math.max(0, endColumn - column - 1) * columnGap;
+
+        FloatSize itemAvailableSpace = new FloatSize(gridAreaWidth, NaN);
+        item.availableSpaceCache = itemAvailableSpace;
+        float contentHeight = item.getMinContentContributionHeightCached(layoutComputer, itemAvailableSpace, nodeInnerSize);
+        float fixedMaximumLimit = spannedFixedMaximumLimit(
+            rowTracks, row, item.rowSpan, nodeInnerSize.height);
+        if (!Float.isNaN(fixedMaximumLimit)) {
+            contentHeight = Math.min(contentHeight, fixedMaximumLimit);
+        }
+        float contribution = Math.max(definiteHeight, contentHeight);
+        return contribution + item.getMarginAxisSumsWithBaselineShims(gridAreaWidth).height;
+    }
+
+    private float intrinsicRowContentContribution(
+        GridItem item,
+        int itemIndex,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        boolean maxContent) {
+
+        int column = getItemColumnWithCounts(item, itemIndex, columnSizes.size(), colCounts);
+        if (column < 0) return 0f;
+
+        float gridAreaWidth = 0f;
+        int endColumn = Math.min(column + item.columnSpan, columnSizes.size());
+        for (int track = column; track < endColumn; track++) {
+            gridAreaWidth += columnSizes.getFloat(track);
+        }
+        gridAreaWidth += Math.max(0, endColumn - column - 1) * columnGap;
+
+        FloatSize availableSpace = new FloatSize(gridAreaWidth, NaN);
+        item.availableSpaceCache = availableSpace;
+        float contribution = maxContent
+            ? item.getMaxContentContributionHeightCached(layoutComputer, availableSpace, nodeInnerSize)
+            : item.getMinContentContributionHeightCached(layoutComputer, availableSpace, nodeInnerSize);
+        return contribution + item.getMarginAxisSumsWithBaselineShims(gridAreaWidth).height;
+    }
+
+    private float definiteRowMinimumContribution(
+        GridItem item,
+        int itemIndex,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap) {
+
+        float definiteHeight = Math.max(
+            specifiedStyleSize(item.rawSize == null ? null : item.rawSize.height, item.size.height),
+            specifiedStyleSize(item.rawMinSize == null ? null : item.rawMinSize.height, item.minSize.height)
+        );
+        if (definiteHeight <= 0f) return 0f;
+
+        int column = getItemColumnWithCounts(item, itemIndex, columnSizes.size(), colCounts);
+        if (column < 0) return 0f;
+
+        float gridAreaWidth = 0f;
+        int endColumn = Math.min(column + item.columnSpan, columnSizes.size());
+        for (int trackIndex = column; trackIndex < endColumn; trackIndex++) {
+            gridAreaWidth += columnSizes.getFloat(trackIndex);
+        }
+        gridAreaWidth += Math.max(0, endColumn - column - 1) * columnGap;
+        return definiteHeight + item.getMarginAxisSumsWithBaselineShims(gridAreaWidth).height;
+    }
+
+    private static float specifiedStyleSize(Object rawValue, float resolvedValue) {
+        if (Float.isNaN(resolvedValue)) return 0f;
+        if (rawValue instanceof TaffyDimension dimension) {
+            return dimension.isLength() || dimension.isPercent() || dimension.isCalc() ? resolvedValue : 0f;
+        }
+        if (rawValue instanceof LengthPercentageAuto lengthPercentageAuto) {
+            return lengthPercentageAuto.isLength() || lengthPercentageAuto.isPercent() || lengthPercentageAuto.isCalc()
+                ? resolvedValue : 0f;
+        }
+        return 0f;
+    }
+
+    private float calculateAutoRowHeight(
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices) {
+        return calculateAutoRowHeight(
+            items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices, true);
+    }
+
+    private float calculateAutoRowHeight(
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices,
+        boolean includeSpanningItems) {
+        return calculateAutoRowHeight(
+            items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices, includeSpanningItems, false);
+    }
+
+    private float calculateFlexibleRowMinimumHeight(
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices) {
+        return calculateAutoRowHeight(
+            items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices, false, true);
+    }
+
+    private float calculateIntrinsicRowTrackContentSize(
+        TrackSizingFunction track,
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices) {
+        if (track != null && track.isMinmax()
+            && track.getMaxFunc() != null && track.getMaxFunc().isMinContent()) {
+            return calculateMinContentRowHeight(
+                items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices);
+        }
+        return calculateAutoRowHeight(
+            items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices, false);
+    }
+
+    private float calculateRowBaseContribution(
+        TrackSizingFunction track,
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices) {
+        if (track != null && track.isMinmax() && track.getMinFunc() != null && track.getMinFunc().isAuto()) {
+            return calculateFlexibleRowMinimumHeight(
+                items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices);
+        }
+        return calculateAutoRowHeight(
+            items, columnSizes, nodeInnerSize, colCounts, columnGap, rowItemIndices, false);
+    }
+
+    private float calculateMinContentRowHeight(
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices) {
+        float maxRowHeight = 0f;
+        for (int index = 0; index < rowItemIndices.size(); index++) {
+            int itemIndex = rowItemIndices.getInt(index);
+            GridItem item = items.get(itemIndex);
+            if (item.rowSpan != 1) continue;
+
+            int column = getItemColumnWithCounts(item, itemIndex, columnSizes.size(), colCounts);
+            int endColumn = Math.min(column + item.columnSpan, columnSizes.size());
+            float gridAreaWidth = 0f;
+            for (int currentColumn = column; currentColumn < endColumn; currentColumn++) {
+                gridAreaWidth += columnSizes.getFloat(currentColumn);
+            }
+            gridAreaWidth += Math.max(0, endColumn - column - 1) * columnGap;
+
+            FloatSize availableSpace = new FloatSize(gridAreaWidth, NaN);
+            item.availableSpaceCache = availableSpace;
+            float height = item.getMinContentContributionHeightCached(
+                layoutComputer, availableSpace, nodeInnerSize);
+            maxRowHeight = Math.max(maxRowHeight, height);
+        }
+        return maxRowHeight;
+    }
+
+    private float calculateAutoRowHeight(
+        List<GridItem> items,
+        FloatList columnSizes,
+        FloatSize nodeInnerSize,
+        TrackCounts colCounts,
+        float columnGap,
+        IntList rowItemIndices,
+        boolean includeSpanningItems,
+        boolean preferSpecifiedMinimum) {
         float maxRowHeight = 0;
 
         // Only iterate over items that belong to this row (O(items_in_row) instead of O(all_items))
         for (int idx = 0; idx < rowItemIndices.size(); idx++) {
             int i = rowItemIndices.getInt(idx);
             GridItem item = items.get(i);
+            if (!includeSpanningItems && item.rowSpan != 1) continue;
             float height;
 
                 // Calculate minimum size from padding+border (size cannot be less than this)
                 float itemPaddingBorderHeight = (item.padding != null ? item.padding.top + item.padding.bottom : 0f)
                                                 + (item.border != null ? item.border.top + item.border.bottom : 0f);
-
-                // Get margin axis sums using the Rust logic:
-                // - Horizontal percentage margins resolve to 0 to avoid cyclic dependency
-                // - Vertical percentage margins resolve against inner_node_width
-                FloatSize marginAxisSums = item.getMarginAxisSumsWithBaselineShims(nodeInnerSize.width);
 
                 // Get grid area size for this item (track size, not including margins)
                 int col = getItemColumnWithCounts(item, i, columnSizes.size(), colCounts);
@@ -4217,13 +6234,24 @@ public class GridComputer {
                 int numGaps = Math.max(0, endCol - col - 1);
                 gridAreaWidth += numGaps * columnGap;
 
+                // Vertical percentage margins resolve against the item's grid area width.
+                FloatSize marginAxisSums = item.getMarginAxisSumsWithBaselineShims(gridAreaWidth);
+
                 FloatSize gridAreaSize = new FloatSize(gridAreaWidth, NaN);
 
                 // Compute known dimensions using the proper method that respects item's percentage sizes
                 FloatSize itemKnownDimensions = computeItemKnownDimensions(item, gridAreaSize, nodeInnerSize);
+                float specifiedMinimum = specifiedStyleSize(
+                    item.rawMinSize == null ? null : item.rawMinSize.height,
+                    item.minSize.height);
+                boolean hasSpecifiedMinimum = item.rawMinSize != null && item.rawMinSize.height != null
+                    && (item.rawMinSize.height.isLength() || item.rawMinSize.height.isPercent()
+                    || item.rawMinSize.height.isCalc());
 
+                if (preferSpecifiedMinimum && hasSpecifiedMinimum) {
+                    height = specifiedMinimum + marginAxisSums.height;
                 // If item has explicit height (from its size or computed from aspect ratio)
-                if (!Float.isNaN(itemKnownDimensions.height)) {
+                } else if (!Float.isNaN(itemKnownDimensions.height)) {
                     float effectiveHeight = Math.max(itemKnownDimensions.height, itemPaddingBorderHeight);
                     height = effectiveHeight + marginAxisSums.height;
                 } else {
@@ -4270,7 +6298,10 @@ public class GridComputer {
         TaffyStyle containerStyle,
         TrackCounts colCounts,
         TrackCounts rowCounts,
-        boolean isRtl) {
+        TaffyDirection containerDirection,
+        boolean containerWidthIndefinite) {
+
+        boolean isRtl = containerDirection.isRtl();
 
         int numColumns = columnSizes.size();
         int numRows = rowSizes.size();
@@ -4324,10 +6355,15 @@ public class GridComputer {
         // Note: The RTL coordinate transformation in the trackX calculation handles the mirroring.
         if (isRtl) {
             JustifyContent justifyContent = containerStyle.getJustifyContent();
+            boolean safeJustify = justifyContent != null && justifyContent.isSafe();
+            if (justifyContent != null) {
+                justifyContent = justifyContent.withoutSafety();
+            }
             if (justifyContent == null || justifyContent == JustifyContent.START || justifyContent == JustifyContent.FLEX_START) {
                 // For RTL START: items align to inline-start (right edge), no offset
                 contentOffsetX = 0;
-            } else if (justifyContent == JustifyContent.END || justifyContent == JustifyContent.FLEX_END) {
+            } else if ((justifyContent == JustifyContent.END || justifyContent == JustifyContent.FLEX_END)
+                && !(safeJustify && freeSpaceWidth <= 0f)) {
                 // For RTL END: items align to inline-end (left edge), offset by free space
                 contentOffsetX = freeSpaceWidth;
             }
@@ -4456,7 +6492,26 @@ public class GridComputer {
             LayoutPartialTree tree = layoutComputer.getTree();
             TaffyStyle childStyle = tree.getStyle(item.nodeId);
             TaffyRect<LengthPercentageAuto> marginStyle = childStyle.getMargin();
-            FloatRect margin = Resolve.resolveRectLpaOrZero(marginStyle, trackWidth);
+            FloatRect margin = Resolve.resolveRectLpaOrZero(marginStyle, trackWidth, layoutComputer::resolveCalcValue);
+            FloatSize gridAreaSize = new FloatSize(trackWidth, trackHeight);
+            FloatRect resolvedPadding = item.resolvePadding(trackWidth);
+            FloatRect resolvedBorder = item.resolveBorder(trackWidth);
+            FloatSize paddingBorderSize = new FloatSize(
+                resolvedPadding.left + resolvedPadding.right + resolvedBorder.left + resolvedBorder.right,
+                resolvedPadding.top + resolvedPadding.bottom + resolvedBorder.top + resolvedBorder.bottom
+            );
+            FloatSize boxSizingAdjustment = item.boxSizing == BoxSizing.CONTENT_BOX ? paddingBorderSize : FloatSize.ZERO;
+            FloatSize resolvedItemSize = item.resolveStyleSize(item.rawSize, gridAreaSize, boxSizingAdjustment, item.size);
+            FloatSize resolvedMinSize = item.resolveStyleSize(item.rawMinSize, gridAreaSize, boxSizingAdjustment, item.minSize);
+            resolvedMinSize = new FloatSize(
+                Math.max(Float.isNaN(resolvedMinSize.width) ? 0f : resolvedMinSize.width, paddingBorderSize.width),
+                Math.max(Float.isNaN(resolvedMinSize.height) ? 0f : resolvedMinSize.height, paddingBorderSize.height)
+            );
+            FloatSize resolvedMaxSize = item.resolveStyleSize(item.rawMaxSize, gridAreaSize, boxSizingAdjustment, item.maxSize);
+            if (containerWidthIndefinite && item.rawMaxSize != null && item.rawMaxSize.width != null
+                && item.rawMaxSize.width.isPercent()) {
+                resolvedMaxSize = new FloatSize(NaN, resolvedMaxSize.height);
+            }
 
             // Check if margins are auto (affects stretch behavior)
             boolean hasHorizontalAutoMargin = marginStyle.left.isAuto() || marginStyle.right.isAuto();
@@ -4475,8 +6530,12 @@ public class GridComputer {
                 alignY = defaultAlignItems;
             }
             if (alignY == null || alignY == AlignItems.AUTO) {
-                // Per CSS Grid spec: If height is set OR aspect-ratio is set, default is START, otherwise STRETCH
-                alignY = (!Float.isNaN(item.size.height) || (item.aspectRatio != null && !Float.isNaN(item.aspectRatio))) ? AlignItems.START : AlignItems.STRETCH;
+                TaffyDimension heightKeyword = item.rawSize == null ? null : item.rawSize.height;
+                boolean intrinsicHeight = heightKeyword != null && (heightKeyword.isMinContent()
+                    || heightKeyword.isMaxContent() || heightKeyword.isFitContent());
+                alignY = (!Float.isNaN(resolvedItemSize.height) || intrinsicHeight
+                    || (item.aspectRatio != null && !Float.isNaN(item.aspectRatio)))
+                    ? AlignItems.START : AlignItems.STRETCH;
             }
 
             AlignItems alignX = childJustifySelf;
@@ -4484,9 +6543,15 @@ public class GridComputer {
                 alignX = defaultJustifyItems;
             }
             if (alignX == null || alignX == AlignItems.AUTO) {
-                // Per CSS Grid spec: If width is set, default is START, otherwise STRETCH
-                alignX = (!Float.isNaN(item.size.width)) ? AlignItems.START : AlignItems.STRETCH;
+                TaffyDimension widthKeyword = item.rawSize == null ? null : item.rawSize.width;
+                boolean intrinsicWidth = widthKeyword != null && (widthKeyword.isMinContent()
+                    || widthKeyword.isMaxContent() || widthKeyword.isFitContent());
+                alignX = (!Float.isNaN(resolvedItemSize.width) || intrinsicWidth) ? AlignItems.START : AlignItems.STRETCH;
             }
+
+            TaffyDirection childDirection = layoutComputer.resolveDirection(item.nodeId);
+            alignX = alignX.resolveSelfRelative(childDirection, containerDirection, true);
+            alignY = alignY.resolveSelfRelative(childDirection, containerDirection, false);
 
             // Per CSS Grid spec: auto margins prevent stretch
             // When margin is auto, the item should use its content size and auto margins absorb free space
@@ -4498,43 +6563,57 @@ public class GridComputer {
             float availableHeight = trackHeight - margin.top - margin.bottom;
 
             // Calculate minimum size from padding+border (size cannot be less than this)
-            float itemPaddingBorderWidth = (item.padding != null ? item.padding.left + item.padding.right : 0f)
-                                           + (item.border != null ? item.border.left + item.border.right : 0f);
-            float itemPaddingBorderHeight = (item.padding != null ? item.padding.top + item.padding.bottom : 0f)
-                                            + (item.border != null ? item.border.top + item.border.bottom : 0f);
+            float itemPaddingBorderWidth = paddingBorderSize.width;
+            float itemPaddingBorderHeight = paddingBorderSize.height;
 
             // Calculate size based on alignment
             float width, height;
 
-            if (!Float.isNaN(item.size.width)) {
+            if (!Float.isNaN(resolvedItemSize.width)) {
                 // Explicit size (but must be at least padding+border)
-                width = Math.max(item.size.width, itemPaddingBorderWidth);
+                width = Math.max(resolvedItemSize.width, itemPaddingBorderWidth);
             } else if (stretchWidth) {
                 // Stretch to fill
                 width = availableWidth;
             } else {
                 // Content-based size (START, CENTER, END, or has auto margin) - measure child
+                TaffyDimension widthKeyword = item.rawSize == null ? null : item.rawSize.width;
+                AvailableSpace widthConstraint = widthKeyword == null
+                    ? AvailableSpace.definite(availableWidth)
+                    : widthKeyword.isMinContent() ? AvailableSpace.minContent() : AvailableSpace.maxContent();
                 LayoutOutput output = layoutComputer.performChildLayout(
                     item.nodeId,
                     new FloatSize(NaN, NaN),
-                    nodeInnerSize,
-                    new TaffySize<>(AvailableSpace.definite(availableWidth), AvailableSpace.definite(availableHeight)),
+                    gridAreaSize,
+                    new TaffySize<>(widthConstraint, AvailableSpace.definite(availableHeight)),
                     SizingMode.INHERENT_SIZE,
                     new TaffyLine<>(false, false)
                 );
                 width = output.size().width;
+                if (widthKeyword == null || widthKeyword.isAuto()) {
+                    width = Math.min(width, Math.max(0f, availableWidth));
+                }
+                if (widthKeyword != null && widthKeyword.isFitContent()) {
+                    float limit = availableWidth;
+                    LengthPercentage fitLimit = widthKeyword.getFitContentLimit();
+                    if (fitLimit != null) {
+                        float resolved = fitLimit.maybeResolve(availableWidth, layoutComputer::resolveCalcValue);
+                        if (!Float.isNaN(resolved)) limit = resolved;
+                    }
+                    width = Math.min(width, Math.max(0f, limit));
+                }
             }
 
             // Reapply aspect ratio after width is determined
             // If aspect_ratio is set and height is not explicitly set, calculate height from width
             float heightFromAspectRatio = NaN;
-            if (item.aspectRatio != null && !Float.isNaN(item.aspectRatio) && Float.isNaN(item.size.height)) {
+            if (item.aspectRatio != null && !Float.isNaN(item.aspectRatio) && Float.isNaN(resolvedItemSize.height)) {
                 heightFromAspectRatio = width / item.aspectRatio;
             }
 
-            if (!Float.isNaN(item.size.height)) {
+            if (!Float.isNaN(resolvedItemSize.height)) {
                 // Explicit size (but must be at least padding+border)
-                height = Math.max(item.size.height, itemPaddingBorderHeight);
+                height = Math.max(resolvedItemSize.height, itemPaddingBorderHeight);
             } else if (!Float.isNaN(heightFromAspectRatio)) {
                 // Height from aspect ratio
                 height = heightFromAspectRatio;
@@ -4543,25 +6622,38 @@ public class GridComputer {
                 height = availableHeight;
             } else {
                 // Content-based size (START, CENTER, END, or has auto margin) - measure child with known width
+                TaffyDimension heightKeyword = item.rawSize == null ? null : item.rawSize.height;
+                AvailableSpace heightConstraint = heightKeyword == null
+                    ? AvailableSpace.definite(availableHeight)
+                    : heightKeyword.isMinContent() ? AvailableSpace.minContent() : AvailableSpace.maxContent();
                 LayoutOutput output = layoutComputer.performChildLayout(
                     item.nodeId,
                     new FloatSize(width, NaN),
-                    nodeInnerSize,
-                    new TaffySize<>(AvailableSpace.definite(width), AvailableSpace.definite(availableHeight)),
+                    gridAreaSize,
+                    new TaffySize<>(AvailableSpace.definite(width), heightConstraint),
                     SizingMode.INHERENT_SIZE,
                     new TaffyLine<>(false, false)
                 );
                 height = output.size().height;
+                if (heightKeyword != null && heightKeyword.isFitContent()) {
+                    float limit = availableHeight;
+                    LengthPercentage fitLimit = heightKeyword.getFitContentLimit();
+                    if (fitLimit != null) {
+                        float resolved = fitLimit.maybeResolve(availableHeight, layoutComputer::resolveCalcValue);
+                        if (!Float.isNaN(resolved)) limit = resolved;
+                    }
+                    height = Math.min(height, Math.max(0f, limit));
+                }
             }
 
             // Reapply aspect ratio after height is determined (for cases where width is not set but height is)
-            if (item.aspectRatio != null && !Float.isNaN(item.aspectRatio) && Float.isNaN(item.size.width) && !Float.isNaN(item.size.height)) {
+            if (item.aspectRatio != null && !Float.isNaN(item.aspectRatio) && Float.isNaN(resolvedItemSize.width) && !Float.isNaN(resolvedItemSize.height)) {
                 width = height * item.aspectRatio;
             }
 
             // Apply min/max constraints
-            width = TaffyMath.clamp(width, item.minSize.width, item.maxSize.width);
-            height = TaffyMath.clamp(height, item.minSize.height, item.maxSize.height);
+            width = TaffyMath.clamp(width, resolvedMinSize.width, resolvedMaxSize.width);
+            height = TaffyMath.clamp(height, resolvedMinSize.height, resolvedMaxSize.height);
 
             // Calculate auto margin values - auto margins absorb free space
             float freeSpaceX = availableWidth - width;
@@ -4577,77 +6669,15 @@ public class GridComputer {
             float marginTop = marginStyle.top.isAuto() ? verticalAutoMarginSize : margin.top;
             float marginBottom = marginStyle.bottom.isAuto() ? verticalAutoMarginSize : margin.bottom;
 
-            // Calculate position based on alignment
-            float x = trackX + marginLeft;
-            float y = trackY + marginTop;
+            float x = trackX + (hasHorizontalAutoMargin
+                ? marginLeft
+                : alignmentOffset(trackWidth, width, marginLeft, marginRight, alignX, isRtl));
+            float y = trackY + (hasVerticalAutoMargin
+                ? marginTop
+                : alignmentOffset(trackHeight, height, marginTop + item.baselineShim, marginBottom, alignY, false));
 
-            // Adjust x based on justify (horizontal alignment) - only if no auto margins
-            if (!hasHorizontalAutoMargin) {
-                // In RTL, START/END are swapped: START = right (inline-start), END = left (inline-end)
-                // Since trackX is already the left edge of the track in screen coordinates,
-                // we need to adjust the alignment behavior for RTL:
-                // - START/FLEX_START in RTL: item aligns to right edge of track = x += freeSpaceX
-                // - END/FLEX_END in RTL: item aligns to left edge of track = x += 0
-                // - CENTER: x += freeSpaceX / 2 (symmetric)
-                if (isRtl) {
-                    switch (alignX) {
-                        case CENTER:
-                            x += freeSpaceX / 2;
-                            break;
-                        case START:
-                        case FLEX_START:
-                            // In RTL, START is the right edge of the track
-                            x += freeSpaceX;
-                            break;
-                        case END:
-                        case FLEX_END:
-                        case STRETCH:
-                        default:
-                            // In RTL, END is the left edge of the track (where trackX points)
-                            // x stays at start (trackX + marginLeft)
-                            break;
-                    }
-                } else {
-                    // LTR: original behavior
-                    switch (alignX) {
-                        case CENTER:
-                            x += freeSpaceX / 2;
-                            break;
-                        case END:
-                        case FLEX_END:
-                            x += freeSpaceX;
-                            break;
-                        case START:
-                        case FLEX_START:
-                        case STRETCH:
-                        default:
-                            // x stays at start
-                            break;
-                    }
-                }
-            }
-
-            // Adjust y based on align (vertical alignment) - only if no auto margins
-            if (!hasVerticalAutoMargin) {
-                switch (alignY) {
-                    case CENTER:
-                        y += freeSpaceY / 2;
-                        break;
-                    case END:
-                    case FLEX_END:
-                        y += freeSpaceY;
-                        break;
-                    case BASELINE:
-                        // For baseline alignment, add the baseline shim which acts as extra top margin
-                        y += item.baselineShim;
-                        break;
-                    case START:
-                    case FLEX_START:
-                    case STRETCH:
-                    default:
-                        // y stays at start
-                        break;
-                }
+            if (isRtl && width >= trackWidth && x < 0f && x > -1f) {
+                x = 0f;
             }
 
             item.location = new FloatPoint(x, y);
@@ -4656,18 +6686,20 @@ public class GridComputer {
             // For position: relative, inset values offset the item from its natural position
             if (item.position == TaffyPosition.RELATIVE && item.inset != null) {
                 // Horizontal inset: use left, or -right if left is not set
-                float insetLeft = item.inset.left.maybeResolve(trackWidth);
-                float insetRight = item.inset.right.maybeResolve(trackWidth);
+                float insetLeft = item.inset.left.maybeResolve(trackWidth, layoutComputer::resolveCalcValue);
+                float insetRight = item.inset.right.maybeResolve(trackWidth, layoutComputer::resolveCalcValue);
                 float insetX = 0f;
-                if (!Float.isNaN(insetLeft)) {
+                if (isRtl && !Float.isNaN(insetRight)) {
+                    insetX = -insetRight;
+                } else if (!Float.isNaN(insetLeft)) {
                     insetX = insetLeft;
                 } else if (!Float.isNaN(insetRight)) {
                     insetX = -insetRight;
                 }
 
                 // Vertical inset: use top, or -bottom if top is not set
-                float insetTop = item.inset.top.maybeResolve(trackHeight);
-                float insetBottom = item.inset.bottom.maybeResolve(trackHeight);
+                float insetTop = item.inset.top.maybeResolve(trackHeight, layoutComputer::resolveCalcValue);
+                float insetBottom = item.inset.bottom.maybeResolve(trackHeight, layoutComputer::resolveCalcValue);
                 float insetY = 0f;
                 if (!Float.isNaN(insetTop)) {
                     insetY = insetTop;
@@ -4681,9 +6713,11 @@ public class GridComputer {
             item.computedSize = new FloatSize(width, height);
             // Update item margin with resolved values for final layout
             item.margin = new FloatRect(marginLeft, marginRight, marginTop, marginBottom);
+            item.padding = resolvedPadding;
+            item.border = resolvedBorder;
 
             // Perform final child layout with known dimensions to trigger recursive layout
-            layoutComputer.performChildLayout(
+            item.finalLayoutOutput = layoutComputer.performChildLayout(
                 item.nodeId,
                 new FloatSize(width, height),  // known dimensions
                 new FloatSize(trackWidth, trackHeight),  // parent inner size
@@ -4694,10 +6728,34 @@ public class GridComputer {
         }
     }
 
+    private static float alignmentOffset(
+        float areaSize,
+        float itemSize,
+        float marginStart,
+        float marginEnd,
+        AlignItems alignment,
+        boolean isRtl) {
+        boolean overflows = itemSize + marginStart + marginEnd > areaSize;
+        AlignItemsKeyword keyword = alignment.isSafe() && overflows
+            ? AlignItemsKeyword.START
+            : alignment.keyword();
+
+        return switch (keyword) {
+            case START, FLEX_START, BASELINE, STRETCH, SELF_START -> isRtl
+                ? areaSize - itemSize - marginEnd
+                : marginStart;
+            case END, FLEX_END, SELF_END -> isRtl
+                ? marginStart
+                : areaSize - itemSize - marginEnd;
+            case CENTER -> (areaSize - itemSize + marginStart - marginEnd) / 2f;
+        };
+    }
+
     private void performFinalLayout(List<GridItem> items) {
         LayoutPartialTree tree = layoutComputer.getTree();
 
         for (GridItem item : items) {
+            LayoutOutput output = item.finalLayoutOutput;
             FloatSize scrollbarSize = new FloatSize(
                 item.overflow.y == Overflow.SCROLL ? item.scrollbarWidth : 0f,
                 item.overflow.x == Overflow.SCROLL ? item.scrollbarWidth : 0f
@@ -4707,11 +6765,13 @@ public class GridComputer {
                 item.order,
                 item.location,
                 item.computedSize,
-                item.computedSize,
+                output == null ? item.computedSize : ContentSizeUtil.max(item.computedSize, output.contentSize()),
                 scrollbarSize,
                 item.border,
                 item.padding,
-                item.margin
+                item.margin,
+                output == null ? null : output.scrollableOverflowRect(),
+                output == null ? Baselines.NONE : output.baselines()
             );
 
             tree.setUnroundedLayout(item.nodeId, layout);
@@ -4722,6 +6782,7 @@ public class GridComputer {
         NodeId node,
         FloatSize containerSize,
         FloatRect border,
+        FloatRect padding,
         float scrollbarGutterX,
         float scrollbarGutterY,
         TrackCounts colCounts,
@@ -4751,22 +6812,22 @@ public class GridComputer {
                 gridCol, gridRow,
                 colCounts, rowCounts,
                 columnOffsets, rowOffsets,
-                containerSize, border,
-                scrollbarGutterX, scrollbarGutterY
+                containerSize, border, padding,
+                scrollbarGutterX, scrollbarGutterY, isRtl
             );
 
             float areaWidth = gridArea.right - gridArea.left;
             float areaHeight = gridArea.bottom - gridArea.top;
 
             TaffyRect<LengthPercentageAuto> insetStyle = childStyle.getInset();
-            float left = insetStyle.left.maybeResolve(areaWidth);
-            float right = insetStyle.right.maybeResolve(areaWidth);
-            float top = insetStyle.top.maybeResolve(areaHeight);
-            float bottom = insetStyle.bottom.maybeResolve(areaHeight);
+            float left = insetStyle.left.maybeResolve(areaWidth, layoutComputer::resolveCalcValue);
+            float right = insetStyle.right.maybeResolve(areaWidth, layoutComputer::resolveCalcValue);
+            float top = insetStyle.top.maybeResolve(areaHeight, layoutComputer::resolveCalcValue);
+            float bottom = insetStyle.bottom.maybeResolve(areaHeight, layoutComputer::resolveCalcValue);
 
-            FloatRect margin = Resolve.resolveRectLpaOrZero(childStyle.getMargin(), areaWidth);
-            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), areaWidth);
-            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), areaWidth);
+            FloatRect margin = Resolve.resolveRectLpaOrZero(childStyle.getMargin(), areaWidth, layoutComputer::resolveCalcValue);
+            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), areaWidth, layoutComputer::resolveCalcValue);
+            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), areaWidth, layoutComputer::resolveCalcValue);
 
             FloatSize paddingBorderSum = new FloatSize(
                 itemPadding.left + itemPadding.right + itemBorder.left + itemBorder.right,
@@ -4779,13 +6840,13 @@ public class GridComputer {
                                      : FloatSize.ZERO;
 
             FloatSize styleSize = maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(childStyle.getSize(), new FloatSize(areaWidth, areaHeight)),
+                Resolve.maybeResolveSize(childStyle.getSize(), new FloatSize(areaWidth, areaHeight), layoutComputer::resolveCalcValue),
                 aspectRatio), boxSizingAdj);
             FloatSize minSz = maybeMax(maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(childStyle.getMinSize(), new FloatSize(areaWidth, areaHeight)),
+                Resolve.maybeResolveSize(childStyle.getMinSize(), new FloatSize(areaWidth, areaHeight), layoutComputer::resolveCalcValue),
                 aspectRatio), boxSizingAdj), paddingBorderSum);
             FloatSize maxSz = maybeAdd(maybeApplyAspectRatio(
-                Resolve.maybeResolveSize(childStyle.getMaxSize(), new FloatSize(areaWidth, areaHeight)),
+                Resolve.maybeResolveSize(childStyle.getMaxSize(), new FloatSize(areaWidth, areaHeight), layoutComputer::resolveCalcValue),
                 aspectRatio), boxSizingAdj);
 
             FloatSize knownDimensions = maybeClamp(styleSize, minSz, maxSz);
@@ -4864,38 +6925,24 @@ public class GridComputer {
                 alignSelf = alignSelf.resolveSelfRelative(childDirection, containerDirection, false);
             }
 
-            // For RTL, we need to flip the grid area horizontally within the container
-            // grid-column: 1 in RTL means the rightmost column
-            FloatRect effectiveGridArea = gridArea;
-            if (isRtl) {
-                // In RTL, flip the left/right of the grid area
-                // gridArea.left becomes containerSize.width - gridArea.right
-                // gridArea.right becomes containerSize.width - gridArea.left
-                float newLeft = containerSize.width - gridArea.right;
-                float newRight = containerSize.width - gridArea.left;
-                effectiveGridArea = new FloatRect(newLeft, newRight, gridArea.top, gridArea.bottom);
-            }
-            float effectiveAreaWidth = effectiveGridArea.right - effectiveGridArea.left;
-
             // Compute offset in horizontal axis
             float xInArea;
-            if (!Float.isNaN(left)) {
+            if (!Float.isNaN(left) && !(isRtl && !Float.isNaN(right))) {
                 xInArea = left + margin.left;
             } else if (!Float.isNaN(right)) {
-                xInArea = effectiveAreaWidth - right - finalSize.width - margin.right;
+                xInArea = areaWidth - right - finalSize.width - margin.right;
             } else {
                 // Use alignment-based offset
-                float freeSpaceX = effectiveAreaWidth - finalSize.width - margin.left - margin.right;
+                float freeSpaceX = areaWidth - finalSize.width - margin.left - margin.right;
                 AlignItemsKeyword justifyKeyword = justifySelf == null ? AlignItemsKeyword.STRETCH : justifySelf.keyword();
                 if (justifySelf != null && justifySelf.isSafe() && freeSpaceX < 0) justifyKeyword = AlignItemsKeyword.START;
                 if (justifyKeyword == AlignItemsKeyword.END || justifyKeyword == AlignItemsKeyword.FLEX_END
                     || justifyKeyword == AlignItemsKeyword.SELF_END) {
-                    xInArea = freeSpaceX + margin.left;
+                    xInArea = isRtl ? margin.left : freeSpaceX + margin.left;
                 } else if (justifyKeyword == AlignItemsKeyword.CENTER) {
                     xInArea = freeSpaceX / 2 + margin.left;
                 } else {
-                    // START, FLEX_START, STRETCH, BASELINE - all start at margin.left
-                    xInArea = margin.left;
+                    xInArea = isRtl ? freeSpaceX + margin.left : margin.left;
                 }
             }
 
@@ -4922,7 +6969,7 @@ public class GridComputer {
             }
 
             // Convert to container coordinates
-            float x = effectiveGridArea.left + xInArea;
+            float x = gridArea.left + xInArea;
             float y = gridArea.top + yInArea;
 
             TaffyPoint<Overflow> overflow = childStyle.getOverflow();
@@ -4962,19 +7009,26 @@ public class GridComputer {
         FloatList rowOffsets,
         FloatSize containerSize,
         FloatRect border,
+        FloatRect padding,
         float scrollbarGutterX,
-        float scrollbarGutterY) {
+        float scrollbarGutterY,
+        boolean isRtl) {
 
         TaffyLine<Integer> columns = resolveAbsoluteGridLines(gridCol, colCounts);
         TaffyLine<Integer> rows = resolveAbsoluteGridLines(gridRow, rowCounts);
 
-        // Get offset values, falling back to border edges
-        float left = columns.start != null && columns.start >= 0 && columns.start < columnOffsets.size()
-                     ? columnOffsets.getFloat(columns.start)
-                     : border.left;
-        float right = columns.end != null && columns.end >= 0 && columns.end < columnOffsets.size()
-                      ? columnOffsets.getFloat(columns.end)
-                      : containerSize.width - border.right - scrollbarGutterX;
+        float contentLeft = border.left + padding.left + (isRtl ? scrollbarGutterX : 0f);
+        float contentRight = containerSize.width - border.right - padding.right - (isRtl ? 0f : scrollbarGutterX);
+        float columnStart = absoluteColumnLine(columns.start, columnOffsets, contentLeft, contentRight, isRtl);
+        float columnEnd = absoluteColumnLine(columns.end, columnOffsets, contentLeft, contentRight, isRtl);
+        float fallbackStart = isRtl
+            ? containerSize.width - border.right
+            : border.left;
+        float fallbackEnd = isRtl
+            ? border.left + scrollbarGutterX
+            : containerSize.width - border.right - scrollbarGutterX;
+        float left = Float.isNaN(columnStart) ? fallbackStart : columnStart;
+        float right = Float.isNaN(columnEnd) ? fallbackEnd : columnEnd;
         float top = rows.start != null && rows.start >= 0 && rows.start < rowOffsets.size()
                     ? rowOffsets.getFloat(rows.start)
                     : border.top;
@@ -4982,7 +7036,19 @@ public class GridComputer {
                        ? rowOffsets.getFloat(rows.end)
                        : containerSize.height - border.bottom - scrollbarGutterY;
 
-        return new FloatRect(left, right, top, bottom);
+        return new FloatRect(Math.min(left, right), Math.max(left, right), top, bottom);
+    }
+
+
+    private static float absoluteColumnLine(
+        Integer line,
+        FloatList columnOffsets,
+        float contentLeft,
+        float contentRight,
+        boolean isRtl) {
+        if (line == null || line < 0 || line >= columnOffsets.size()) return NaN;
+        float offset = columnOffsets.getFloat(line);
+        return isRtl ? contentLeft + contentRight - offset : offset;
     }
 
     /** Resolve and normalize a placement before treating out-of-grid lines as auto. */
@@ -5167,7 +7233,7 @@ public class GridComputer {
                                                ? item.minSize.width + marginAxisSums.width
                                                : 0f;
 
-                if (!Float.isNaN(item.size.width)) {
+                if (item.hasNonPercentageWidth()) {
                     itemMinWidth = item.size.width + marginAxisSums.width;
                 } else {
                     // Measure min-content
@@ -5223,10 +7289,36 @@ public class GridComputer {
         if (track.isFixed()) {
             LengthPercentage lp = track.getFixedValue();
             if (lp != null) {
-                return lp.resolveOrZero(availableSize);
+                return lp.resolveOrZero(availableSize, layoutComputer::resolveCalcValue);
             }
         }
         return 0;
+    }
+
+    private float minInnerWidth(TaffyStyle style) {
+        if (style == null || style.getMinSize() == null || style.getMinSize().width == null) return NaN;
+        LengthPercentageAuto minimumStyle = style.getMinSize().width;
+        if (!minimumStyle.isLength() && !minimumStyle.isPercent() && !minimumStyle.isCalc()) return NaN;
+        float minimum = minimumStyle.maybeResolve(0f, layoutComputer::resolveCalcValue);
+        if (Float.isNaN(minimum)) return NaN;
+        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), 0f, layoutComputer::resolveCalcValue);
+        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), 0f, layoutComputer::resolveCalcValue);
+        float inset = padding.left + padding.right + border.left + border.right;
+        if (style.getBoxSizing() == BoxSizing.CONTENT_BOX) minimum += inset;
+        return Math.max(0f, minimum - inset);
+    }
+
+    private float minInnerHeight(TaffyStyle style) {
+        if (style == null || style.getMinSize() == null || style.getMinSize().height == null) return NaN;
+        LengthPercentageAuto minimumStyle = style.getMinSize().height;
+        if (!minimumStyle.isLength() && !minimumStyle.isPercent() && !minimumStyle.isCalc()) return NaN;
+        float minimum = minimumStyle.maybeResolve(0f, layoutComputer::resolveCalcValue);
+        if (Float.isNaN(minimum)) return NaN;
+        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), 0f, layoutComputer::resolveCalcValue);
+        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), 0f, layoutComputer::resolveCalcValue);
+        float inset = padding.top + padding.bottom + border.top + border.bottom;
+        if (style.getBoxSizing() == BoxSizing.CONTENT_BOX) minimum += inset;
+        return Math.max(0f, minimum - inset);
     }
 
     private static FloatSize maybeApplyAspectRatio(FloatSize size, Float aspectRatio) {
@@ -5374,6 +7466,11 @@ public class GridComputer {
             return 0;
         }
 
+        boolean safe = alignment.isSafe();
+        alignment = alignment.withoutSafety();
+        if (safe && freeSpace <= 0f) {
+            return 0f;
+        }
         return contentAlignmentOffsetFor(alignment, freeSpace, numTracks);
     }
 
@@ -5436,7 +7533,7 @@ public class GridComputer {
             return originalGap;
         }
 
-        return adjustedGapFor(alignment, freeSpace, numTracks, originalGap);
+        return adjustedGapFor(alignment.withoutSafety(), freeSpace, numTracks, originalGap);
     }
 
     private static float adjustedGapFor(JustifyContent alignment, float freeSpace, int numTracks, float originalGap) {
@@ -5460,13 +7557,13 @@ public class GridComputer {
             return NaN;
         }
         if (track.isFixed()) {
-            return track.getFixedValue().maybeResolve(parentSize);
+            return track.getFixedValue().maybeResolve(parentSize, layoutComputer::resolveCalcValue);
         }
         if (track.isMinmax()) {
             // For minmax, use the max function's definite value if available
             TrackSizingFunction maxFunc = track.getMaxFunc();
             if (maxFunc != null && maxFunc.isFixed()) {
-                return maxFunc.getFixedValue().maybeResolve(parentSize);
+                return maxFunc.getFixedValue().maybeResolve(parentSize, layoutComputer::resolveCalcValue);
             }
         }
         // For auto, min-content, max-content, fr - return null
@@ -5628,7 +7725,7 @@ public class GridComputer {
         // Resolve inherent size against grid area (not the initial nodeInnerSize)
         // This is critical: percent sizes like height: 100% must be resolved against the grid area,
         // not the container size that was used during item creation.
-        FloatSize rawResolved = Resolve.maybeResolveSize(item.rawSize, gridAreaSize);
+        FloatSize rawResolved = Resolve.maybeResolveSize(item.rawSize, gridAreaSize, layoutComputer::resolveCalcValue);
         FloatSize inherentSize = maybeAdd(maybeApplyAspectRatio(rawResolved, item.aspectRatio), boxSizingAdj);
 
         float width = inherentSize.width;
@@ -5699,14 +7796,7 @@ public class GridComputer {
         return new FloatSize(width, height);
     }
 
-    // Debug placement records
-    // Test-only hooks (package-private)
-    //
-    // These helpers expose a narrow, structured view of grid placement so that
-    // unit tests can assert correctness without relying on reflection.
-    // They are intentionally package-private and should not be used by
-    // production code.
-    // Debug placement results
+    /** Structured diagnostics for grid auto-placement. */
 
     public static class DebugPlacedItem {
         private final int index;
@@ -5715,7 +7805,7 @@ public class GridComputer {
         private final int rowStart;
         private final int rowEnd;
 
-        DebugPlacedItem(int index, int columnStart, int columnEnd, int rowStart, int rowEnd) {
+        public DebugPlacedItem(int index, int columnStart, int columnEnd, int rowStart, int rowEnd) {
             this.index = index;
             this.columnStart = columnStart;
             this.columnEnd = columnEnd;
@@ -5771,7 +7861,7 @@ public class GridComputer {
         private final TrackCounts rowCounts;
         private final List<DebugPlacedItem> items;
 
-        DebugPlacementResult(TrackCounts columnCounts, TrackCounts rowCounts, List<DebugPlacedItem> items) {
+        public DebugPlacementResult(TrackCounts columnCounts, TrackCounts rowCounts, List<DebugPlacedItem> items) {
             this.columnCounts = columnCounts;
             this.rowCounts = rowCounts;
             this.items = items;
@@ -5810,7 +7900,8 @@ public class GridComputer {
         }
     }
 
-    static DebugPlacementResult debugRunPlacementForTest(
+    /** Runs grid placement without full track sizing for diagnostic and fixture tooling. */
+    public static DebugPlacementResult debugRunPlacementForTest(
         int explicitColumnCount,
         int explicitRowCount,
         List<TaffyStyle> childStyles,

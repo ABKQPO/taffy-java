@@ -648,18 +648,18 @@ public class TestGenerator {
         // Grid row
         if (style.has("gridRowStart") && !style.get("gridRowStart").isJsonNull()) {
             JsonObject grs = style.getAsJsonObject("gridRowStart");
-            String placement = generateGridPlacement(grs);
+            String placement = gridPlacementExpression(grs);
             if (placement != null) {
                 sb.append(ind).append(styleVar).append(".gridRow = new TaffyLine<>(").append(placement);
                 if (style.has("gridRowEnd") && !style.get("gridRowEnd").isJsonNull()) {
-                    sb.append(", ").append(generateGridPlacement(style.getAsJsonObject("gridRowEnd")));
+                    sb.append(", ").append(gridPlacementExpression(style.getAsJsonObject("gridRowEnd")));
                 } else {
                     sb.append(", GridPlacement.auto()");
                 }
                 sb.append(");\n");
             }
         } else if (style.has("gridRowEnd") && !style.get("gridRowEnd").isJsonNull()) {
-            String placement = generateGridPlacement(style.getAsJsonObject("gridRowEnd"));
+            String placement = gridPlacementExpression(style.getAsJsonObject("gridRowEnd"));
             if (placement != null) {
                 sb.append(ind).append(styleVar).append(".gridRow = new TaffyLine<>(GridPlacement.auto(), ").append(placement).append(");\n");
             }
@@ -668,18 +668,18 @@ public class TestGenerator {
         // Grid column
         if (style.has("gridColumnStart") && !style.get("gridColumnStart").isJsonNull()) {
             JsonObject gcs = style.getAsJsonObject("gridColumnStart");
-            String placement = generateGridPlacement(gcs);
+            String placement = gridPlacementExpression(gcs);
             if (placement != null) {
                 sb.append(ind).append(styleVar).append(".gridColumn = new TaffyLine<>(").append(placement);
                 if (style.has("gridColumnEnd") && !style.get("gridColumnEnd").isJsonNull()) {
-                    sb.append(", ").append(generateGridPlacement(style.getAsJsonObject("gridColumnEnd")));
+                    sb.append(", ").append(gridPlacementExpression(style.getAsJsonObject("gridColumnEnd")));
                 } else {
                     sb.append(", GridPlacement.auto()");
                 }
                 sb.append(");\n");
             }
         } else if (style.has("gridColumnEnd") && !style.get("gridColumnEnd").isJsonNull()) {
-            String placement = generateGridPlacement(style.getAsJsonObject("gridColumnEnd"));
+            String placement = gridPlacementExpression(style.getAsJsonObject("gridColumnEnd"));
             if (placement != null) {
                 sb.append(ind).append(styleVar).append(".gridColumn = new TaffyLine<>(GridPlacement.auto(), ").append(placement).append(");\n");
             }
@@ -858,12 +858,14 @@ public class TestGenerator {
         };
     }
     
-    private static String generateGridPlacement(JsonObject placement) {
+    /** Converts Rust gentest's serialized grid-placement representation into a Java expression. */
+    public static String gridPlacementExpression(JsonObject placement) {
         String kind = placement.get("kind").getAsString();
         return switch (kind) {
             case "auto" -> "GridPlacement.auto()";
             case "line" -> "GridPlacement.line(" + placement.get("value").getAsInt() + ")";
             case "span" -> "GridPlacement.span(" + placement.get("value").getAsInt() + ")";
+            case "named" -> "GridPlacement.parse(\"" + escapeString(placement.get("value").getAsString()) + "\")";
             default -> null;
         };
     }

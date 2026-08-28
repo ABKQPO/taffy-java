@@ -10,6 +10,10 @@ import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.NodeId;
+import dev.vfyjxf.taffy.tree.LayoutInput;
+import dev.vfyjxf.taffy.tree.LayoutOutput;
+import dev.vfyjxf.taffy.tree.RunMode;
+import dev.vfyjxf.taffy.tree.SizingMode;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.Test;
@@ -94,6 +98,18 @@ public class FlexIntrinsicSizingTest {
         assertEquals(100f, tree.getLayout(item).size().height, 0.01f);
     }
 
+    @Test
+    void intrinsicFlexContentMeasurementsUseContentSizingMode() {
+        TrackingTree tree = new TrackingTree();
+        NodeId item = tree.newLeafWithMeasure(new TaffyStyle(), ahemTextMeasure());
+        tree.trackedNode = item;
+        NodeId root = tree.newWithChildren(flexStyle(), item);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(false, tree.observedInherentSizeMeasurement);
+    }
+
     private static TaffyStyle flexStyle() {
         TaffyStyle style = new TaffyStyle();
         style.display = TaffyDisplay.FLEX;
@@ -118,5 +134,20 @@ public class FlexIntrinsicSizingTest {
                 : width <= 30f ? 40f : width < 100f ? 20f : 10f;
             return new FloatSize(width, height);
         };
+    }
+
+    private static class TrackingTree extends TaffyTree {
+        private boolean observedInherentSizeMeasurement;
+        private NodeId trackedNode;
+
+        @Override
+        public LayoutOutput getCacheEntry(NodeId node, LayoutInput inputs) {
+            if (node.equals(trackedNode)
+                && inputs.runMode() == RunMode.COMPUTE_SIZE
+                && inputs.sizingMode() == SizingMode.INHERENT_SIZE) {
+                observedInherentSizeMeasurement = true;
+            }
+            return super.getCacheEntry(node, inputs);
+        }
     }
 }

@@ -1,6 +1,9 @@
 package dev.vfyjxf.taffy;
 
 import dev.vfyjxf.taffy.geometry.MinMax;
+import dev.vfyjxf.taffy.geometry.FloatSize;
+import dev.vfyjxf.taffy.geometry.TaffySize;
+import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.GridRepetition;
 import dev.vfyjxf.taffy.style.GridTemplateComponent;
@@ -77,5 +80,28 @@ public class StyleHelpersTest {
             StyleHelpers.minmax(TrackSizingFunction.fixed(5f), StyleHelpers.fr(2f)));
         assertEquals(TrackSizingFunction.minmax(TrackSizingFunction.fixed(0f), TrackSizingFunction.fr(2f)),
             StyleHelpers.flex(2f));
+    }
+
+    @Test
+    void availableSpaceExposesRustConstraintFallbackAndSizeConversionOperations() {
+        AvailableSpace definite = AvailableSpace.definite(50f);
+        AvailableSpace indefinite = AvailableSpace.maxContent();
+
+        assertEquals(indefinite, AvailableSpace.fromNullable(null));
+        assertEquals(definite, AvailableSpace.fromNullable(50f));
+        assertEquals(50f, definite.unwrap(), 0.001f);
+        assertEquals(9f, indefinite.unwrapOrElse(() -> 9f), 0.001f);
+        assertEquals(AvailableSpace.definite(8f), indefinite.or(AvailableSpace.definite(8f)));
+        assertEquals(AvailableSpace.definite(7f), indefinite.orElse(() -> AvailableSpace.definite(7f)));
+        assertEquals(AvailableSpace.definite(6f), indefinite.maybeSet(6f));
+        assertSame(indefinite, indefinite.maybeSet(null));
+        assertEquals(30f, definite.computeFreeSpace(20f), 0.001f);
+        assertEquals(0f, AvailableSpace.minContent().computeFreeSpace(20f), 0.001f);
+        assertEquals(Float.POSITIVE_INFINITY, AvailableSpace.maxContent().computeFreeSpace(20f));
+
+        TaffySize<AvailableSpace> constraints = new TaffySize<>(definite, indefinite);
+        assertEquals(new TaffySize<>(50f, Float.NaN), constraints.intoOptions());
+        assertEquals(new TaffySize<>(AvailableSpace.definite(10f), indefinite),
+            constraints.maybeSet(new FloatSize(10f, Float.NaN)));
     }
 }

@@ -10,7 +10,6 @@ import dev.vfyjxf.taffy.style.NamedGridLine;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +28,15 @@ public class NamedLineResolver {
     
     /** Map of row line names to line numbers (1-based). Each name may have multiple lines. */
     private final Map<String, List<Integer>> rowLines;
+
+    /** Row line names in their source order, keyed by one-based grid line. */
+    private final Map<Integer, List<String>> rowLineNamesByIndex;
     
     /** Map of column line names to line numbers (1-based). Each name may have multiple lines. */
     private final Map<String, List<Integer>> columnLines;
+
+    /** Column line names in their source order, keyed by one-based grid line. */
+    private final Map<Integer, List<String>> columnLineNamesByIndex;
     
     /** Map of area names to area definitions */
     private final Map<String, GridTemplateArea> areas;
@@ -58,6 +63,8 @@ public class NamedLineResolver {
         this.style = style;
         this.rowLines = new HashMap<>();
         this.columnLines = new HashMap<>();
+        this.rowLineNamesByIndex = new HashMap<>();
+        this.columnLineNamesByIndex = new HashMap<>();
         this.areas = new HashMap<>();
         this.areaColumnCount = 0;
         this.areaRowCount = 0;
@@ -74,24 +81,24 @@ public class NamedLineResolver {
 
                 // Create implicit line names from areas
                 // Area "header" creates lines "header-start" and "header-end"
-                upsertLineName(columnLines, area.getName() + "-start", area.getColumnStart());
-                upsertLineName(columnLines, area.getName() + "-end", area.getColumnEnd());
-                upsertLineName(rowLines, area.getName() + "-start", area.getRowStart());
-                upsertLineName(rowLines, area.getName() + "-end", area.getRowEnd());
+                upsertLineName(columnLines, columnLineNamesByIndex, area.getName() + "-start", area.getColumnStart());
+                upsertLineName(columnLines, columnLineNamesByIndex, area.getName() + "-end", area.getColumnEnd());
+                upsertLineName(rowLines, rowLineNamesByIndex, area.getName() + "-start", area.getRowStart());
+                upsertLineName(rowLines, rowLineNamesByIndex, area.getName() + "-end", area.getRowEnd());
             }
         }
         
         // Process explicit named lines from grid-template-column-names
         if (style.gridTemplateColumnNames != null) {
             for (NamedGridLine namedLine : style.gridTemplateColumnNames) {
-                upsertLineName(columnLines, namedLine.getName(), namedLine.getIndex());
+                upsertLineName(columnLines, columnLineNamesByIndex, namedLine.getName(), namedLine.getIndex());
             }
         }
         
         // Process explicit named lines from grid-template-row-names
         if (style.gridTemplateRowNames != null) {
             for (NamedGridLine namedLine : style.gridTemplateRowNames) {
-                upsertLineName(rowLines, namedLine.getName(), namedLine.getIndex());
+                upsertLineName(rowLines, rowLineNamesByIndex, namedLine.getName(), namedLine.getIndex());
             }
         }
         
@@ -116,12 +123,18 @@ public class NamedLineResolver {
         }
     }
     
-    private void upsertLineName(Map<String, List<Integer>> map, String name, int lineNumber) {
-        map.computeIfAbsent(name, k -> new ArrayList<>()).add(lineNumber);
+    private void upsertLineName(
+        Map<String, List<Integer>> lookup,
+        Map<Integer, List<String>> orderedNames,
+        String name,
+        int lineNumber) {
+        lookup.computeIfAbsent(name, key -> new ArrayList<>()).add(lineNumber);
+        orderedNames.computeIfAbsent(lineNumber, key -> new ArrayList<>()).add(name);
     }
 
     private void addRepeatedLineNames(
         Map<String, List<Integer>> lineMap,
+        Map<Integer, List<String>> orderedNames,
         List<GridTemplateComponent> template,
         int explicitTrackCount) {
         if (template == null || template.isEmpty()) return;
@@ -162,7 +175,7 @@ public class NamedLineResolver {
             for (int repeatIndex = 0; repeatIndex < repetitionCount; repeatIndex++) {
                 for (int lineOffset = 0; lineOffset < lineNames.size(); lineOffset++) {
                     for (String name : lineNames.get(lineOffset)) {
-                        upsertLineName(lineMap, name, currentLine + lineOffset);
+                        upsertLineName(lineMap, orderedNames, name, currentLine + lineOffset);
                     }
                 }
                 currentLine += repetition.getTrackCount();
@@ -172,6 +185,7 @@ public class NamedLineResolver {
 
     private void addTemplateBoundaryNames(
         Map<String, List<Integer>> lineMap,
+        Map<Integer, List<String>> orderedNames,
         List<List<String>> lineNames,
         List<GridTemplateComponent> template,
         int explicitTrackCount) {
@@ -195,7 +209,7 @@ public class NamedLineResolver {
         int currentLine = 1;
         for (int componentIndex = 0; componentIndex < template.size(); componentIndex++) {
             for (String name : lineNames.get(componentIndex)) {
-                upsertLineName(lineMap, name, currentLine);
+                upsertLineName(lineMap, orderedNames, name, currentLine);
             }
             GridTemplateComponent component = template.get(componentIndex);
             if (component == null || component.isSingle()) {
@@ -210,7 +224,7 @@ public class NamedLineResolver {
             currentLine += repetitions * repetition.getTrackCount();
         }
         for (String name : lineNames.get(lineNames.size() - 1)) {
-            upsertLineName(lineMap, name, currentLine);
+            upsertLineName(lineMap, orderedNames, name, currentLine);
         }
     }
 
@@ -450,8 +464,8 @@ public class NamedLineResolver {
     public void setExplicitColumnCount(int count) {
         this.explicitColumnCount = count;
         addTemplateBoundaryNames(
-            columnLines, style.gridTemplateColumnNameGroups, style.gridTemplateColumnsWithRepeat, count);
-        addRepeatedLineNames(columnLines, style.gridTemplateColumnsWithRepeat, count);
+            columnLines, columnLineNamesByIndex, style.gridTemplateColumnNameGroups, style.gridTemplateColumnsWithRepeat, count);
+        addRepeatedLineNames(columnLines, columnLineNamesByIndex, style.gridTemplateColumnsWithRepeat, count);
         sortAndDeduplicate(columnLines);
     }
     
@@ -460,8 +474,8 @@ public class NamedLineResolver {
      */
     public void setExplicitRowCount(int count) {
         this.explicitRowCount = count;
-        addTemplateBoundaryNames(rowLines, style.gridTemplateRowNameGroups, style.gridTemplateRowsWithRepeat, count);
-        addRepeatedLineNames(rowLines, style.gridTemplateRowsWithRepeat, count);
+        addTemplateBoundaryNames(rowLines, rowLineNamesByIndex, style.gridTemplateRowNameGroups, style.gridTemplateRowsWithRepeat, count);
+        addRepeatedLineNames(rowLines, rowLineNamesByIndex, style.gridTemplateRowsWithRepeat, count);
         sortAndDeduplicate(rowLines);
     }
     
@@ -488,23 +502,18 @@ public class NamedLineResolver {
 
     /** Return a copy of row line names keyed by their one-based explicit line index. */
     public Map<Integer, List<String>> getRowLineNamesByIndex() {
-        return lineNamesByIndex(rowLines);
+        return lineNamesByIndex(rowLineNamesByIndex);
     }
 
     /** Return a copy of column line names keyed by their one-based explicit line index. */
     public Map<Integer, List<String>> getColumnLineNamesByIndex() {
-        return lineNamesByIndex(columnLines);
+        return lineNamesByIndex(columnLineNamesByIndex);
     }
 
-    private static Map<Integer, List<String>> lineNamesByIndex(Map<String, List<Integer>> lineLookup) {
+    private static Map<Integer, List<String>> lineNamesByIndex(Map<Integer, List<String>> orderedNames) {
         Map<Integer, List<String>> result = new HashMap<>();
-        for (Map.Entry<String, List<Integer>> entry : lineLookup.entrySet()) {
-            for (Integer index : entry.getValue()) {
-                result.computeIfAbsent(index, ignored -> new ArrayList<>()).add(entry.getKey());
-            }
-        }
-        for (List<String> names : result.values()) {
-            Collections.sort(names);
+        for (Map.Entry<Integer, List<String>> entry : orderedNames.entrySet()) {
+            result.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
         return result;
     }

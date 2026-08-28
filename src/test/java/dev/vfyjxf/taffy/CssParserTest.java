@@ -17,8 +17,11 @@ import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.GridTemplateComponent;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
+import dev.vfyjxf.taffy.style.MaxTrackSizingFunction;
+import dev.vfyjxf.taffy.style.MinTrackSizingFunction;
 import dev.vfyjxf.taffy.style.Overflow;
 import dev.vfyjxf.taffy.style.ParseError;
+import dev.vfyjxf.taffy.style.RepetitionCount;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
@@ -143,6 +146,29 @@ public class CssParserTest {
         assertEquals(GridRepetition.RepetitionType.AUTO_FILL, components.get(0).getRepeat().getType());
         assertEquals(GridRepetition.RepetitionType.AUTO_FIT, components.get(1).getRepeat().getType());
         assertEquals(65535, components.get(2).getRepeat().getCount());
+    }
+
+    @Test
+    void exposesTypedGridTrackAndRepetitionParseValues() {
+        MinTrackSizingFunction min = CssParser.parseMinTrackSizingFunction("25%");
+        MaxTrackSizingFunction max = CssParser.parseMaxTrackSizingFunction("fit-content(40px)");
+        RepetitionCount count = CssParser.parseRepetitionCount("999999999999");
+
+        assertEquals(MinTrackSizingFunction.percent(0.25f), min);
+        assertEquals(MaxTrackSizingFunction.fitContent(LengthPercentage.length(40f)), max);
+        assertEquals(65535, count.count());
+        assertEquals(RepetitionCount.autoFill(), CssParser.parseRepetitionCount("auto-fill"));
+        assertEquals(RepetitionCount.autoFit(), CssParser.repetitionCountParser().fromCss("auto-fit"));
+        assertEquals(TrackSizingFunction.minmax(TrackSizingFunction.percent(0.25f),
+            TrackSizingFunction.fitContent(LengthPercentage.length(40f))), TrackSizingFunction.minmax(min, max));
+        assertEquals(MinTrackSizingFunction.auto(), MinTrackSizingFunction.from(MaxTrackSizingFunction.fr(2f)));
+        assertEquals(MaxTrackSizingFunction.auto(), MaxTrackSizingFunction.from(TaffyDimension.content()));
+        assertEquals(MaxTrackSizingFunction.fitContent(LengthPercentage.percent(0.5f)),
+            MaxTrackSizingFunction.from(TaffyDimension.fitContent(LengthPercentage.percent(0.5f))));
+        assertEquals(RepetitionCount.autoFit(), GridRepetition.of(RepetitionCount.autoFit(),
+            List.of(TrackSizingFunction.fixed(10f))).getRepetitionCount());
+        assertThrows(ParseError.class, () -> CssParser.parseMinTrackSizingFunction("1fr"));
+        assertThrows(ParseError.class, () -> CssParser.parseMaxTrackSizingFunction("fit-content(auto)"));
     }
 
     @Test

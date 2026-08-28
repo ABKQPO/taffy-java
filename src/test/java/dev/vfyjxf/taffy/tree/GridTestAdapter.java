@@ -12,12 +12,12 @@ import dev.vfyjxf.taffy.style.TrackSizingFunction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 /**
  * Test-only adapter for exercising grid internals.
  *
- * <p>This class is intentionally located in the {@code dev.vfyjxf.taffy.tree} package so it can
- * call package-private debug hooks in {@link GridComputer} without reflection.
+ * <p>This class adapts GridComputer's public placement diagnostics to stable test fixtures.
  */
 public class GridTestAdapter {
 
@@ -421,7 +421,7 @@ public class GridTestAdapter {
             TrackCounts counts,
             TaffyStyle containerStyle,
             boolean horizontalAxis,
-            java.util.function.IntPredicate trackHasItems) {
+            IntPredicate trackHasItems) {
 
         List<DebugGridTrack> tracks = new ArrayList<>();
 

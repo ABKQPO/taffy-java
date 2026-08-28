@@ -64,8 +64,12 @@ tasks.named('test') {
     def xmlFixtureGroup = providers.gradleProperty('taffyXmlGroup')
         .orElse(providers.environmentVariable('TAFFY_XML_GROUP'))
         .orNull
+    def xmlFixtureName = providers.gradleProperty('taffyXmlName')
+        .orElse(providers.environmentVariable('TAFFY_XML_NAME'))
+        .orNull
     if (xmlFixtureRoot != null) systemProperty 'taffy.xml.root', xmlFixtureRoot
     if (xmlFixtureGroup != null) systemProperty 'taffy.xml.group', xmlFixtureGroup
+    if (xmlFixtureName != null) systemProperty 'taffy.xml.name', xmlFixtureName
 }
 
 shadowJar {

@@ -149,6 +149,13 @@ public class TrackSizingFunction {
         return new TrackSizingFunction(Type.MINMAX, null, 0, min, max);
     }
 
+    /** Creates a minmax track from typed public minimum and maximum values. */
+    public static TrackSizingFunction minmax(MinTrackSizingFunction min, MaxTrackSizingFunction max) {
+        return minmax(
+            Objects.requireNonNull(min, "min").toTrackSizingFunction(),
+            Objects.requireNonNull(max, "max").toTrackSizingFunction());
+    }
+
     /**
      * Singleton instances
      */

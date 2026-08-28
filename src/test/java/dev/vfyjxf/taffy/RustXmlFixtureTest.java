@@ -16,9 +16,11 @@ public class RustXmlFixtureTest {
         if (rootValue == null || rootValue.isBlank()) return Stream.empty();
         Path root = Path.of(rootValue);
         String group = System.getProperty("taffy.xml.group");
+        String name = System.getProperty("taffy.xml.name");
         Path searchRoot = group == null || group.isBlank() ? root : root.resolve(group);
         return Files.walk(searchRoot)
             .filter(path -> path.toString().endsWith(".xml"))
+            .filter(path -> name == null || name.isBlank() || path.getFileName().toString().equals(name + ".xml"))
             .sorted()
             .map(path -> DynamicTest.dynamicTest(root.relativize(path).toString(), () -> XmlFixtureRunner.run(path)));
     }

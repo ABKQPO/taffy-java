@@ -8,12 +8,16 @@ import dev.vfyjxf.taffy.geometry.TaffyPoint;
 import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.BoxSizing;
+import dev.vfyjxf.taffy.style.CalcExpression;
+import dev.vfyjxf.taffy.style.CalcValueResolver;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.Overflow;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.util.MeasureFunc;
+import dev.vfyjxf.taffy.util.NodeLayoutMeasureFunc;
+import dev.vfyjxf.taffy.util.NodeMeasureFunc;
 import dev.vfyjxf.taffy.util.Resolve;
 import dev.vfyjxf.taffy.util.TaffyMath;
 
@@ -27,10 +31,65 @@ public class LayoutComputer {
 
     private final LayoutPartialTree tree;
     private final MeasureFunc defaultMeasureFunc;
+    private final NodeMeasureFunc<?> contextMeasureFunc;
+    private final NodeLayoutMeasureFunc<?> layoutMeasureFunc;
+    private final LayoutComputeFunc layoutDispatcher;
+    private final BlockLayoutComputeFunc<LayoutBlockContainer> blockLayoutDispatcher;
+    private final CalcValueResolver calcValueResolver;
 
     public LayoutComputer(LayoutPartialTree tree, MeasureFunc defaultMeasureFunc) {
+        this(tree, defaultMeasureFunc, null, null, null, null);
+    }
+
+    public LayoutComputer(LayoutPartialTree tree, MeasureFunc defaultMeasureFunc,
+                          NodeMeasureFunc<?> contextMeasureFunc) {
+        this(tree, defaultMeasureFunc, contextMeasureFunc, null, null, null);
+    }
+
+    /** Creates a computer whose layout dispatch is owned by an external low-level tree. */
+    public LayoutComputer(LayoutPartialTree tree, MeasureFunc defaultMeasureFunc,
+                          NodeMeasureFunc<?> contextMeasureFunc, LayoutComputeFunc layoutDispatcher) {
+        this(tree, defaultMeasureFunc, contextMeasureFunc, null, layoutDispatcher, null);
+    }
+
+    /** Creates a computer with optional context-aware size and complete-output leaf callbacks. */
+    public LayoutComputer(
+        LayoutPartialTree tree,
+        MeasureFunc defaultMeasureFunc,
+        NodeMeasureFunc<?> contextMeasureFunc,
+        NodeLayoutMeasureFunc<?> layoutMeasureFunc,
+        LayoutComputeFunc layoutDispatcher) {
+        this(tree, defaultMeasureFunc, contextMeasureFunc, layoutMeasureFunc, layoutDispatcher, null);
+    }
+
+    /** Creates a computer that resolves calc values through an explicit caller hook. */
+    public LayoutComputer(
+        LayoutPartialTree tree,
+        MeasureFunc defaultMeasureFunc,
+        NodeMeasureFunc<?> contextMeasureFunc,
+        NodeLayoutMeasureFunc<?> layoutMeasureFunc,
+        LayoutComputeFunc layoutDispatcher,
+        CalcValueResolver calcValueResolver) {
+        this(tree, defaultMeasureFunc, contextMeasureFunc, layoutMeasureFunc, layoutDispatcher, null,
+            calcValueResolver);
+    }
+
+    /** Creates a computer with caller-owned regular and block-formatting-context child dispatch. */
+    public LayoutComputer(
+        LayoutPartialTree tree,
+        MeasureFunc defaultMeasureFunc,
+        NodeMeasureFunc<?> contextMeasureFunc,
+        NodeLayoutMeasureFunc<?> layoutMeasureFunc,
+        LayoutComputeFunc layoutDispatcher,
+        BlockLayoutComputeFunc<LayoutBlockContainer> blockLayoutDispatcher,
+        CalcValueResolver calcValueResolver) {
         this.tree = tree;
         this.defaultMeasureFunc = defaultMeasureFunc;
+        this.contextMeasureFunc = contextMeasureFunc;
+        this.layoutMeasureFunc = layoutMeasureFunc;
+        this.layoutDispatcher = layoutDispatcher;
+        this.blockLayoutDispatcher = blockLayoutDispatcher;
+        this.calcValueResolver = calcValueResolver;
     }
 
     /**
@@ -53,9 +112,9 @@ public class LayoutComputer {
             FloatSize parentSize = availableSpaceToOptionSize(availableSpace);
 
             float aspectRatio = style.getAspectRatio();
-            FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), parentSize.width);
-            FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
-            FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width);
+            FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), parentSize.width, this::resolveCalcValue);
+            FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width, this::resolveCalcValue);
+            FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width, this::resolveCalcValue);
 
             FloatSize paddingBorderSize = new FloatSize(
                 padding.left + padding.right + border.left + border.right,
@@ -66,15 +125,15 @@ public class LayoutComputer {
                                             ? paddingBorderSize
                                             : new FloatSize(0f, 0f);
 
-            FloatSize size2 = Resolve.maybeResolveSize(style.getMinSize(), parentSize);
+            FloatSize size2 = Resolve.maybeResolveSize(style.getMinSize(), parentSize, this::resolveCalcValue);
             FloatSize minSize = Resolve.maybeApplyAspectRatio(size2, aspectRatio);
             minSize = maybeAdd(minSize, boxSizingAdjustment);
 
-            FloatSize size1 = Resolve.maybeResolveSize(style.getMaxSize(), parentSize);
+            FloatSize size1 = Resolve.maybeResolveSize(style.getMaxSize(), parentSize, this::resolveCalcValue);
             FloatSize maxSize = Resolve.maybeApplyAspectRatio(size1, aspectRatio);
             maxSize = maybeAdd(maxSize, boxSizingAdjustment);
 
-            FloatSize size = Resolve.maybeResolveSize(style.getSize(), parentSize);
+            FloatSize size = Resolve.maybeResolveSize(style.getSize(), parentSize, this::resolveCalcValue);
             FloatSize styleSize = Resolve.maybeApplyAspectRatio(size, aspectRatio);
             styleSize = maybeAdd(styleSize, boxSizingAdjustment);
             styleSize = maybeClamp(styleSize, minSize, maxSize);
@@ -114,9 +173,9 @@ public class LayoutComputer {
 
         // Get style properties for final layout
         float contextWidth = availableSpace.width.isDefinite() ? availableSpace.width.getValue() : Float.NaN;
-        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), contextWidth);
-        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), contextWidth);
-        FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), contextWidth);
+        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), contextWidth, this::resolveCalcValue);
+        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), contextWidth, this::resolveCalcValue);
+        FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), contextWidth, this::resolveCalcValue);
 
         FloatSize scrollbarSize = new FloatSize(
             style.getOverflow().y == Overflow.SCROLL ? style.getScrollbarWidth() : 0f,
@@ -124,9 +183,12 @@ public class LayoutComputer {
         );
 
         // Set the root layout
+        float rootX = style.getDirection().isRtl() && availableSpace.width.isDefinite()
+            ? availableSpace.width.getValue() - output.size().width
+            : 0f;
         Layout layout = new Layout(
             0,
-            new FloatPoint(0f, 0f),
+            new FloatPoint(rootX, 0f),
             output.size(),
             output.contentSize(),
             scrollbarSize,
@@ -140,6 +202,13 @@ public class LayoutComputer {
         tree.setUnroundedLayout(root, layout);
         return output;
     }
+
+    /** Resolves an opaque calc expression using the caller-owned tree hook. */
+    public float resolveCalcValue(CalcExpression expression, float basis) {
+        return calcValueResolver == null ? tree.resolveCalcValue(expression, basis)
+            : calcValueResolver.resolve(expression, basis);
+    }
+
 
     /**
      * Performs layout for a child node.
@@ -202,17 +271,22 @@ public class LayoutComputer {
         BlockContext blockContext) {
         TaffyStyle childStyle = tree.getStyle(node);
         TaffyDisplay display = childStyle.getDisplay();
+        LayoutInput inputs = new LayoutInput(
+            RunMode.PERFORM_LAYOUT,
+            sizingMode,
+            RequestedAxis.BOTH,
+            knownDimensions,
+            new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
+            parentSize,
+            availableSpace,
+            verticalMarginsAreCollapsible
+        );
+        boolean sharesBlockFormattingContext = Boolean.TRUE.equals(verticalMarginsAreCollapsible.start)
+            && Boolean.TRUE.equals(verticalMarginsAreCollapsible.end);
+        if (blockLayoutDispatcher != null && sharesBlockFormattingContext) {
+            return computeBlockChildWithDispatcher(node, inputs, blockContext);
+        }
         if (tree.childCount(node) > 0 && (display == TaffyDisplay.BLOCK || display == TaffyDisplay.FLOW_ROOT)) {
-            LayoutInput inputs = new LayoutInput(
-                RunMode.PERFORM_LAYOUT,
-                sizingMode,
-                RequestedAxis.BOTH,
-                knownDimensions,
-                new TaffySize<>(!Float.isNaN(knownDimensions.width), !Float.isNaN(knownDimensions.height)),
-                parentSize,
-                availableSpace,
-                verticalMarginsAreCollapsible
-            );
             return new BlockComputer(this).compute(node, inputs, childStyle, blockContext);
         }
         return performChildLayout(
@@ -223,6 +297,20 @@ public class LayoutComputer {
             sizingMode,
             verticalMarginsAreCollapsible
         );
+    }
+
+    private LayoutOutput computeBlockChildWithDispatcher(
+        NodeId node,
+        LayoutInput inputs,
+        BlockContext blockContext) {
+        LayoutOutput cached = tree.getCacheEntry(node, inputs);
+        if (cached != null) {
+            return cached;
+        }
+        LayoutOutput output = blockLayoutDispatcher.compute((LayoutBlockContainer) tree, node, inputs, blockContext);
+        output = attachOutOfFlowCandidates(node, output);
+        tree.storeCacheEntry(node, inputs, output);
+        return output;
     }
 
     /**
@@ -279,7 +367,6 @@ public class LayoutComputer {
      * Computes layout for a child, using cache if available.
      */
     public LayoutOutput computeChildLayout(NodeId node, LayoutInput inputs) {
-
         // Handle hidden layout
         if (inputs.runMode() == RunMode.PERFORM_HIDDEN_LAYOUT) {
             return computeHiddenLayout(node);
@@ -292,7 +379,9 @@ public class LayoutComputer {
         }
 
         // Compute layout
-        LayoutOutput output = computeLayoutUncached(node, inputs);
+        LayoutOutput output = layoutDispatcher == null
+            ? computeLayoutUncached(node, inputs)
+            : layoutDispatcher.compute(node, inputs);
         if (inputs.runMode() == RunMode.PERFORM_LAYOUT) {
             output = attachOutOfFlowCandidates(node, output);
         }
@@ -370,7 +459,11 @@ public class LayoutComputer {
             return computeHiddenLayout(node);
         }
 
-        if (childCount == 0) {
+        if (childCount == 0 && layoutMeasureFunc != null) {
+            return measureLayout(inputs, node, style);
+        }
+
+        if (childCount == 0 && display != TaffyDisplay.GRID) {
             // Leaf node - use measure function
             return computeLeafLayout(node, inputs, style);
         }
@@ -407,15 +500,31 @@ public class LayoutComputer {
      * Computes layout for a leaf node (node without children or with measure function).
      */
     public LayoutOutput computeLeafLayout(NodeId node, LayoutInput inputs, TaffyStyle style) {
+        return computeLeafLayout(node, inputs, style, null);
+    }
+
+    /** Computes a leaf with an optional call-local measurement override. */
+    public LayoutOutput computeLeafLayout(
+        NodeId node,
+        LayoutInput inputs,
+        TaffyStyle style,
+        MeasureFunc measureOverride) {
         FloatSize knownDimensions = inputs.knownDimensions();
         FloatSize parentSize = inputs.parentSize();
         TaffySize<AvailableSpace> availableSpace = inputs.availableSpace();
 
-        // Resolve style sizes
-        Float aspectRatio = style.getAspectRatio();
-        FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), parentSize.width);
-        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
-        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width);
+        SizingMode sizingMode = inputs.sizingMode();
+
+        // ContentSize callers may provide a complete used size or a single axis that still needs
+        // intrinsic aspect-ratio completion. Do not overwrite a complete used size.
+        boolean hasCompleteKnownDimensions = !Float.isNaN(knownDimensions.width)
+                                            && !Float.isNaN(knownDimensions.height);
+        Float aspectRatio = sizingMode == SizingMode.CONTENT_SIZE && hasCompleteKnownDimensions
+                            ? null
+                            : style.getAspectRatio();
+        FloatRect margin = Resolve.resolveRectLpaOrZero(style.getMargin(), parentSize.width, this::resolveCalcValue);
+        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width, this::resolveCalcValue);
+        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width, this::resolveCalcValue);
 
         // Padding + border only (without scrollbar gutter)
         FloatSize paddingBorderSize = new FloatSize(
@@ -442,33 +551,27 @@ public class LayoutComputer {
         FloatSize boxSizingAdjustment = style.getBoxSizing() == BoxSizing.CONTENT_BOX
                                         ? paddingBorderSize
                                         : new FloatSize(0f, 0f);
-        // For ContentSize mode, we ignore min-size and explicit size; max-size still clamps content contributions.
-        // These should only be applied when computing inherent size (except max-size clamping).
-        SizingMode sizingMode = inputs.sizingMode();
-
         FloatSize minSize;
         FloatSize maxSize;
         FloatSize styledBasedKnownDimensions;
         FloatSize nodeSize; // Track for canBeCollapsedThrough computation
         FloatSize nodeMinSize; // Track for canBeCollapsedThrough computation
 
-        // Keep raw resolved min/max (before aspect-ratio expansion) so we can implement "fill_*" aspect-ratio behavior
-        // when only one axis is specified.
+        // Keep raw resolved min/max before aspect-ratio expansion when sizing from style.
         FloatSize resolvedMinSizeRaw;
-        FloatSize resolvedMaxSizeRaw = Resolve.maybeResolveSize(style.getMaxSize(), parentSize);
 
         if (sizingMode == SizingMode.CONTENT_SIZE) {
-            // In ContentSize mode, we ignore min-size and explicit size; callers provide knownDimensions when needed.
-            // Max-size still clamps intrinsic contributions to avoid over-inflation.
+            // Parent layout algorithms have already resolved all relevant constraints.
             minSize = new FloatSize(Float.NaN, Float.NaN);
-            maxSize = maybeAdd(resolvedMaxSizeRaw, boxSizingAdjustment);
+            maxSize = new FloatSize(Float.NaN, Float.NaN);
 
             // Ignore style "size" here; callers using CONTENT_SIZE typically provide knownDimensions when needed.
             styledBasedKnownDimensions = knownDimensions;
             nodeSize = knownDimensions;
             nodeMinSize = new FloatSize(Float.NaN, Float.NaN);
         } else {
-            resolvedMinSizeRaw = Resolve.maybeResolveSize(style.getMinSize(), parentSize);
+            resolvedMinSizeRaw = Resolve.maybeResolveSize(style.getMinSize(), parentSize, this::resolveCalcValue);
+            FloatSize resolvedMaxSizeRaw = Resolve.maybeResolveSize(style.getMaxSize(), parentSize, this::resolveCalcValue);
 
             minSize = Resolve.maybeApplyAspectRatio(resolvedMinSizeRaw, aspectRatio);
             minSize = maybeAdd(minSize, boxSizingAdjustment);
@@ -476,7 +579,7 @@ public class LayoutComputer {
             // max-size does NOT apply aspect-ratio in leaf layout (per Taffy behavior)
             maxSize = maybeAdd(resolvedMaxSizeRaw, boxSizingAdjustment);
 
-            FloatSize size = Resolve.maybeResolveSize(style.getSize(), parentSize);
+            FloatSize size = Resolve.maybeResolveSize(style.getSize(), parentSize, this::resolveCalcValue);
             FloatSize styleSize = Resolve.maybeApplyAspectRatio(size, aspectRatio);
             styleSize = maybeAdd(styleSize, boxSizingAdjustment);
             FloatSize clampedStyleSize = maybeClamp(styleSize, minSize, maxSize);
@@ -526,18 +629,18 @@ public class LayoutComputer {
                 canCollapseThrough = false;
             } else if (size.height == 0) {
                 // Check if node has a measure function that would return content
-                MeasureFunc measureFunc = tree.getMeasureFunc(node);
+                MeasureFunc measureFunc = measureOverride != null ? measureOverride : tree.getMeasureFunc(node);
                 if (measureFunc == null) {
                     measureFunc = defaultMeasureFunc;
                 }
-                if (measureFunc != null) {
+                if (measureFunc != null || contextMeasureFunc != null) {
                     // Call measure with null height to get actual content height
                     // This determines if there's a "line box" that prevents collapse through
                     FloatSize measureKnownDimensions = new FloatSize(
                         TaffyMath.maybeSub(styledBasedKnownDimensions.width, contentBoxInsetSize.width),
                         Float.NaN  // Pass null height to get actual content height
                     );
-                    FloatSize measuredSize = measureFunc.measure(measureKnownDimensions, availableSpace);
+                    FloatSize measuredSize = measure(measureFunc, measureKnownDimensions, availableSpace, node, style);
                     float measuredHeight = Float.isNaN(measuredSize.height) ? 0f : measuredSize.height;
                     canCollapseThrough = measuredHeight == 0;
                 } else {
@@ -586,17 +689,17 @@ public class LayoutComputer {
         );
 
         // Use measure function if available
-        MeasureFunc measureFunc = tree.getMeasureFunc(node);
+        MeasureFunc measureFunc = measureOverride != null ? measureOverride : tree.getMeasureFunc(node);
         if (measureFunc == null) {
             measureFunc = defaultMeasureFunc;
         }
 
         FloatSize measuredSize;
-        if (measureFunc != null) {
+        if (measureFunc != null || contextMeasureFunc != null) {
             FloatSize measureKnownDimensions = inputs.runMode() == RunMode.COMPUTE_SIZE
                 ? knownDimensions
                 : FloatSize.none();
-            measuredSize = measureFunc.measure(measureKnownDimensions, contentAvailableSpace);
+            measuredSize = measure(measureFunc, measureKnownDimensions, contentAvailableSpace, node, style);
         } else {
             measuredSize = new FloatSize(0f, 0f);
         }
@@ -747,6 +850,39 @@ public class LayoutComputer {
         }
 
         return new FloatSize(width, height);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private FloatSize measure(
+        MeasureFunc measureFunc,
+        FloatSize knownDimensions,
+        TaffySize<AvailableSpace> availableSpace,
+        NodeId node,
+        TaffyStyle style) {
+        if (contextMeasureFunc != null) {
+            return ((NodeMeasureFunc) contextMeasureFunc).measure(
+                knownDimensions,
+                availableSpace,
+                node,
+                tree.getNodeContext(node),
+                style
+            );
+        }
+        return measureFunc.measure(knownDimensions, availableSpace);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private LayoutOutput measureLayout(LayoutInput input, NodeId node, TaffyStyle style) {
+        LayoutOutput output = ((NodeLayoutMeasureFunc) layoutMeasureFunc).measure(
+            input,
+            node,
+            tree.getNodeContext(node),
+            style
+        );
+        if (output == null) {
+            throw new IllegalStateException("Node layout measure callback returned null");
+        }
+        return output;
     }
 
     /**

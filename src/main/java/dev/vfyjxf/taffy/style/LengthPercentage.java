@@ -160,6 +160,23 @@ public class LengthPercentage {
         return Float.isNaN(resolved) ? 0f : resolved;
     }
 
+    /** Converts this value to Taffy's compact public sizing representation. */
+    public CompactLength toCompactLength() {
+        return CompactLength.from(this);
+    }
+
+    /** Resolve with a caller-supplied calc hook. */
+    public float maybeResolve(float context, CalcValueResolver resolver) {
+        if (type == Type.CALC) return resolver.resolve(calcExpression, context);
+        return maybeResolve(context);
+    }
+
+    /** Resolve with a caller-supplied calc hook, returning zero when unresolvable. */
+    public float resolveOrZero(float context, CalcValueResolver resolver) {
+        float resolved = maybeResolve(context, resolver);
+        return Float.isNaN(resolved) ? 0f : resolved;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

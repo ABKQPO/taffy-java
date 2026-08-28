@@ -7,6 +7,7 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyStyle;
+import dev.vfyjxf.taffy.style.TrackSizingFunction;
 import dev.vfyjxf.taffy.tree.NodeId;
 import dev.vfyjxf.taffy.tree.TaffyTree;
 import org.junit.jupiter.api.Test;
@@ -63,5 +64,29 @@ public class AlignmentSafetyTest {
         tree.computeLayout(root, new TaffySize<>(AvailableSpace.definite(50f), AvailableSpace.definite(50f)));
 
         assertEquals(0f, tree.getLayout(child).location().x, 0.001f);
+    }
+
+    @Test
+    public void safeGridJustifyEndUsesEndAlignmentWhenTracksFit() {
+        TaffyTree tree = new TaffyTree();
+        TaffyStyle rootStyle = new TaffyStyle();
+        rootStyle.display = TaffyDisplay.GRID;
+        rootStyle.size = new TaffySize<>(TaffyDimension.length(200f), TaffyDimension.length(40f));
+        rootStyle.justifyContent = AlignContent.SAFE_END;
+        for (int index = 0; index < 3; index++) {
+            rootStyle.gridTemplateColumns.add(TrackSizingFunction.fixed(40f));
+        }
+        rootStyle.gridTemplateRows.add(TrackSizingFunction.fixed(40f));
+
+        NodeId first = tree.newLeaf(new TaffyStyle());
+        NodeId second = tree.newLeaf(new TaffyStyle());
+        NodeId third = tree.newLeaf(new TaffyStyle());
+        NodeId root = tree.newWithChildren(rootStyle, first, second, third);
+
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(80f, tree.getLayout(first).location().x, 0.001f);
+        assertEquals(120f, tree.getLayout(second).location().x, 0.001f);
+        assertEquals(160f, tree.getLayout(third).location().x, 0.001f);
     }
 }

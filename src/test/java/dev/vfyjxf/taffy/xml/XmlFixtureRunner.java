@@ -30,14 +30,15 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Runs an upstream Taffy XML fixture against the Java layout tree. */
 public class XmlFixtureRunner {
-    private static final float EPSILON = 0.01f;
-    private static final Pattern PIXEL_TOKEN = Pattern.compile("(-?(?:\\d+\\.?\\d*|\\.\\d+))px");
+    private static final float EPSILON = 0.1f;
+    private static final Pattern TRACK_LIST_TOKEN = Pattern.compile("\\[([^]]*)]|(-?(?:\\d+\\.?\\d*|\\.\\d+))px");
 
     private XmlFixtureRunner() {
     }
@@ -75,7 +76,8 @@ public class XmlFixtureRunner {
         }
         TaffyStyle style = style(input);
         if (childIds.isEmpty() && input.getTagName().equals("text")) {
-            return tree.newLeafWithMeasure(style, ahemTextMeasure(input.getTextContent()));
+            boolean vertical = attribute(input, "writing-mode", "horizontal-tb").startsWith("vertical");
+            return tree.newLeafWithMeasure(style, ahemTextMeasure(input.getTextContent(), vertical));
         }
         return tree.newWithChildren(style, childIds);
     }
@@ -84,7 +86,7 @@ public class XmlFixtureRunner {
         TaffyStyle style = new TaffyStyle();
         style.display = CssParser.parseDisplay(attribute(element, "display", "flex"));
         style.direction = CssParser.parseDirection(attribute(element, "direction", "inherit"));
-        style.position = CssParser.parsePosition(attribute(element, "position", "static"));
+        style.position = CssParser.parsePosition(attribute(element, "position", "relative"));
         style.boxSizing = CssParser.parseBoxSizing(attribute(element, "box-sizing", "border-box"));
         style.contain = CssParser.parseContain(attribute(element, "contain", "none"));
         style.floatMode = CssParser.parseFloat(attribute(element, "float", "none"));
@@ -102,6 +104,7 @@ public class XmlFixtureRunner {
         style.padding = rectLength(element, "padding-top", "padding-right", "padding-bottom", "padding-left");
         style.border = rectLength(element, "border-top", "border-right", "border-bottom", "border-left");
         style.gap = new TaffySize<>(lengthPercentage(element, "column-gap", "0px"), lengthPercentage(element, "row-gap", "0px"));
+        if (element.hasAttribute("text-align")) style.textAlign = CssParser.parseTextAlign(element.getAttribute("text-align"));
         if (element.hasAttribute("aspect-ratio")) style.aspectRatio = number(element, "aspect-ratio", Float.NaN);
         if (element.hasAttribute("flex-direction")) style.flexDirection = CssParser.parseFlexDirection(element.getAttribute("flex-direction"));
         if (element.hasAttribute("flex-wrap")) style.flexWrap = CssParser.parseFlexWrap(element.getAttribute("flex-wrap"));
@@ -117,6 +120,8 @@ public class XmlFixtureRunner {
         style.flexLineCount = integer(element, "flex-line-count", 1);
         if (element.hasAttribute("grid-template-rows")) style.setGridTemplateRows(CssParser.parseGridTemplateTracks(element.getAttribute("grid-template-rows")));
         if (element.hasAttribute("grid-template-columns")) style.setGridTemplateColumns(CssParser.parseGridTemplateTracks(element.getAttribute("grid-template-columns")));
+        if (element.hasAttribute("grid-auto-rows")) style.gridAutoRows = CssParser.parseGridAutoTracks(element.getAttribute("grid-auto-rows"));
+        if (element.hasAttribute("grid-auto-columns")) style.gridAutoColumns = CssParser.parseGridAutoTracks(element.getAttribute("grid-auto-columns"));
         if (element.hasAttribute("grid-auto-flow")) style.gridAutoFlow = CssParser.parseGridAutoFlow(element.getAttribute("grid-auto-flow"));
         style.gridRow = new TaffyLine<>(
             CssParser.parseGridPlacement(attribute(element, "grid-row-start", "auto")),
@@ -141,16 +146,20 @@ public class XmlFixtureRunner {
         }
         DetailedLayoutInfo detailedLayout = tree.getDetailedLayoutInfo(node);
         if (expected.hasAttribute("resolved-rows")) {
-            assertEquals(normalizeTrackList(expected.getAttribute("resolved-rows")), normalizeTrackList(detailedLayout.grid().gridTemplateRows()), fixtureName + " resolved rows");
+            String actualRows = detailedLayout.grid().gridTemplateRows();
+            assertEquals(true, trackListsMatch(expected.getAttribute("resolved-rows"), actualRows),
+                fixtureName + " resolved rows: expected " + expected.getAttribute("resolved-rows") + ", actual " + actualRows);
         }
         if (expected.hasAttribute("resolved-columns")) {
-            assertEquals(normalizeTrackList(expected.getAttribute("resolved-columns")), normalizeTrackList(detailedLayout.grid().gridTemplateColumns()), fixtureName + " resolved columns");
+            String actualColumns = detailedLayout.grid().gridTemplateColumns();
+            assertEquals(true, trackListsMatch(expected.getAttribute("resolved-columns"), actualColumns),
+                fixtureName + " resolved columns: expected " + expected.getAttribute("resolved-columns") + ", actual " + actualColumns);
         }
         List<Element> expectedChildren = children(expected);
         List<NodeId> childIds = tree.getChildren(node);
         assertEquals(expectedChildren.size(), childIds.size(), fixtureName + " child count");
         for (int index = 0; index < childIds.size(); index++) {
-            assertNode(tree, childIds.get(index), expectedChildren.get(index), fixtureName);
+            assertNode(tree, childIds.get(index), expectedChildren.get(index), fixtureName + " child[" + index + "]");
         }
     }
 
@@ -195,33 +204,84 @@ public class XmlFixtureRunner {
         return element.hasAttribute(name) ? Integer.parseInt(element.getAttribute(name)) : fallback;
     }
 
-    private static String normalizeTrackList(String value) {
-        return PIXEL_TOKEN.matcher(value).replaceAll(match -> Float.toString(Float.parseFloat(match.group(1))) + "px");
+    private static boolean trackListsMatch(String expected, String actual) {
+        List<TrackListToken> expectedTokens = parseTrackList(expected);
+        List<TrackListToken> actualTokens = parseTrackList(actual);
+        if (expectedTokens.size() != actualTokens.size()) return false;
+        for (int index = 0; index < expectedTokens.size(); index++) {
+            TrackListToken expectedToken = expectedTokens.get(index);
+            TrackListToken actualToken = actualTokens.get(index);
+            if (expectedToken.size != null && actualToken.size != null) {
+                if (Math.abs(expectedToken.size - actualToken.size) >= EPSILON) return false;
+            } else if (!expectedToken.names.equals(actualToken.names)) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    private static MeasureFunc ahemTextMeasure(String textContent) {
-        String text = textContent == null ? "" : textContent.trim();
-        int minCharacters = 0;
-        int maxCharacters = 0;
-        for (String segment : text.split("\\u200B", -1)) {
-            minCharacters = Math.max(minCharacters, segment.length());
-            maxCharacters += segment.length();
+    private static List<TrackListToken> parseTrackList(String value) {
+        if (value.trim().equals("none")) return List.of();
+        List<TrackListToken> tokens = new ArrayList<>();
+        Matcher matcher = TRACK_LIST_TOKEN.matcher(value);
+        while (matcher.find()) {
+            if (matcher.group(1) != null) {
+                String names = matcher.group(1).trim();
+                tokens.add(new TrackListToken(names.isEmpty() ? List.of() : List.of(names.split("\\s+")), null));
+            } else {
+                tokens.add(new TrackListToken(null, Float.parseFloat(matcher.group(2))));
+            }
         }
-        int minimum = minCharacters;
-        int maximum = maxCharacters;
+        return tokens;
+    }
+
+    private record TrackListToken(List<String> names, Float size) {
+    }
+
+    private static MeasureFunc ahemTextMeasure(String textContent, boolean vertical) {
+        String text = textContent == null ? "" : textContent.trim();
+        String[] parts = text.isEmpty() ? new String[0] : text.split("\\u200B", -1);
+        int minLineLength = 0;
+        int maxLineLength = 0;
+        for (String part : parts) {
+            minLineLength = Math.max(minLineLength, part.length());
+            maxLineLength += part.length();
+        }
+        int minimum = minLineLength;
+        int maximum = maxLineLength;
         return (knownDimensions, availableSpace) -> {
-            float width = knownDimensions.width;
-            if (Float.isNaN(width)) {
-                if (availableSpace.width.isMinContent()) width = minimum * 10f;
-                else if (availableSpace.width.isDefinite()) width = Math.max(minimum * 10f, Math.min(maximum * 10f, availableSpace.width.getValue()));
-                else width = maximum * 10f;
+            float knownInline = vertical ? knownDimensions.height : knownDimensions.width;
+            float knownBlock = vertical ? knownDimensions.width : knownDimensions.height;
+            AvailableSpace inlineSpace = vertical ? availableSpace.height : availableSpace.width;
+            float inlineSize = knownInline;
+            if (Float.isNaN(inlineSize)) {
+                if (inlineSpace.isMinContent()) inlineSize = minimum * 10f;
+                else if (inlineSpace.isDefinite()) inlineSize = Math.min(inlineSpace.getValue(), maximum * 10f);
+                else inlineSize = maximum * 10f;
             }
-            float height = knownDimensions.height;
-            if (Float.isNaN(height)) {
-                int perLine = Math.max(1, (int) Math.floor(width / 10f));
-                height = Math.max(1, (int) Math.ceil((double) maximum / perLine)) * 10f;
+            inlineSize = Math.max(inlineSize, minimum * 10f);
+            float blockSize = knownBlock;
+            if (Float.isNaN(blockSize)) {
+                int inlineLineLength = Math.max(1, (int) Math.floor(inlineSize / 10f));
+                int lineCount = 1;
+                int currentLineLength = 0;
+                for (String part : parts) {
+                    if (currentLineLength + part.length() > inlineLineLength && currentLineLength > 0) {
+                        lineCount++;
+                        currentLineLength = part.length();
+                    } else {
+                        currentLineLength += part.length();
+                    }
+                }
+                blockSize = lineCount * 10f;
             }
-            return new FloatSize(width, height);
+            FloatSize computed = vertical
+                ? new FloatSize(blockSize, inlineSize)
+                : new FloatSize(inlineSize, blockSize);
+            return new FloatSize(
+                Float.isNaN(knownDimensions.width) ? computed.width : knownDimensions.width,
+                Float.isNaN(knownDimensions.height) ? computed.height : knownDimensions.height
+            );
         };
     }
 

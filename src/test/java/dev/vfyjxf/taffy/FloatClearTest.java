@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FloatClearTest {
     @Test
-    void leftFloatReducesAvailableWidthForFollowingBlock() {
+    void leftFloatDoesNotShrinkTheFollowingBlockBox() {
         TaffyTree tree = new TaffyTree();
         TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
 
@@ -35,8 +35,8 @@ public class FloatClearTest {
         compute(tree, root);
 
         assertEquals(0f, tree.getLayout(floated).location().x, 0.01f);
-        assertEquals(30f, tree.getLayout(following).location().x, 0.01f);
-        assertEquals(70f, tree.getLayout(following).size().width, 0.01f);
+        assertEquals(0f, tree.getLayout(following).location().x, 0.01f);
+        assertEquals(100f, tree.getLayout(following).size().width, 0.01f);
     }
 
     @Test
@@ -62,7 +62,7 @@ public class FloatClearTest {
     }
 
     @Test
-    void oppositeFloatsShareTheAvailableSlot() {
+    void oppositeFloatsDoNotShrinkTheFollowingBlockBox() {
         TaffyTree tree = new TaffyTree();
         TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
 
@@ -82,12 +82,12 @@ public class FloatClearTest {
 
         assertEquals(0f, tree.getLayout(left).location().x, 0.01f);
         assertEquals(80f, tree.getLayout(right).location().x, 0.01f);
-        assertEquals(30f, tree.getLayout(content).location().x, 0.01f);
-        assertEquals(50f, tree.getLayout(content).size().width, 0.01f);
+        assertEquals(0f, tree.getLayout(content).location().x, 0.01f);
+        assertEquals(100f, tree.getLayout(content).size().width, 0.01f);
     }
 
     @Test
-    void fixedWidthBlockMovesBelowFloatWhenItsMarginBoxDoesNotFit() {
+    void fixedWidthBlockBoxCanOverlapAFloat() {
         TaffyTree tree = new TaffyTree();
         TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
 
@@ -102,11 +102,11 @@ public class FloatClearTest {
         compute(tree, root);
 
         assertEquals(0f, tree.getLayout(following).location().x, 0.01f);
-        assertEquals(20f, tree.getLayout(following).location().y, 0.01f);
+        assertEquals(0f, tree.getLayout(following).location().y, 0.01f);
     }
 
     @Test
-    void rtlBlockAvoidsRightFloatAtThePhysicalStartEdge() {
+    void rtlBlockBoxDoesNotShrinkForAFloatAtThePhysicalStartEdge() {
         TaffyTree tree = new TaffyTree();
         TaffyStyle rootStyle = blockStyle(100f, Float.NaN);
         rootStyle.direction = TaffyDirection.RTL;
@@ -122,7 +122,7 @@ public class FloatClearTest {
         compute(tree, root);
 
         assertEquals(0f, tree.getLayout(following).location().x, 0.01f);
-        assertEquals(70f, tree.getLayout(following).size().width, 0.01f);
+        assertEquals(100f, tree.getLayout(following).size().width, 0.01f);
     }
 
     @Test

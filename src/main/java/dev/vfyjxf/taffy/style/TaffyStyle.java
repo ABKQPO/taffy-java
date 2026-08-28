@@ -12,7 +12,8 @@ import java.util.List;
  * A typed representation of CSS style properties.
  * This is the primary input to layout computations.
  */
-public class TaffyStyle {
+public class TaffyStyle implements CoreStyle, FlexboxContainerStyle, FlexboxItemStyle,
+    GridContainerStyle, GridItemStyle, BlockContainerStyle, BlockItemStyle {
 
 
     /**
@@ -69,7 +70,7 @@ public class TaffyStyle {
     /**
      * What should the position value use as a base offset?
      */
-    public TaffyPosition position = TaffyPosition.STATIC;
+    public TaffyPosition position = TaffyPosition.RELATIVE;
 
     /**
      * How should the position of this element be tweaked relative to the layout defined?
@@ -436,6 +437,11 @@ public class TaffyStyle {
      * Creates a new Style with default values
      */
     public TaffyStyle() {
+    }
+
+    @Override
+    public TaffyStyle toTaffyStyle() {
+        return this;
     }
 
     /**

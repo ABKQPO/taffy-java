@@ -6,6 +6,9 @@ import dev.vfyjxf.taffy.tree.*;
 import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+
+import java.util.ArrayList;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -13984,7 +13987,7 @@ public class GridTest {
         nodeStyle.direction = TaffyDirection.LTR;
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
@@ -14102,7 +14105,7 @@ public class GridTest {
         nodeStyle.direction = TaffyDirection.LTR;
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
@@ -14183,7 +14186,7 @@ public class GridTest {
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.justifyContent = AlignContent.SPACE_EVENLY;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
@@ -14231,7 +14234,7 @@ public class GridTest {
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.justifyContent = AlignContent.SPACE_EVENLY;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
@@ -14309,7 +14312,7 @@ public class GridTest {
         node0Style.size = new TaffySize<>(TaffyDimension.percent(1.0f), TaffyDimension.percent(1.0f));
         node0Style.gap = new TaffySize<>(LengthPercentage.length(10.0f), LengthPercentage.length(10.0f));
         node0Style.padding = new TaffyRect<>(LengthPercentage.length(10.0f), LengthPercentage.length(10.0f), LengthPercentage.length(10.0f), LengthPercentage.length(10.0f));
-        node0Style.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        node0Style.gridTemplateColumnsWithRepeat = new ArrayList<>();
         node0Style.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.minmax(TrackSizingFunction.fixed(LengthPercentage.length(150.0f)), TrackSizingFunction.fr(1.0f))));
         NodeId node0 = tree.newWithChildren(node0Style, node00, node01, node02, node03, node04, node05, node06, node07);
 
@@ -14433,7 +14436,7 @@ public class GridTest {
         node0Style.size = new TaffySize<>(TaffyDimension.percent(1.0f), TaffyDimension.percent(1.0f));
         node0Style.gap = new TaffySize<>(LengthPercentage.length(10.0f), LengthPercentage.length(10.0f));
         node0Style.padding = new TaffyRect<>(LengthPercentage.length(10.0f), LengthPercentage.length(10.0f), LengthPercentage.length(10.0f), LengthPercentage.length(10.0f));
-        node0Style.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        node0Style.gridTemplateColumnsWithRepeat = new ArrayList<>();
         node0Style.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.minmax(TrackSizingFunction.fixed(LengthPercentage.length(150.0f)), TrackSizingFunction.fr(1.0f))));
         NodeId node0 = tree.newWithChildren(node0Style, node00, node01, node02, node03, node04, node05, node06, node07);
 
@@ -14516,7 +14519,7 @@ public class GridTest {
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.justifyContent = AlignContent.SPACE_EVENLY;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFit(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
@@ -14564,7 +14567,7 @@ public class GridTest {
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.justifyContent = AlignContent.SPACE_EVENLY;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFit(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
         nodeStyle.gridTemplateRows.add(TrackSizingFunction.fixed(LengthPercentage.length(40.0f)));
@@ -36289,11 +36292,11 @@ public class GridTest {
         nodeStyle.direction = TaffyDirection.LTR;
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
-        nodeStyle.gridTemplateRowsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateRowsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateRowsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRowsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRowsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
@@ -36409,11 +36412,11 @@ public class GridTest {
         nodeStyle.direction = TaffyDirection.LTR;
         nodeStyle.display = TaffyDisplay.GRID;
         nodeStyle.size = new TaffySize<>(TaffyDimension.length(120.0f), TaffyDimension.length(120.0f));
-        nodeStyle.gridTemplateColumnsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateColumnsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateColumnsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
-        nodeStyle.gridTemplateRowsWithRepeat = new java.util.ArrayList<>();
+        nodeStyle.gridTemplateRowsWithRepeat = new ArrayList<>();
         nodeStyle.gridTemplateRowsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRowsWithRepeat.add(GridTemplateComponent.single(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));
         nodeStyle.gridTemplateRowsWithRepeat.add(GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(40.0f))));

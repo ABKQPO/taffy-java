@@ -37,6 +37,22 @@ public class BlockAbsoluteRtlPositionTest {
         assertEquals(80f, tree.getLayout(staticPosition).location().x, 0.001f);
     }
 
+    @Test
+    void rtlBlockUsesEndInsetWhenBothHorizontalInsetsAreSpecified() {
+        TaffyTree tree = new TaffyTree();
+        NodeId child = tree.newLeaf(absoluteStyle(10f, 20f));
+
+        TaffyStyle containerStyle = new TaffyStyle();
+        containerStyle.display = TaffyDisplay.BLOCK;
+        containerStyle.direction = TaffyDirection.RTL;
+        containerStyle.size = new TaffySize<>(TaffyDimension.length(100f), TaffyDimension.length(100f));
+        NodeId container = tree.newWithChildren(containerStyle, child);
+
+        tree.computeLayout(container, TaffySize.maxContent());
+
+        assertEquals(60f, tree.getLayout(child).location().x, 0.001f);
+    }
+
     private TaffyStyle absoluteStyle(Float left, Float right) {
         TaffyStyle style = new TaffyStyle();
         style.direction = TaffyDirection.RTL;

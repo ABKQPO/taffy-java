@@ -11,4 +11,14 @@ public interface TraversePartialTree {
     default NodeId getChildId(NodeId parent, int childIndex) {
         return getChildren(parent).get(childIndex);
     }
+
+    /** Rust-compatible alias for iterating direct child identifiers. */
+    default List<NodeId> childIds(NodeId parent) {
+        return getChildren(parent);
+    }
+
+    /** Rust-compatible alias for indexed child access. */
+    default NodeId getChild(NodeId parent, int childIndex) {
+        return getChildId(parent, childIndex);
+    }
 }

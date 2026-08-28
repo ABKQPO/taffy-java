@@ -2,9 +2,13 @@ package dev.vfyjxf.taffy.style;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.math.BigInteger;
+import dev.vfyjxf.taffy.geometry.TaffyLine;
+import dev.vfyjxf.taffy.geometry.TaffySize;
 
 /** Parses the CSS value subset represented by the public Taffy style classes. */
 public class CssParser {
@@ -16,6 +20,26 @@ public class CssParser {
         LengthPercentage value = parser.lengthPercentage();
         parser.end();
         return value;
+    }
+
+    /** Returns the public parser contract for length-percentage values. */
+    public static FromCss<LengthPercentage> lengthPercentageParser() {
+        return CssParser::parseLengthPercentage;
+    }
+
+    /** Returns the public parser contract for length-percentage-auto values. */
+    public static FromCss<LengthPercentageAuto> lengthPercentageAutoParser() {
+        return CssParser::parseLengthPercentageAuto;
+    }
+
+    /** Returns the public parser contract for dimension values. */
+    public static FromCss<TaffyDimension> dimensionParser() {
+        return CssParser::parseDimension;
+    }
+
+    /** Returns the public parser contract for available-space values. */
+    public static FromCss<AvailableSpace> availableSpaceParser() {
+        return CssParser::parseAvailableSpace;
     }
 
     public static LengthPercentageAuto parseLengthPercentageAuto(String input) {
@@ -46,11 +70,55 @@ public class CssParser {
         return value;
     }
 
+    public static FromCss<GridAutoFlow> gridAutoFlowParser() {
+        return CssParser::parseGridAutoFlow;
+    }
+
     public static TrackSizingFunction parseTrackSizingFunction(String input) {
         Parser parser = new Parser(input);
         TrackSizingFunction value = parser.trackSizingFunction();
         parser.end();
         return value;
+    }
+
+    public static FromCss<TrackSizingFunction> trackSizingFunctionParser() {
+        return CssParser::parseTrackSizingFunction;
+    }
+
+    /** Parses one complete CSS Grid minimum track sizing function. */
+    public static MinTrackSizingFunction parseMinTrackSizingFunction(String input) {
+        Parser parser = new Parser(input);
+        MinTrackSizingFunction value = MinTrackSizingFunction.from(parser.trackMinFunction());
+        parser.end();
+        return value;
+    }
+
+    public static FromCss<MinTrackSizingFunction> minTrackSizingFunctionParser() {
+        return CssParser::parseMinTrackSizingFunction;
+    }
+
+    /** Parses one complete CSS Grid maximum track sizing function. */
+    public static MaxTrackSizingFunction parseMaxTrackSizingFunction(String input) {
+        Parser parser = new Parser(input);
+        MaxTrackSizingFunction value = MaxTrackSizingFunction.from(parser.trackMaxFunction());
+        parser.end();
+        return value;
+    }
+
+    public static FromCss<MaxTrackSizingFunction> maxTrackSizingFunctionParser() {
+        return CssParser::parseMaxTrackSizingFunction;
+    }
+
+    /** Parses one complete CSS Grid repeat count. */
+    public static RepetitionCount parseRepetitionCount(String input) {
+        Parser parser = new Parser(input);
+        RepetitionCount value = parser.repetitionCount();
+        parser.end();
+        return value;
+    }
+
+    public static FromCss<RepetitionCount> repetitionCountParser() {
+        return CssParser::parseRepetitionCount;
     }
 
     public static List<GridTemplateComponent> parseGridTemplateComponents(String input) {
@@ -66,6 +134,22 @@ public class CssParser {
         GridTemplateTracks value = parser.gridTemplateTracks();
         parser.end();
         return value;
+    }
+
+    public static FromCss<GridTemplateTracks> gridTemplateTracksParser() {
+        return CssParser::parseGridTemplateTracks;
+    }
+
+    /** Parse the track sizes accepted by grid-auto-rows and grid-auto-columns. */
+    public static List<TrackSizingFunction> parseGridAutoTracks(String input) {
+        Parser parser = new Parser(input);
+        List<TrackSizingFunction> value = parser.gridAutoTracks();
+        parser.end();
+        return value;
+    }
+
+    public static FromCss<List<TrackSizingFunction>> gridAutoTracksParser() {
+        return CssParser::parseGridAutoTracks;
     }
 
     /** Parse a CSS {@code grid-template-areas} value. */
@@ -102,6 +186,10 @@ public class CssParser {
         return GridTemplateAreas.fromRows(rows);
     }
 
+    public static FromCss<GridTemplateAreas> gridTemplateAreasParser() {
+        return CssParser::parseGridTemplateAreas;
+    }
+
     public static GridPlacement parseGridPlacement(String input) {
         Parser parser = new Parser(input);
         GridPlacement value = parser.gridPlacement();
@@ -109,20 +197,206 @@ public class CssParser {
         return value;
     }
 
+    public static FromCss<GridPlacement> gridPlacementParser() {
+        return CssParser::parseGridPlacement;
+    }
+
+    /** Parse a grid placement while retaining the caller's custom identifier type. */
+    public static <S> GenericGridPlacement<S> parseGenericGridPlacement(
+        String input, CustomIdentCodec<S> codec) {
+        return decodeGridPlacement(parseGridPlacement(input), codec);
+    }
+
+    public static <S> FromCss<GenericGridPlacement<S>> genericGridPlacementParser(CustomIdentCodec<S> codec) {
+        if (codec == null) throw new ParseError("Custom identifier codec must not be null");
+        return input -> parseGenericGridPlacement(input, codec);
+    }
+
+    /** Parse a complete generic grid-template track list, including positional line names. */
+    public static <S> GenericGridTemplateTracks<S> parseGenericGridTemplateTracks(
+        String input, CustomIdentCodec<S> codec) {
+        GridTemplateTracks runtime = parseGridTemplateTracks(input);
+        List<GenericGridTemplateComponent<S>> tracks = new ArrayList<>(runtime.getTracks().size());
+        for (GridTemplateComponent component : runtime.getTracks()) {
+            tracks.add(decodeGridTemplateComponent(component, codec));
+        }
+        return new GenericGridTemplateTracks<>(tracks, decodeGroups(runtime.getLineNames(), codec));
+    }
+
+    public static <S> FromCss<GenericGridTemplateTracks<S>> genericGridTemplateTracksParser(
+        CustomIdentCodec<S> codec) {
+        if (codec == null) throw new ParseError("Custom identifier codec must not be null");
+        return input -> parseGenericGridTemplateTracks(input, codec);
+    }
+
+    private static <S> GenericGridPlacement<S> decodeGridPlacement(
+        GridPlacement placement, CustomIdentCodec<S> codec) {
+        return switch (placement.getType()) {
+            case AUTO -> GenericGridPlacement.auto();
+            case LINE -> GenericGridPlacement.line(placement.getValue());
+            case NAMED_LINE -> GenericGridPlacement.namedLine(
+                codec.decode(placement.getLineName()), placement.getNthIndex());
+            case SPAN -> GenericGridPlacement.span(placement.getValue());
+            case NAMED_SPAN -> GenericGridPlacement.namedSpan(
+                codec.decode(placement.getLineName()), placement.getValue());
+        };
+    }
+
+    private static <S> GenericGridTemplateComponent<S> decodeGridTemplateComponent(
+        GridTemplateComponent component, CustomIdentCodec<S> codec) {
+        if (component.isSingle()) return GenericGridTemplateComponent.single(component.getSingle());
+        GridRepetition repetition = component.getRepeat();
+        List<List<S>> lineNames = decodeGroups(repetition.getLineNames(), codec);
+        return switch (repetition.getType()) {
+            case COUNT -> GenericGridTemplateComponent.repeat(
+                GenericGridRepetition.count(repetition.getCount(), repetition.getTracks(), lineNames));
+            case AUTO_FILL -> GenericGridTemplateComponent.repeat(
+                GenericGridRepetition.autoFill(repetition.getTracks(), lineNames));
+            case AUTO_FIT -> GenericGridTemplateComponent.repeat(
+                GenericGridRepetition.autoFit(repetition.getTracks(), lineNames));
+        };
+    }
+
+    private static <S> List<List<S>> decodeGroups(List<List<String>> groups, CustomIdentCodec<S> codec) {
+        List<List<S>> decoded = new ArrayList<>(groups.size());
+        for (List<String> group : groups) {
+            List<S> names = new ArrayList<>(group.size());
+            for (String name : group) {
+                names.add(codec.decode(name));
+            }
+            decoded.add(List.copyOf(names));
+        }
+        return List.copyOf(decoded);
+    }
+
     public static TaffyDisplay parseDisplay(String input) {
         return keyword(input, TaffyDisplay.class, "display", new String[] {"block", "flow-root", "flex", "grid", "none"});
+    }
+
+    public static FromCss<TaffyDisplay> displayParser() {
+        return CssParser::parseDisplay;
+    }
+
+    /**
+     * Parses a set of CSS declarations into a generic style. Property names are ASCII
+     * case-insensitive and may use either hyphens or underscores. Unknown properties are
+     * rejected so callers do not silently lose layout input.
+     */
+    public static <S> Style<S> parseStyle(Map<String, String> declarations,
+                                          CustomIdentCodec<S> identifierCodec) {
+        if (declarations == null) throw new ParseError("Style declarations must not be null");
+        if (identifierCodec == null) throw new ParseError("Custom identifier codec must not be null");
+        Style<S> style = new Style<>(identifierCodec);
+        for (Map.Entry<String, String> declaration : declarations.entrySet()) {
+            if (declaration.getKey() == null || declaration.getValue() == null) {
+                throw new ParseError("CSS declaration names and values must not be null");
+            }
+            String property = declaration.getKey().trim().toLowerCase(Locale.ROOT).replace('_', '-');
+            String value = declaration.getValue();
+            switch (property) {
+                case "display" -> style.base().display = parseDisplay(value);
+                case "position" -> style.base().position = parsePosition(value);
+                case "box-sizing" -> style.base().boxSizing = parseBoxSizing(value);
+                case "width" -> style.base().size.width = parseDimension(value);
+                case "height" -> style.base().size.height = parseDimension(value);
+                case "min-width" -> {
+                    TaffySize<LengthPercentageAuto> size = style.base().getMinSize();
+                    style.base().setMinSize(new TaffySize<>(parseLengthPercentageAuto(value), size.height));
+                }
+                case "min-height" -> {
+                    TaffySize<LengthPercentageAuto> size = style.base().getMinSize();
+                    style.base().setMinSize(new TaffySize<>(size.width, parseLengthPercentageAuto(value)));
+                }
+                case "max-width" -> {
+                    TaffySize<LengthPercentageAuto> size = style.base().getMaxSize();
+                    style.base().setMaxSize(new TaffySize<>(parseLengthPercentageAuto(value), size.height));
+                }
+                case "max-height" -> {
+                    TaffySize<LengthPercentageAuto> size = style.base().getMaxSize();
+                    style.base().setMaxSize(new TaffySize<>(size.width, parseLengthPercentageAuto(value)));
+                }
+                case "grid-template-columns" -> style.setGridTemplateColumns(parseGenericGridTemplateTracks(value, identifierCodec));
+                case "grid-template-rows" -> style.setGridTemplateRows(parseGenericGridTemplateTracks(value, identifierCodec));
+                case "grid-column" -> style.setGridColumn(parseGenericLine(value, identifierCodec));
+                case "grid-row" -> style.setGridRow(parseGenericLine(value, identifierCodec));
+                case "grid-template-areas" -> style.setGridTemplateAreas(parseGenericAreas(value, identifierCodec));
+                case "float" -> style.base().floatMode = parseFloat(value);
+                case "clear" -> style.base().clear = parseClear(value);
+                case "contain" -> style.base().contain = parseContain(value);
+                default -> throw new ParseError("Unsupported CSS property: " + declaration.getKey());
+            }
+        }
+        return style;
+    }
+
+    /** Parses declarations using String as the custom identifier type. */
+    public static Style<String> parseStyle(Map<String, String> declarations) {
+        return parseStyle(declarations, CustomIdentCodec.strings());
+    }
+
+    /** Parses a semicolon-delimited declaration list into a generic style. */
+    public static <S> Style<S> parseStyle(String declarations, CustomIdentCodec<S> identifierCodec) {
+        if (declarations == null) throw new ParseError("Style declarations must not be null");
+        Map<String, String> values = new LinkedHashMap<>();
+        for (String declaration : declarations.split(";")) {
+            String trimmed = declaration.trim();
+            if (trimmed.isEmpty()) continue;
+            int colon = trimmed.indexOf(':');
+            if (colon <= 0 || colon == trimmed.length() - 1) {
+                throw new ParseError("CSS declaration must contain a property and value: " + trimmed);
+            }
+            values.put(trimmed.substring(0, colon).trim(), trimmed.substring(colon + 1).trim());
+        }
+        return parseStyle(values, identifierCodec);
+    }
+
+    /** Returns a parser for semicolon-delimited declarations and caller-defined identifiers. */
+    public static <S> FromCss<Style<S>> styleParser(CustomIdentCodec<S> identifierCodec) {
+        if (identifierCodec == null) throw new ParseError("Custom identifier codec must not be null");
+        return input -> parseStyle(input, identifierCodec);
+    }
+
+    private static <S> TaffyLine<GenericGridPlacement<S>> parseGenericLine(
+        String input, CustomIdentCodec<S> codec) {
+        String[] parts = input.trim().split("\\s*/\\s*", -1);
+        if (parts.length != 2) throw new ParseError("Grid line must contain exactly one '/'");
+        return new TaffyLine<>(parseGenericGridPlacement(parts[0], codec), parseGenericGridPlacement(parts[1], codec));
+    }
+
+    private static <S> GenericGridTemplateAreas<S> parseGenericAreas(
+        String input, CustomIdentCodec<S> codec) {
+        GridTemplateAreas runtime = parseGridTemplateAreas(input);
+        if (runtime == null) return null;
+        List<GenericGridTemplateArea<S>> areas = new ArrayList<>();
+        for (GridTemplateArea area : runtime.areas()) {
+            areas.add(new GenericGridTemplateArea<>(codec.decode(area.getName()), area.getRowStart(),
+                area.getRowEnd(), area.getColumnStart(), area.getColumnEnd()));
+        }
+        return new GenericGridTemplateAreas<>(areas, runtime.rowCount(), runtime.columnCount());
     }
 
     public static TaffyPosition parsePosition(String input) {
         return keyword(input, TaffyPosition.class, "position", new String[] {"static", "relative", "absolute", "fixed"});
     }
 
+    public static FromCss<TaffyPosition> positionParser() {
+        return CssParser::parsePosition;
+    }
+
     public static BoxSizing parseBoxSizing(String input) {
         return keyword(input, BoxSizing.class, "box-sizing", new String[] {"border-box", "content-box"});
     }
 
+    public static FromCss<BoxSizing> boxSizingParser() {
+        return CssParser::parseBoxSizing;
+    }
+
     public static Overflow parseOverflow(String input) {
         return keyword(input, Overflow.class, "overflow", new String[] {"visible", "clip", "hidden", "scroll"});
+    }
+
+    public static FromCss<Overflow> overflowParser() {
+        return CssParser::parseOverflow;
     }
 
     /** Parse the CSS float property. */
@@ -130,9 +404,17 @@ public class CssParser {
         return TaffyFloat.parse(input);
     }
 
+    public static FromCss<TaffyFloat> floatParser() {
+        return CssParser::parseFloat;
+    }
+
     /** Parse the CSS clear property. */
     public static Clear parseClear(String input) {
         return Clear.parse(input);
+    }
+
+    public static FromCss<Clear> clearParser() {
+        return CssParser::parseClear;
     }
 
     /** Parse the layout-affecting CSS contain property. */
@@ -140,8 +422,16 @@ public class CssParser {
         return Contain.parse(input);
     }
 
+    public static FromCss<Contain> containParser() {
+        return CssParser::parseContain;
+    }
+
     public static TaffyDirection parseDirection(String input) {
         return keyword(input, TaffyDirection.class, "direction", new String[] {"inherit", "ltr", "rtl"});
+    }
+
+    public static FromCss<TaffyDirection> directionParser() {
+        return CssParser::parseDirection;
     }
 
     public static TextAlign parseTextAlign(String input) {
@@ -161,6 +451,10 @@ public class CssParser {
         };
     }
 
+    public static FromCss<TextAlign> textAlignParser() {
+        return CssParser::parseTextAlign;
+    }
+
     public static FlexDirection parseFlexDirection(String input) {
         String value = singleKeyword(input, "flex-direction");
         return switch (value) {
@@ -172,8 +466,16 @@ public class CssParser {
         };
     }
 
+    public static FromCss<FlexDirection> flexDirectionParser() {
+        return CssParser::parseFlexDirection;
+    }
+
     public static FlexWrap parseFlexWrap(String input) {
         return FlexWrap.parse(input);
+    }
+
+    public static FromCss<FlexWrap> flexWrapParser() {
+        return CssParser::parseFlexWrap;
     }
 
     /** Parse an align-self value using the same alignment grammar as align-items. */
@@ -181,8 +483,8 @@ public class CssParser {
         AlignItems value = parseAlignItems(input);
         if (value == AlignItems.AUTO) return AlignSelf.AUTO;
         return switch (value) {
-            case START -> AlignSelf.FLEX_START;
-            case END -> AlignSelf.FLEX_END;
+            case START -> AlignSelf.START;
+            case END -> AlignSelf.END;
             case FLEX_START -> AlignSelf.FLEX_START;
             case FLEX_END -> AlignSelf.FLEX_END;
             case SELF_START -> AlignSelf.SELF_START;
@@ -201,9 +503,17 @@ public class CssParser {
         };
     }
 
+    public static FromCss<AlignSelf> alignSelfParser() {
+        return CssParser::parseAlignSelf;
+    }
+
     /** Parse a justify-items value. */
     public static AlignItems parseJustifyItems(String input) {
         return parseAlignItems(input);
+    }
+
+    public static FromCss<AlignItems> justifyItemsParser() {
+        return CssParser::parseJustifyItems;
     }
 
     /** Parse a justify-self value. */
@@ -211,9 +521,17 @@ public class CssParser {
         return parseAlignSelf(input);
     }
 
+    public static FromCss<AlignSelf> justifySelfParser() {
+        return CssParser::parseJustifySelf;
+    }
+
     /** Parse a justify-content value. */
     public static AlignContent parseJustifyContent(String input) {
         return parseAlignContent(input);
+    }
+
+    public static FromCss<AlignContent> justifyContentParser() {
+        return CssParser::parseJustifyContent;
     }
 
     public static AlignItems parseAlignItems(String input) {
@@ -249,6 +567,10 @@ public class CssParser {
         throw new ParseError("Invalid align-items value: " + input);
     }
 
+    public static FromCss<AlignItems> alignItemsParser() {
+        return CssParser::parseAlignItems;
+    }
+
     public static AlignContent parseAlignContent(String input) {
         String[] values = alignmentKeywords(input, "align-content");
         if (values.length == 1) {
@@ -278,6 +600,10 @@ public class CssParser {
             };
         }
         throw new ParseError("Invalid align-content value: " + input);
+    }
+
+    public static FromCss<AlignContent> alignContentParser() {
+        return CssParser::parseAlignContent;
     }
 
     private static String[] alignmentKeywords(String input, String property) {
@@ -469,6 +795,13 @@ public class CssParser {
             return TrackSizingFunction.AUTO;
         }
 
+        private RepetitionCount repetitionCount() {
+            String value = token().toLowerCase(Locale.ROOT);
+            if (value.equals("auto-fill")) return RepetitionCount.autoFill();
+            if (value.equals("auto-fit")) return RepetitionCount.autoFit();
+            return RepetitionCount.count(parseCount(value));
+        }
+
         private List<GridTemplateComponent> gridTemplateComponents() {
             List<GridTemplateComponent> result = new ArrayList<>();
             while (hasMore()) {
@@ -488,6 +821,15 @@ public class CssParser {
             }
             if (tracks.isEmpty()) fail("Grid template must not be empty");
             return new GridTemplateTracks(tracks, lineNames);
+        }
+
+        private List<TrackSizingFunction> gridAutoTracks() {
+            List<TrackSizingFunction> tracks = new ArrayList<>();
+            while (hasMore()) {
+                tracks.add(trackSizingFunction());
+            }
+            if (tracks.isEmpty()) fail("Grid auto tracks must not be empty");
+            return tracks;
         }
 
         private GridTemplateComponent gridTemplateComponent(String value) {

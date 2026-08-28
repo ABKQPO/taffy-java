@@ -6,6 +6,10 @@ package dev.vfyjxf.taffy.style;
 public enum AlignSelf {
     /** Use the parent's align-items value */
     AUTO,
+    /** Items are aligned at the logical start of the cross axis. */
+    START,
+    /** Items are aligned at the logical end of the cross axis. */
+    END,
     /** Items are aligned at the start of the cross axis */
     FLEX_START,
     /** Items are aligned at the end of the cross axis */
@@ -52,9 +56,9 @@ public enum AlignSelf {
         boolean safe = alignItems.isSafe();
         return switch (alignItems.keyword()) {
             case FLEX_START -> safe ? SAFE_FLEX_START : FLEX_START;
-            case START -> safe ? SAFE_START : FLEX_START;
+            case START -> safe ? SAFE_START : START;
             case FLEX_END -> safe ? SAFE_FLEX_END : FLEX_END;
-            case END -> safe ? SAFE_END : FLEX_END;
+            case END -> safe ? SAFE_END : END;
             case SELF_START -> safe ? SAFE_SELF_START : SELF_START;
             case SELF_END -> safe ? SAFE_SELF_END : SELF_END;
             case CENTER -> safe ? SAFE_CENTER : CENTER;
@@ -66,6 +70,8 @@ public enum AlignSelf {
     /** Returns the underlying alignment keyword. */
     public AlignItemsKeyword keyword() {
         return switch (this) {
+            case START, SAFE_START -> AlignItemsKeyword.START;
+            case END, SAFE_END -> AlignItemsKeyword.END;
             case FLEX_START, SAFE_FLEX_START -> AlignItemsKeyword.FLEX_START;
             case FLEX_END, SAFE_FLEX_END -> AlignItemsKeyword.FLEX_END;
             case SELF_START, SAFE_SELF_START -> AlignItemsKeyword.SELF_START;
@@ -73,8 +79,6 @@ public enum AlignSelf {
             case CENTER, SAFE_CENTER -> AlignItemsKeyword.CENTER;
             case BASELINE -> AlignItemsKeyword.BASELINE;
             case STRETCH, AUTO -> AlignItemsKeyword.STRETCH;
-            case SAFE_START -> AlignItemsKeyword.START;
-            case SAFE_END -> AlignItemsKeyword.END;
             default -> throw new IllegalStateException("Unexpected align-self value: " + this);
         };
     }
@@ -89,8 +93,8 @@ public enum AlignSelf {
     /** Removes the safe modifier while preserving the alignment position. */
     public AlignSelf withoutSafety() {
         return switch (this) {
-            case SAFE_START -> FLEX_START;
-            case SAFE_END -> FLEX_END;
+            case SAFE_START -> START;
+            case SAFE_END -> END;
             case SAFE_FLEX_START -> FLEX_START;
             case SAFE_FLEX_END -> FLEX_END;
             case SAFE_SELF_START -> SELF_START;
@@ -105,6 +109,8 @@ public enum AlignSelf {
      */
     public AlignItems toAlignItems() {
         return switch (this) {
+            case START -> AlignItems.START;
+            case END -> AlignItems.END;
             case FLEX_START -> AlignItems.FLEX_START;
             case FLEX_END -> AlignItems.FLEX_END;
             case SELF_START -> AlignItems.SELF_START;

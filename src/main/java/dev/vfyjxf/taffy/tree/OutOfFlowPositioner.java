@@ -44,6 +44,7 @@ public class OutOfFlowPositioner {
     }
 
     private void repositionNode(TaffyTree tree, NodeId rootNode, NodeId node, LayoutComputer layoutComputer) {
+            LayoutComputer resolverComputer = layoutComputer == null ? new LayoutComputer(tree, null) : layoutComputer;
             TaffyStyle style = tree.getStyle(node);
             if (!style.getPosition().isOutOfFlow()) {
                 return;
@@ -66,16 +67,16 @@ public class OutOfFlowPositioner {
             Layout containingLayout = tree.getUnroundedLayout(containingBlock);
             float width = containingLayout.size().width - containingLayout.border().left - containingLayout.border().right;
             float height = containingLayout.size().height - containingLayout.border().top - containingLayout.border().bottom;
-            float left = style.getInset().left.maybeResolve(width);
-            float right = style.getInset().right.maybeResolve(width);
-            float top = style.getInset().top.maybeResolve(height);
-            float bottom = style.getInset().bottom.maybeResolve(height);
-            float marginLeft = resolvedMargin(style.getMargin().left, width);
-            float marginRight = resolvedMargin(style.getMargin().right, width);
-            float marginTop = resolvedMargin(style.getMargin().top, width);
-            float marginBottom = resolvedMargin(style.getMargin().bottom, width);
-            FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), width);
-            FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), width);
+            float left = style.getInset().left.maybeResolve(width, resolverComputer::resolveCalcValue);
+            float right = style.getInset().right.maybeResolve(width, resolverComputer::resolveCalcValue);
+            float top = style.getInset().top.maybeResolve(height, resolverComputer::resolveCalcValue);
+            float bottom = style.getInset().bottom.maybeResolve(height, resolverComputer::resolveCalcValue);
+            float marginLeft = resolvedMargin(style.getMargin().left, width, resolverComputer);
+            float marginRight = resolvedMargin(style.getMargin().right, width, resolverComputer);
+            float marginTop = resolvedMargin(style.getMargin().top, width, resolverComputer);
+            float marginBottom = resolvedMargin(style.getMargin().bottom, width, resolverComputer);
+            FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), width, resolverComputer::resolveCalcValue);
+            FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), width, resolverComputer::resolveCalcValue);
             float paddingBorderWidth = padding.left + padding.right + border.left + border.right;
             float paddingBorderHeight = padding.top + padding.bottom + border.top + border.bottom;
             boolean contentBox = style.getBoxSizing() == BoxSizing.CONTENT_BOX;
@@ -85,7 +86,7 @@ public class OutOfFlowPositioner {
             FloatSize keywordSize = layoutComputer == null
                 ? AbsoluteSizing.resolveStretch(style.getSize(), new FloatSize(Float.NaN, Float.NaN), areaSize, inset, margin)
                 : AbsoluteSizing.resolveMeasurementKeywords(
-                    layoutComputer,
+                    resolverComputer,
                     node,
                     style.getSize(),
                     new FloatSize(Float.NaN, Float.NaN),
@@ -112,7 +113,8 @@ public class OutOfFlowPositioner {
                 layout.size().width = Math.max(0f, width - left - right - marginLeft - marginRight);
                 widthDerivedFromInsets = true;
             } else if (isContainingBlockResolvable(style.getSize().width)) {
-                layout.size().width = style.getSize().width.maybeResolve(width) + (contentBox ? paddingBorderWidth : 0f);
+                layout.size().width = style.getSize().width.maybeResolve(width, resolverComputer::resolveCalcValue)
+                    + (contentBox ? paddingBorderWidth : 0f);
             }
             if (!Float.isNaN(keywordSize.height)) {
                 layout.size().height = keywordSize.height;
@@ -120,7 +122,8 @@ public class OutOfFlowPositioner {
                 layout.size().height = Math.max(0f, height - top - bottom - marginTop - marginBottom);
                 heightDerivedFromInsets = true;
             } else if (isContainingBlockResolvable(style.getSize().height)) {
-                layout.size().height = style.getSize().height.maybeResolve(height) + (contentBox ? paddingBorderHeight : 0f);
+                layout.size().height = style.getSize().height.maybeResolve(height, resolverComputer::resolveCalcValue)
+                    + (contentBox ? paddingBorderHeight : 0f);
             }
             Float aspectRatio = style.getAspectRatio();
             if (aspectRatio != null && !Float.isNaN(aspectRatio) && aspectRatio > 0f) {
@@ -130,10 +133,10 @@ public class OutOfFlowPositioner {
                     layout.size().width = layout.size().height * aspectRatio;
                 }
             }
-            float minWidth = style.getMinSize().width.maybeResolve(width);
-            float maxWidth = style.getMaxSize().width.maybeResolve(width);
-            float minHeight = style.getMinSize().height.maybeResolve(height);
-            float maxHeight = style.getMaxSize().height.maybeResolve(height);
+            float minWidth = style.getMinSize().width.maybeResolve(width, resolverComputer::resolveCalcValue);
+            float maxWidth = style.getMaxSize().width.maybeResolve(width, resolverComputer::resolveCalcValue);
+            float minHeight = style.getMinSize().height.maybeResolve(height, resolverComputer::resolveCalcValue);
+            float maxHeight = style.getMaxSize().height.maybeResolve(height, resolverComputer::resolveCalcValue);
             minWidth = addBoxSizingAdjustment(minWidth, contentBox, paddingBorderWidth);
             maxWidth = addBoxSizingAdjustment(maxWidth, contentBox, paddingBorderWidth);
             minHeight = addBoxSizingAdjustment(minHeight, contentBox, paddingBorderHeight);
@@ -236,8 +239,8 @@ public class OutOfFlowPositioner {
         return dimension.isPercent() || dimension.isCalc();
     }
 
-    private float resolvedMargin(LengthPercentageAuto value, float context) {
-        float resolved = value.maybeResolve(context);
+    private float resolvedMargin(LengthPercentageAuto value, float context, LayoutComputer layoutComputer) {
+        float resolved = value.maybeResolve(context, layoutComputer::resolveCalcValue);
         return Float.isNaN(resolved) ? 0f : resolved;
     }
 }

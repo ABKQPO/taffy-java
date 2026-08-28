@@ -5,9 +5,13 @@ import dev.vfyjxf.taffy.geometry.TaffySize;
 import dev.vfyjxf.taffy.geometry.FloatSize;
 import dev.vfyjxf.taffy.geometry.TaffyLine;
 import dev.vfyjxf.taffy.style.AvailableSpace;
+import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.BoxSizing;
 import dev.vfyjxf.taffy.style.CalcExpression;
+import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
@@ -31,6 +35,7 @@ public class PositionSemanticsTest {
     @Test
     void staticItemsIgnoreInsetWhileRelativeItemsApplyIt() {
         TaffyStyle staticStyle = itemStyle();
+        staticStyle.position = TaffyPosition.STATIC;
         TaffyStyle relativeStyle = itemStyle();
         relativeStyle.position = TaffyPosition.RELATIVE;
 
@@ -51,7 +56,7 @@ public class PositionSemanticsTest {
 
     @Test
     void positionCategoriesExposeContainingBlockAndFlowRules() {
-        assertEquals(TaffyPosition.STATIC, new TaffyStyle().position);
+        assertEquals(TaffyPosition.RELATIVE, new TaffyStyle().position);
         assertFalse(TaffyPosition.STATIC.isPositioned());
         assertTrue(TaffyPosition.RELATIVE.isPositioned());
         assertTrue(TaffyPosition.ABSOLUTE.isOutOfFlow());
@@ -239,6 +244,122 @@ public class PositionSemanticsTest {
         tree.computeLayout(containingBlock, TaffySize.maxContent());
 
         assertEquals(65f, accumulatedX(tree, absolute), 0.01f);
+    }
+
+    @Test
+    void absoluteChildrenUseTheEndInsetInRtlAcrossLayoutAlgorithms() {
+        TaffyDisplay[] displays = {TaffyDisplay.BLOCK, TaffyDisplay.FLEX, TaffyDisplay.GRID};
+        for (TaffyDisplay display : displays) {
+            TaffyStyle absoluteStyle = sizedStyle(20f, 10f);
+            absoluteStyle.position = TaffyPosition.ABSOLUTE;
+            absoluteStyle.inset = new TaffyRect<>(
+                LengthPercentageAuto.length(5f),
+                LengthPercentageAuto.length(15f),
+                LengthPercentageAuto.AUTO,
+                LengthPercentageAuto.AUTO);
+
+            TaffyStyle containerStyle = sizedStyle(100f, 100f);
+            containerStyle.display = display;
+            containerStyle.direction = TaffyDirection.RTL;
+            TaffyTree tree = new TaffyTree();
+            NodeId absolute = tree.newLeaf(absoluteStyle);
+            NodeId container = tree.newWithChildren(containerStyle, absolute);
+            tree.computeLayout(container, TaffySize.maxContent());
+
+            assertEquals(65f, tree.getLayout(absolute).location().x, 0.01f, display.toString());
+        }
+    }
+
+    @Test
+    void relativeChildrenUseTheEndInsetInRtlAcrossLayoutAlgorithms() {
+        TaffyDisplay[] displays = {TaffyDisplay.BLOCK, TaffyDisplay.FLEX, TaffyDisplay.GRID};
+        for (TaffyDisplay display : displays) {
+            TaffyStyle relativeStyle = sizedStyle(20f, 10f);
+            relativeStyle.position = TaffyPosition.RELATIVE;
+            relativeStyle.inset = new TaffyRect<>(
+                LengthPercentageAuto.length(5f),
+                LengthPercentageAuto.length(15f),
+                LengthPercentageAuto.AUTO,
+                LengthPercentageAuto.AUTO);
+
+            TaffyStyle containerStyle = sizedStyle(100f, 100f);
+            containerStyle.display = display;
+            containerStyle.direction = TaffyDirection.RTL;
+            TaffyTree tree = new TaffyTree();
+            NodeId relative = tree.newLeaf(relativeStyle);
+            NodeId container = tree.newWithChildren(containerStyle, relative);
+            tree.computeLayout(container, TaffySize.maxContent());
+
+            assertEquals(65f, tree.getLayout(relative).location().x, 0.01f, display.toString());
+        }
+    }
+
+    @Test
+    void rtlColumnWrapMovesEachAdditionalLineTowardInlineEnd() {
+        TaffyStyle containerStyle = sizedStyle(100f, 100f);
+        containerStyle.display = TaffyDisplay.FLEX;
+        containerStyle.direction = TaffyDirection.RTL;
+        containerStyle.flexDirection = FlexDirection.COLUMN;
+        containerStyle.flexWrap = FlexWrap.WRAP;
+
+        TaffyTree tree = new TaffyTree();
+        NodeId first = tree.newLeaf(sizedStyle(30f, 60f));
+        NodeId second = tree.newLeaf(sizedStyle(30f, 60f));
+        NodeId container = tree.newWithChildren(containerStyle, first, second);
+
+        tree.computeLayout(container, TaffySize.maxContent());
+
+        assertEquals(70f, tree.getLayout(first).location().x, 0.01f);
+        assertEquals(20f, tree.getLayout(second).location().x, 0.01f);
+    }
+
+    @Test
+    void rtlGridStartAlignmentUsesTheInlineStartEdge() {
+        TaffyStyle startStyle = gridItemStyle(AlignItems.START);
+        TaffyStyle endStyle = gridItemStyle(AlignItems.END);
+        TaffyStyle centerStyle = gridItemStyle(AlignItems.CENTER);
+        TaffyStyle stretchStyle = gridItemStyle(AlignItems.STRETCH);
+
+        TaffyStyle containerStyle = sizedStyle(100f, 100f);
+        containerStyle.display = TaffyDisplay.GRID;
+        containerStyle.direction = TaffyDirection.RTL;
+        containerStyle.position = TaffyPosition.RELATIVE;
+        containerStyle.size = new TaffySize<>(TaffyDimension.length(100f), TaffyDimension.AUTO);
+        containerStyle.setGridTemplateColumns(CssParser.parseGridTemplateTracks("100px"));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId start = tree.newLeaf(startStyle);
+        NodeId end = tree.newLeaf(endStyle);
+        NodeId center = tree.newLeaf(centerStyle);
+        NodeId stretch = tree.newLeaf(stretchStyle);
+        NodeId container = tree.newWithChildren(containerStyle, start, end, center, stretch);
+        tree.computeLayout(container, TaffySize.maxContent());
+
+        assertEquals(80f, tree.getLayout(start).location().x, 0.01f);
+        assertEquals(0f, tree.getLayout(end).location().x, 0.01f);
+        assertEquals(40f, tree.getLayout(center).location().x, 0.01f);
+        assertEquals(80f, tree.getLayout(stretch).location().x, 0.01f);
+    }
+
+    @Test
+    void safeGridAlignmentFallsBackToLogicalStartWhenOnlyTheInlineAxisOverflows() {
+        TaffyStyle itemStyle = sizedStyle(150f, 50f);
+        itemStyle.justifySelf = AlignItems.SAFE_END;
+        itemStyle.alignSelf = AlignItems.SAFE_END;
+
+        TaffyStyle containerStyle = sizedStyle(100f, 100f);
+        containerStyle.display = TaffyDisplay.GRID;
+        containerStyle.direction = TaffyDirection.RTL;
+        containerStyle.setGridTemplateColumns(CssParser.parseGridTemplateTracks("100px"));
+        containerStyle.setGridTemplateRows(CssParser.parseGridTemplateTracks("100px"));
+
+        TaffyTree tree = new TaffyTree();
+        NodeId item = tree.newLeaf(itemStyle);
+        NodeId container = tree.newWithChildren(containerStyle, item);
+        tree.computeLayout(container, TaffySize.maxContent());
+
+        assertEquals(-50f, tree.getLayout(item).location().x, 0.01f);
+        assertEquals(50f, tree.getLayout(item).location().y, 0.01f);
     }
 
     @Test
@@ -641,6 +762,86 @@ public class PositionSemanticsTest {
         assertEquals(20f, tree.getLayout(absolute).location().y, 0.01f);
     }
 
+    @Test
+    void absoluteAutoMarginsDoNotCenterWithoutBothInsets() {
+        TaffyStyle absoluteStyle = sizedStyle(20f, 20f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.margin = new TaffyRect<>(
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO);
+        absoluteStyle.inset = new TaffyRect<>(
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.AUTO,
+            LengthPercentageAuto.length(0f),
+            LengthPercentageAuto.AUTO);
+
+        TaffyStyle rootStyle = sizedStyle(100f, 100f);
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId root = tree.newWithChildren(rootStyle, absolute);
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(0f, tree.getLayout(absolute).location().x, 0.01f);
+    }
+
+    @Test
+    void absoluteLogicalStartIgnoresReverseFlexDirection() {
+        TaffyStyle rootStyle = sizedStyle(100f, 100f);
+        rootStyle.display = TaffyDisplay.FLEX;
+        rootStyle.flexDirection = FlexDirection.ROW_REVERSE;
+        rootStyle.justifyContent = AlignContent.START;
+
+        TaffyStyle absoluteStyle = sizedStyle(20f, 20f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId root = tree.newWithChildren(rootStyle, absolute);
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(0f, tree.getLayout(absolute).location().x, 0.01f);
+    }
+
+    @Test
+    void absoluteLogicalCrossStartIgnoresWrapReverse() {
+        TaffyStyle rootStyle = sizedStyle(100f, 100f);
+        rootStyle.display = TaffyDisplay.FLEX;
+        rootStyle.flexWrap = FlexWrap.WRAP_REVERSE;
+
+        TaffyStyle absoluteStyle = sizedStyle(20f, 20f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.alignSelf = AlignItems.START;
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId root = tree.newWithChildren(rootStyle, absolute);
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(0f, tree.getLayout(absolute).location().y, 0.01f);
+    }
+
+    @Test
+    void absoluteSelfStartUsesTheChildDirectionOnColumnCrossAxis() {
+        TaffyStyle rootStyle = sizedStyle(100f, 100f);
+        rootStyle.display = TaffyDisplay.FLEX;
+        rootStyle.flexDirection = FlexDirection.COLUMN;
+        rootStyle.direction = TaffyDirection.LTR;
+
+        TaffyStyle absoluteStyle = sizedStyle(20f, 20f);
+        absoluteStyle.position = TaffyPosition.ABSOLUTE;
+        absoluteStyle.direction = TaffyDirection.RTL;
+        absoluteStyle.alignSelf = AlignItems.SELF_START;
+
+        TaffyTree tree = new TaffyTree();
+        NodeId absolute = tree.newLeaf(absoluteStyle);
+        NodeId root = tree.newWithChildren(rootStyle, absolute);
+        tree.computeLayout(root, TaffySize.maxContent());
+
+        assertEquals(80f, tree.getLayout(absolute).location().x, 0.01f);
+    }
+
     private static TaffyStyle itemStyle() {
         TaffyStyle style = new TaffyStyle();
         style.size = new TaffySize<>(TaffyDimension.AUTO, TaffyDimension.length(10f));
@@ -652,8 +853,17 @@ public class PositionSemanticsTest {
         return style;
     }
 
+    private static TaffyStyle gridItemStyle(AlignItems justifySelf) {
+        TaffyStyle style = sizedStyle(20f, 10f);
+        style.direction = TaffyDirection.LTR;
+        style.position = TaffyPosition.RELATIVE;
+        style.justifySelf = justifySelf;
+        return style;
+    }
+
     private static TaffyStyle sizedStyle(float width, float height) {
         TaffyStyle style = new TaffyStyle();
+        style.position = TaffyPosition.STATIC;
         style.size = new TaffySize<>(TaffyDimension.length(width), TaffyDimension.length(height));
         return style;
     }

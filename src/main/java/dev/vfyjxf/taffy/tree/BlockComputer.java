@@ -15,6 +15,8 @@ import dev.vfyjxf.taffy.style.Clear;
 import dev.vfyjxf.taffy.style.TaffyDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyFloat;
+import dev.vfyjxf.taffy.style.TaffyDimension;
+import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.Overflow;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -49,6 +51,7 @@ public class BlockComputer {
         int order;
         boolean isTable;
         boolean isReplaced;
+        TaffySize<TaffyDimension> sizeStyle;
         FloatSize size;
         FloatSize minSize;
         FloatSize maxSize;
@@ -152,15 +155,21 @@ public class BlockComputer {
         TaffyLine<Boolean> verticalMarginsAreCollapsible = inputs.verticalMarginsAreCollapsible();
 
         float aspectRatio = style.getAspectRatio();
-        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width);
-        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width);
+        FloatRect padding = Resolve.resolveRectOrZero(style.getPadding(), parentSize.width, layoutComputer::resolveCalcValue);
+        FloatRect border = Resolve.resolveRectOrZero(style.getBorder(), parentSize.width, layoutComputer::resolveCalcValue);
 
         // Scrollbar gutter calculation - axes are transposed
         TaffyPoint<Overflow> overflow = style.getOverflow();
         float scrollbarWidth = style.getScrollbarWidth();
-        float scrollbarGutterRight = overflow.y == Overflow.SCROLL ? scrollbarWidth : 0f;
+        float scrollbarGutterX = overflow.y == Overflow.SCROLL ? scrollbarWidth : 0f;
         float scrollbarGutterBottom = overflow.x == Overflow.SCROLL ? scrollbarWidth : 0f;
-        FloatRect scrollbarGutter = new FloatRect(0f, scrollbarGutterRight, 0f, scrollbarGutterBottom);
+        boolean isRtl = layoutComputer.resolveDirection(node).isRtl();
+        FloatRect scrollbarGutter = new FloatRect(
+            isRtl ? scrollbarGutterX : 0f,
+            isRtl ? 0f : scrollbarGutterX,
+            0f,
+            scrollbarGutterBottom
+        );
 
         FloatSize paddingBorderSize = new FloatSize(
             padding.left + padding.right + border.left + border.right,
@@ -171,15 +180,15 @@ public class BlockComputer {
                                         ? paddingBorderSize
                                         : new FloatSize(0f, 0f);
 
-        FloatSize size2 = Resolve.maybeResolveSize(style.getSize(), parentSize);
+        FloatSize size2 = Resolve.maybeResolveSize(style.getSize(), parentSize, layoutComputer::resolveCalcValue);
         FloatSize sizeStyle = Resolve.maybeApplyAspectRatio(size2, aspectRatio);
         sizeStyle = maybeAdd(sizeStyle, boxSizingAdjustment);
 
-        FloatSize size1 = Resolve.maybeResolveSize(style.getMinSize(), parentSize);
+        FloatSize size1 = Resolve.maybeResolveSize(style.getMinSize(), parentSize, layoutComputer::resolveCalcValue);
         FloatSize minSize = Resolve.maybeApplyAspectRatio(size1, aspectRatio);
         minSize = maybeAdd(minSize, boxSizingAdjustment);
 
-        FloatSize size = Resolve.maybeResolveSize(style.getMaxSize(), parentSize);
+        FloatSize size = Resolve.maybeResolveSize(style.getMaxSize(), parentSize, layoutComputer::resolveCalcValue);
         FloatSize maxSize = Resolve.maybeApplyAspectRatio(size, aspectRatio);
         maxSize = maybeAdd(maxSize, boxSizingAdjustment);
 
@@ -251,9 +260,14 @@ public class BlockComputer {
         boolean percentageHeightIsDefinite = !Float.isNaN(knownDimensions.height)
             ? Boolean.TRUE.equals(inputs.knownDimensionsAreDefinite().height)
             : !Float.isNaN(minMaxDefiniteSize.height) || !Float.isNaN(clampedStyleSize.height);
-        float percentageBasisHeight = percentageHeightIsDefinite
-            ? styledBasedKnownDimensions.height
-            : Float.NaN;
+        float percentageBasisHeight = percentageHeightIsDefinite ? styledBasedKnownDimensions.height : Float.NaN;
+        if (!percentageHeightIsDefinite && !Float.isNaN(aspectRatio) && aspectRatio > 0f
+            && !Float.isNaN(styledBasedKnownDimensions.width)
+            && Float.isNaN(styledBasedKnownDimensions.height)) {
+            percentageHeightIsDefinite = true;
+            percentageBasisHeight = (styledBasedKnownDimensions.width - boxSizingAdjustment.width) / aspectRatio
+                + boxSizingAdjustment.height;
+        }
         float contentBoxInsetWidth = padding.left + padding.right + border.left + border.right
                                      + scrollbarGutter.left + scrollbarGutter.right;
         float contentBoxInsetHeight = padding.top + padding.bottom + border.top + border.bottom
@@ -287,8 +301,8 @@ public class BlockComputer {
 
         // Perform final layout on children
         float percentageResolutionWidth = Float.isNaN(parentSize.width) ? containerOuterWidth : parentSize.width;
-        FloatRect resolvedPadding = Resolve.resolveRectOrZero(style.getPadding(), percentageResolutionWidth);
-        FloatRect resolvedBorder = Resolve.resolveRectOrZero(style.getBorder(), percentageResolutionWidth);
+        FloatRect resolvedPadding = Resolve.resolveRectOrZero(style.getPadding(), percentageResolutionWidth, layoutComputer::resolveCalcValue);
+        FloatRect resolvedBorder = Resolve.resolveRectOrZero(style.getBorder(), percentageResolutionWidth, layoutComputer::resolveCalcValue);
         FloatRect contentBoxInset = new FloatRect(
             resolvedPadding.left + resolvedBorder.left + scrollbarGutter.left,
             resolvedPadding.right + resolvedBorder.right + scrollbarGutter.right,
@@ -307,6 +321,7 @@ public class BlockComputer {
         InFlowLayoutResult layoutResult = performFinalLayoutOnChildren(
             items,
             containerOuterWidth,
+            percentageBasisHeight,
             contentBoxInset,
             style.getTextAlign(),
             layoutComputer.resolveDirection(node),
@@ -402,7 +417,7 @@ public class BlockComputer {
             finalOuterSize,
             resolvedBorder,
             resolvedPadding,
-            new FloatSize(scrollbarGutterRight, scrollbarGutterBottom),
+            new FloatSize(scrollbarGutterX, scrollbarGutterBottom),
             layoutComputer.resolveDirection(node),
             overflow
         );
@@ -416,7 +431,7 @@ public class BlockComputer {
         if (ownMarginsCollapseWithChildren.start) {
             topMargin = layoutResult.firstChildTopMarginSet;
         } else {
-            float marginTop = Resolve.resolveLpaOrZero(style.getMargin().top, parentSize.width);
+            float marginTop = Resolve.resolveLpaOrZero(style.getMargin().top, parentSize.width, layoutComputer::resolveCalcValue);
             topMargin = CollapsibleMarginSet.fromMargin(marginTop);
         }
 
@@ -424,7 +439,7 @@ public class BlockComputer {
         if (ownBottomMarginCollapsesWithChildren) {
             bottomMargin = layoutResult.lastChildBottomMarginSet;
         } else {
-            float marginBottom = Resolve.resolveLpaOrZero(style.getMargin().bottom, parentSize.width);
+            float marginBottom = Resolve.resolveLpaOrZero(style.getMargin().bottom, parentSize.width, layoutComputer::resolveCalcValue);
             bottomMargin = CollapsibleMarginSet.fromMargin(marginBottom);
         }
 
@@ -509,8 +524,8 @@ public class BlockComputer {
             item.order = order++;
 
             float aspectRatio = childStyle.getAspectRatio();
-            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), nodeInnerSize.width);
-            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), nodeInnerSize.width);
+            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), nodeInnerSize.width, layoutComputer::resolveCalcValue);
+            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), nodeInnerSize.width, layoutComputer::resolveCalcValue);
             item.padding = itemPadding;
             item.border = itemBorder;
             item.paddingBorderSum = new FloatSize(
@@ -522,11 +537,11 @@ public class BlockComputer {
                                      ? item.paddingBorderSum
                                      : new FloatSize(0f, 0f);
 
-            FloatSize size2 = Resolve.maybeResolveSize(childStyle.getSize(), nodeInnerSize);
+            FloatSize size2 = Resolve.maybeResolveSize(childStyle.getSize(), nodeInnerSize, layoutComputer::resolveCalcValue);
             item.size = maybeAdd(Resolve.maybeApplyAspectRatio(size2, aspectRatio), boxSizingAdj);
-            FloatSize size1 = Resolve.maybeResolveSize(childStyle.getMinSize(), nodeInnerSize);
+            FloatSize size1 = Resolve.maybeResolveSize(childStyle.getMinSize(), nodeInnerSize, layoutComputer::resolveCalcValue);
             item.minSize = maybeAdd(Resolve.maybeApplyAspectRatio(size1, aspectRatio), boxSizingAdj);
-            FloatSize size = Resolve.maybeResolveSize(childStyle.getMaxSize(), nodeInnerSize);
+            FloatSize size = Resolve.maybeResolveSize(childStyle.getMaxSize(), nodeInnerSize, layoutComputer::resolveCalcValue);
             item.maxSize = maybeAdd(Resolve.maybeApplyAspectRatio(size, aspectRatio), boxSizingAdj);
 
             item.overflow = childStyle.getOverflow();
@@ -541,6 +556,7 @@ public class BlockComputer {
             item.canBeCollapsedThrough = false;
             item.isTable = childStyle.getItemIsTable();
             item.isReplaced = childStyle.getItemIsReplaced();
+            item.sizeStyle = childStyle.getSize();
             boolean isScrollContainer = item.overflow.x.isScrollContainer() || item.overflow.y.isScrollContainer();
             item.isInSameBfc = childStyle.getDisplay() == TaffyDisplay.BLOCK
                 && !item.isTable
@@ -637,6 +653,7 @@ public class BlockComputer {
     private InFlowLayoutResult performFinalLayoutOnChildren(
         List<BlockItem> items,
         float containerOuterWidth,
+        float containerPercentageResolutionHeight,
         FloatRect contentBoxInset,
         TextAlign textAlign,
         TaffyDirection direction,
@@ -645,10 +662,13 @@ public class BlockComputer {
 
         LayoutPartialTree tree = layoutComputer.getTree();
         float containerInnerWidth = containerOuterWidth - contentBoxInset.left - contentBoxInset.right;
-        FloatSize parentSize = new FloatSize(containerOuterWidth, NaN);
+        float percentageResolutionHeight = Float.isNaN(containerPercentageResolutionHeight)
+            ? NaN
+            : containerPercentageResolutionHeight - contentBoxInset.top - contentBoxInset.bottom;
+        FloatSize parentSize = new FloatSize(containerInnerWidth, percentageResolutionHeight);
         TaffySize<AvailableSpace> availableSpace = new TaffySize<>(
             AvailableSpace.definite(containerInnerWidth),
-            AvailableSpace.minContent()
+            AvailableSpace.maxContent()
         );
 
         float committedYOffset = contentBoxInset.top;
@@ -659,6 +679,8 @@ public class BlockComputer {
         boolean allChildrenCanBeCollapsedThrough = true;
         float firstVerticalBaseline = NaN;
         float floatedContentHeight = Float.NEGATIVE_INFINITY;
+        boolean hasActiveFloats = blockContext.hasActiveFloats(committedYOffset);
+        boolean activeMarginSetHasClearance = false;
 
         // Check RTL once at the start
         boolean isRtl = direction != null && direction.isRtl();
@@ -684,12 +706,16 @@ public class BlockComputer {
 
             if (item.floatMode != null && item.floatMode.isFloated()) {
                 float availableFloatWidth = Math.max(0f, containerInnerWidth - itemNonAutoXMarginSum);
-                float knownFloatWidth = Float.isNaN(item.size.width) ? NaN : item.size.width;
+                float knownFloatWidth = resolveBlockWidth(item, availableFloatWidth, containerInnerWidth, parentSize, availableSpace.height);
+                if (Float.isNaN(knownFloatWidth)) {
+                    knownFloatWidth = NaN;
+                }
+                float knownFloatHeight = resolveStretchHeight(item, percentageResolutionHeight, itemNonAutoMargin);
                 FloatSize floatKnownDimensions = maybeClamp(
-                    new FloatSize(knownFloatWidth, item.size.height), item.minSize, item.maxSize
+                    new FloatSize(knownFloatWidth, knownFloatHeight), item.minSize, item.maxSize
                 );
                 AvailableSpace floatWidthSpace = Float.isNaN(knownFloatWidth)
-                    ? AvailableSpace.definite(availableFloatWidth)
+                    ? measurementSpace(item.sizeStyle.width, availableFloatWidth)
                     : AvailableSpace.definite(knownFloatWidth);
                 LayoutOutput floatOutput = layoutComputer.performChildLayout(
                     item.nodeId,
@@ -706,7 +732,9 @@ public class BlockComputer {
                     && ownMarginsCollapseWithChildren.start;
                 FloatPoint marginBoxPosition = blockContext.placeFloatedBox(
                     new FloatSize(marginBoxWidth, marginBoxHeight),
-                    committedYOffset + activeCollapsibleMarginSet.resolve(),
+                    adjoinsUnresolvedStrut
+                        ? committedYOffset
+                        : committedYOffset + activeCollapsibleMarginSet.resolve(),
                     item.floatMode.floatDirection(),
                     item.clear,
                     adjoinsUnresolvedStrut
@@ -730,14 +758,20 @@ public class BlockComputer {
                     floatOutput.baselines()
                 );
                 floatedContentHeight = Math.max(floatedContentHeight, marginBoxPosition.y + marginBoxHeight);
+                hasActiveFloats = true;
                 item.computedSize = floatSize;
                 item.canBeCollapsedThrough = false;
                 continue;
             }
 
-            float minimumY = committedYOffset + activeCollapsibleMarginSet.resolve();
-            boolean hasActiveFloatsBeforeItem = blockContext.hasActiveFloats(minimumY);
+            float yMarginOffset = !item.isInSameBfc && (!isCollapsingWithFirstMarginSet || !ownMarginsCollapseWithChildren.start)
+                ? activeCollapsibleMarginSet.copy()
+                    .collapseWithMargin(itemNonAutoMargin.top).resolve()
+                : 0f;
+            float minimumY = committedYOffset + yMarginOffset;
+            boolean hasActiveFloatsBeforeItem = hasActiveFloats || blockContext.hasActiveFloats(minimumY);
             boolean itemAvoidsFloats = !item.isInSameBfc && hasActiveFloatsBeforeItem;
+            boolean itemPushedBelowFloat = false;
             ContentSlot flowSlot = null;
             BfcSlot bfcSlot = null;
             float stretchWidth;
@@ -752,27 +786,30 @@ public class BlockComputer {
                     direction,
                     item.clear
                 );
+                itemPushedBelowFloat = bfcSlot.y > minimumY + 0.001f;
+                hasActiveFloats = bfcSlot.segmentId != null;
                 stretchWidth = Math.max(bfcSlot.stretchWidth, -itemNonAutoXMarginSum);
             } else {
-                float requestedOuterWidth = Float.isNaN(item.size.width)
-                    ? 0f : item.size.width + itemNonAutoXMarginSum;
-                flowSlot = findContentSlotForBox(blockContext, minimumY, requestedOuterWidth, item.clear);
-                stretchWidth = hasActiveFloatsBeforeItem
-                    ? flowSlot.width - itemNonAutoXMarginSum
-                    : containerInnerWidth - itemNonAutoXMarginSum;
+                if (item.isInSameBfc) {
+                    // A block in the same formatting context keeps its own full-width box.
+                    // Floats constrain descendants through the shared BlockContext, not this box.
+                    stretchWidth = containerInnerWidth - itemNonAutoXMarginSum;
+                } else {
+                    float requestedOuterWidth = Float.isNaN(item.size.width)
+                        ? 0f : item.size.width + itemNonAutoXMarginSum;
+                    flowSlot = findContentSlotForBox(blockContext, minimumY, requestedOuterWidth, item.clear);
+                    stretchWidth = containerInnerWidth - itemNonAutoXMarginSum;
+                }
             }
 
             FloatSize knownDimensions;
             if (item.isTable || item.isReplaced) {
                 knownDimensions = new FloatSize(NaN, NaN);
             } else {
-                float width = Float.isNaN(item.size.width) ? stretchWidth : item.size.width;
-                width = TaffyMath.clamp(width, item.minSize.width, item.maxSize.width);
-                knownDimensions = maybeClamp(
-                    new FloatSize(width, item.size.height),
-                    item.minSize,
-                    item.maxSize
-                );
+                float width = resolveBlockWidth(item, stretchWidth, containerInnerWidth, parentSize, availableSpace.height);
+                if (Float.isNaN(width)) width = stretchWidth;
+                float height = resolveStretchHeight(item, percentageResolutionHeight, itemNonAutoMargin);
+                knownDimensions = maybeClamp(new FloatSize(width, height), item.minSize, item.maxSize);
             }
 
             BlockContext childBlockContext = blockContext.subContext(
@@ -795,11 +832,12 @@ public class BlockComputer {
             );
             if (item.isInSameBfc) {
                 blockContext.mergeTopAdjoiningFloats(childBlockContext);
+                hasActiveFloats = hasActiveFloats || blockContext.hasActiveFloats(committedYOffset);
             }
 
             FloatSize finalSize = itemOutput.size();
 
-            if (!itemAvoidsFloats && (!item.isInSameBfc || hasActiveFloatsBeforeItem)) {
+            if (!itemAvoidsFloats && !item.isInSameBfc) {
                 flowSlot = findContentSlotForBox(
                     blockContext,
                     minimumY,
@@ -825,27 +863,26 @@ public class BlockComputer {
                 topMarginSet.resolve(),
                 bottomMarginSet.resolve()
             );
+            if (item.isInSameBfc && (!isCollapsingWithFirstMarginSet || !ownMarginsCollapseWithChildren.start)) {
+                yMarginOffset = activeCollapsibleMarginSet.copy().collapseWithSet(topMarginSet).resolve();
+            } else if (!item.isInSameBfc && !(isCollapsingWithFirstMarginSet && ownMarginsCollapseWithChildren.start)) {
+                yMarginOffset = activeCollapsibleMarginSet.copy().collapseWithMargin(resolvedMargin.top).resolve();
+            }
 
             float insetOffsetX = 0f;
             float insetOffsetY = 0f;
             if (item.position == TaffyPosition.RELATIVE) {
-                float insetLeft = item.inset.left.maybeResolve(containerInnerWidth);
-                float insetRight = item.inset.right.maybeResolve(containerInnerWidth);
-                float insetTop = item.inset.top.maybeResolve(0f);
-                float insetBottom = item.inset.bottom.maybeResolve(0f);
-                insetOffsetX = !Float.isNaN(insetLeft) ? insetLeft : (!Float.isNaN(insetRight) ? -insetRight : 0f);
+                float insetLeft = item.inset.left.maybeResolve(containerInnerWidth, layoutComputer::resolveCalcValue);
+                float insetRight = item.inset.right.maybeResolve(containerInnerWidth, layoutComputer::resolveCalcValue);
+                float insetTop = item.inset.top.maybeResolve(percentageResolutionHeight, layoutComputer::resolveCalcValue);
+                float insetBottom = item.inset.bottom.maybeResolve(percentageResolutionHeight, layoutComputer::resolveCalcValue);
+                insetOffsetX = direction.isRtl() && !Float.isNaN(insetRight)
+                               ? -insetRight
+                               : (!Float.isNaN(insetLeft) ? insetLeft : (!Float.isNaN(insetRight) ? -insetRight : 0f));
                 insetOffsetY = !Float.isNaN(insetTop) ? insetTop : (!Float.isNaN(insetBottom) ? -insetBottom : 0f);
             }
 
             // Compute y margin offset with margin collapse
-            float yMarginOffset;
-            if (isCollapsingWithFirstMarginSet && ownMarginsCollapseWithChildren.start) {
-                yMarginOffset = 0f;
-            } else {
-                yMarginOffset = activeCollapsibleMarginSet.copy()
-                                                          .collapseWithMargin(resolvedMargin.top).resolve();
-            }
-
             boolean hasClearance = false;
             if (item.isInSameBfc) {
                 float clearThreshold = blockContext.clearedThreshold(item.clear);
@@ -872,7 +909,7 @@ public class BlockComputer {
 
             float y = itemAvoidsFloats
                 ? bfcSlot.y + insetOffsetY
-                : hasActiveFloatsBeforeItem
+                : (!item.isInSameBfc && hasActiveFloatsBeforeItem)
                 ? Math.max(committedYOffset + insetOffsetY + yMarginOffset, flowSlot.y + insetOffsetY)
                 : committedYOffset + insetOffsetY + yMarginOffset;
 
@@ -927,11 +964,15 @@ public class BlockComputer {
                 x = isRtl
                     ? contentBoxInset.left + bfcSlot.x + bfcSlot.borderWidth - finalSize.width + insetOffsetX
                     : contentBoxInset.left + bfcSlot.x + insetOffsetX;
-            } else if (hasActiveFloatsBeforeItem) {
+            } else if (!item.isInSameBfc && hasActiveFloatsBeforeItem) {
                 x = isRtl
                     ? contentBoxInset.left + flowSlot.x + flowSlot.width - finalSize.width
                         - resolvedMargin.right + insetOffsetX
-                    : contentBoxInset.left + flowSlot.x + resolvedMargin.left + insetOffsetX;
+                        : contentBoxInset.left + flowSlot.x + resolvedMargin.left + insetOffsetX;
+            }
+
+            if (isRtl && x < 0f && x > -1f) {
+                x = 0f;
             }
 
             FloatSize scrollbarSize = new FloatSize(
@@ -966,6 +1007,9 @@ public class BlockComputer {
             }
 
             // Update first_child_top_margin_set
+            if (isCollapsingWithFirstMarginSet && itemPushedBelowFloat) {
+                isCollapsingWithFirstMarginSet = false;
+            }
             if (isCollapsingWithFirstMarginSet) {
                 if (hasClearance) {
                     isCollapsingWithFirstMarginSet = false;
@@ -984,10 +1028,18 @@ public class BlockComputer {
                 activeCollapsibleMarginSet
                     .collapseWithSet(topMarginSet)
                     .collapseWithSet(bottomMarginSet);
+                activeMarginSetHasClearance = false;
                 yOffsetForAbsolute = committedYOffset + finalSize.height + yMarginOffset;
             } else {
                 committedYOffset = y - insetOffsetY + finalSize.height;
-                activeCollapsibleMarginSet = bottomMarginSet;
+                if (hasClearance && itemOutput.marginsCanCollapseThrough()) {
+                    committedYOffset -= topMarginSet.resolve();
+                    activeCollapsibleMarginSet = topMarginSet.copy().collapseWithSet(bottomMarginSet);
+                    activeMarginSetHasClearance = true;
+                } else {
+                    activeCollapsibleMarginSet = bottomMarginSet;
+                    activeMarginSetHasClearance = false;
+                }
                 yOffsetForAbsolute = committedYOffset + activeCollapsibleMarginSet.resolve();
                 allChildrenCanBeCollapsedThrough = false;
                 blockContext.commitStrut();
@@ -995,9 +1047,12 @@ public class BlockComputer {
         }
 
         CollapsibleMarginSet lastChildBottomMarginSet = activeCollapsibleMarginSet;
-        float bottomYMarginOffset = ownMarginsCollapseWithChildren.end
-                                    ? 0f
-                                    : lastChildBottomMarginSet.resolve();
+        if (activeMarginSetHasClearance) {
+            lastChildBottomMarginSet = CollapsibleMarginSet.zero();
+        }
+        float bottomYMarginOffset = activeMarginSetHasClearance
+                                    ? activeCollapsibleMarginSet.resolve()
+                                    : ownMarginsCollapseWithChildren.end ? 0f : lastChildBottomMarginSet.resolve();
 
         committedYOffset += contentBoxInset.bottom + bottomYMarginOffset;
         float contentHeight = Math.max(0f, committedYOffset);
@@ -1017,11 +1072,54 @@ public class BlockComputer {
      */
     private FloatRect resolveMarginOptional(TaffyRect<LengthPercentageAuto> margin, float contextWidth) {
         return new FloatRect(
-            margin.left.isAuto() ? NaN : margin.left.maybeResolve(contextWidth),
-            margin.right.isAuto() ? NaN : margin.right.maybeResolve(contextWidth),
-            margin.top.isAuto() ? NaN : margin.top.maybeResolve(contextWidth),
-            margin.bottom.isAuto() ? NaN : margin.bottom.maybeResolve(contextWidth)
+            margin.left.isAuto() ? NaN : margin.left.maybeResolve(contextWidth, layoutComputer::resolveCalcValue),
+            margin.right.isAuto() ? NaN : margin.right.maybeResolve(contextWidth, layoutComputer::resolveCalcValue),
+            margin.top.isAuto() ? NaN : margin.top.maybeResolve(contextWidth, layoutComputer::resolveCalcValue),
+            margin.bottom.isAuto() ? NaN : margin.bottom.maybeResolve(contextWidth, layoutComputer::resolveCalcValue)
         );
+    }
+
+    private float resolveBlockWidth(
+        BlockItem item,
+        float stretchWidth,
+        float percentageBasisWidth,
+        FloatSize parentSize,
+        AvailableSpace verticalAvailableSpace) {
+        TaffyDimension widthStyle = item.sizeStyle.width;
+        if (widthStyle.isStretch()) return stretchWidth;
+        if (widthStyle.isMinContent() || widthStyle.isMaxContent() || widthStyle.isFitContent()) {
+            AvailableSpace constraint = measurementSpace(widthStyle, stretchWidth);
+            FloatSize measured = layoutComputer.measureChildSize(
+                item.nodeId,
+                FloatSize.none(),
+                parentSize,
+                new TaffySize<>(constraint, verticalAvailableSpace),
+                SizingMode.INHERENT_SIZE,
+                TaffyLine.TRUE
+            );
+            return measured.width;
+        }
+        return item.size.width;
+    }
+
+    private AvailableSpace measurementSpace(TaffyDimension dimension, float stretchWidth) {
+        if (dimension.isMinContent()) return AvailableSpace.minContent();
+        if (dimension.isMaxContent()) return AvailableSpace.maxContent();
+        if (dimension.isFitContent()) {
+            LengthPercentage limit = dimension.getFitContentLimit();
+            if (limit == null) return AvailableSpace.definite(stretchWidth);
+            float resolved = limit.maybeResolve(stretchWidth, layoutComputer::resolveCalcValue);
+            return Float.isNaN(resolved) ? AvailableSpace.definite(stretchWidth) : AvailableSpace.definite(resolved);
+        }
+        return AvailableSpace.definite(stretchWidth);
+    }
+
+    private static float resolveStretchHeight(
+        BlockItem item,
+        float percentageResolutionHeight,
+        FloatRect nonAutoMargin) {
+        if (!item.sizeStyle.height.isStretch() || Float.isNaN(percentageResolutionHeight)) return item.size.height;
+        return Math.max(0f, percentageResolutionHeight - nonAutoMargin.top - nonAutoMargin.bottom);
     }
 
     private void performAbsoluteLayoutOnChildren(
@@ -1044,9 +1142,9 @@ public class BlockComputer {
 
             // Get margin style - need to track which are auto
             TaffyRect<LengthPercentageAuto> marginStyle = childStyle.getMargin();
-            FloatRect marginOpt = Resolve.maybeResolveRectLpa(marginStyle, areaWidth);
-            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), areaWidth);
-            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), areaWidth);
+            FloatRect marginOpt = Resolve.maybeResolveRectLpa(marginStyle, areaWidth, layoutComputer::resolveCalcValue);
+            FloatRect itemPadding = Resolve.resolveRectOrZero(childStyle.getPadding(), areaWidth, layoutComputer::resolveCalcValue);
+            FloatRect itemBorder = Resolve.resolveRectOrZero(childStyle.getBorder(), areaWidth, layoutComputer::resolveCalcValue);
             FloatSize paddingBorderSum = new FloatSize(
                 itemPadding.left + itemPadding.right + itemBorder.left + itemBorder.right,
                 itemPadding.top + itemPadding.bottom + itemBorder.top + itemBorder.bottom
@@ -1058,18 +1156,18 @@ public class BlockComputer {
 
             // Resolve inset
             TaffyRect<LengthPercentageAuto> insetStyle = childStyle.getInset();
-            float left = insetStyle.left.maybeResolve(areaWidth);
-            float right = insetStyle.right.maybeResolve(areaWidth);
-            float top = insetStyle.top.maybeResolve(areaHeight);
-            float bottom = insetStyle.bottom.maybeResolve(areaHeight);
+            float left = insetStyle.left.maybeResolve(areaWidth, layoutComputer::resolveCalcValue);
+            float right = insetStyle.right.maybeResolve(areaWidth, layoutComputer::resolveCalcValue);
+            float top = insetStyle.top.maybeResolve(areaHeight, layoutComputer::resolveCalcValue);
+            float bottom = insetStyle.bottom.maybeResolve(areaHeight, layoutComputer::resolveCalcValue);
 
             // Compute size from style
-            FloatSize size2 = Resolve.maybeResolveSize(childStyle.getSize(), new FloatSize(areaWidth, areaHeight));
+            FloatSize size2 = Resolve.maybeResolveSize(childStyle.getSize(), new FloatSize(areaWidth, areaHeight), layoutComputer::resolveCalcValue);
             FloatSize styleSize = maybeAdd(Resolve.maybeApplyAspectRatio(size2, aspectRatio), boxSizingAdj);
-            FloatSize size1 = Resolve.maybeResolveSize(childStyle.getMinSize(), new FloatSize(areaWidth, areaHeight));
+            FloatSize size1 = Resolve.maybeResolveSize(childStyle.getMinSize(), new FloatSize(areaWidth, areaHeight), layoutComputer::resolveCalcValue);
             FloatSize minSz = maybeAdd(Resolve.maybeApplyAspectRatio(size1, aspectRatio), boxSizingAdj);
             minSz = maybeMax(minSz, paddingBorderSum);
-            FloatSize size = Resolve.maybeResolveSize(childStyle.getMaxSize(), new FloatSize(areaWidth, areaHeight));
+            FloatSize size = Resolve.maybeResolveSize(childStyle.getMaxSize(), new FloatSize(areaWidth, areaHeight), layoutComputer::resolveCalcValue);
             FloatSize maxSz = maybeAdd(Resolve.maybeApplyAspectRatio(size, aspectRatio), boxSizingAdj);
 
             FloatSize knownDimensions = maybeClamp(styleSize, minSz, maxSz);
@@ -1170,7 +1268,7 @@ public class BlockComputer {
 
             // Position the item using resolved margins
             float x;
-            if (!Float.isNaN(left)) {
+            if (!Float.isNaN(left) && !(direction.isRtl() && !Float.isNaN(right))) {
                 x = areaInset.left + left + resolvedMargin.left;
             } else if (!Float.isNaN(right)) {
                 x = areaInset.left + areaWidth - finalSize.width - right - resolvedMargin.right;
@@ -1269,8 +1367,8 @@ public class BlockComputer {
     }
 
     private float resolveMarginSumOrZero(TaffyRect<LengthPercentageAuto> margin, float contextWidth) {
-        float left = margin.left.isAuto() ? 0f : margin.left.resolveOrZero(contextWidth);
-        float right = margin.right.isAuto() ? 0f : margin.right.resolveOrZero(contextWidth);
+        float left = margin.left.isAuto() ? 0f : margin.left.resolveOrZero(contextWidth, layoutComputer::resolveCalcValue);
+        float right = margin.right.isAuto() ? 0f : margin.right.resolveOrZero(contextWidth, layoutComputer::resolveCalcValue);
         return left + right;
     }
 }

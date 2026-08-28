@@ -5,7 +5,7 @@ A pure Java implementation of the [Taffy](https://github.com/DioxusLabs/taffy) U
 The Java port delivers performance comparable to Rust in standard scenarios,
 but experiences a noticeable drop under extreme conditions (based on benchmarks against the Rust version).
 
-It passes the full Taffy test suite (ported to Java).
+The Java port includes the upstream XML fixture runner. The configured Rust fixture audit passes all 4,420 fixtures using the same 0.1px comparison tolerance as the upstream Rust runner.
 
 **This Java port was facilitated by AI.**
 
@@ -24,6 +24,33 @@ dependencies {
 ```
 
 The library is built for the configured modern Java toolchain. Consumers should use a compatible Java runtime; the published artifact keeps the normal Maven dependency metadata.
+
+## API Correspondence
+
+`TaffyStyle` remains the direct runtime style type. Applications that use
+non-string grid identifiers can use `Style<S>` with `CustomIdentCodec<S>` and
+pass it to every `TaffyTree` creation entry point. `Style.fromTaffyStyle`
+reconstructs that typed view after runtime-style handling. The tree normalizes names
+only at the layout boundary. `TaffyTree.getDetailedGridInfo(node, codec)` exposes decoded
+`GenericDetailedGridInfo<S>` diagnostics after Grid layout. `CompactLength` is
+available as a tagged public sizing value with the same track-sizing
+classification and percentage-resolution operations as Taffy. `CssParser`
+can parse generic grid placements and complete grid templates through a
+`CustomIdentCodec<S>`. Low-level applications can implement
+`GenericLayoutPartialTree<S>` to expose `Style<S>` directly, and can override
+`LayoutPartialTree.resolveCalcValue` for caller-owned calc evaluation,
+including fixed grid tracks. `LayoutAlgorithms.computeRootLayout` and
+`computeLeafLayout` accept `GenericNodeMeasureFunc<S, C>` for typed trees, so
+application-defined grid identifiers remain available to measure callbacks.
+
+Rust feature switches are not Java runtime features. `CssParser` is always
+available as the parsing API in place of Rust's feature-gated `FromCss` and
+`FromStr` implementations. JSON serialization is deliberately left to the
+application's selected serialization library instead of imposing a runtime
+dependency for Rust's optional `serde` support. `CompactLengthData` and
+`CalcExpressionCodec` provide a stable serializer-facing representation for
+the only compact internal value form. Java has no `no_std` equivalent, so the
+library targets its configured Java runtime.
 
 ## Fixture Generation
 

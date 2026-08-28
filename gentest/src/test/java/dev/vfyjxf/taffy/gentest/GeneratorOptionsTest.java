@@ -1,5 +1,6 @@
 package dev.vfyjxf.taffy.gentest;
 
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -31,6 +32,18 @@ public class GeneratorOptionsTest {
     void rejectsOptionsWithoutAValue() {
         assertThrows(IllegalArgumentException.class, () ->
             GeneratorOptions.parse(Path.of("workspace").toAbsolutePath(), new String[] {"--fixturesRoot"})
+        );
+    }
+
+    @Test
+    void serializesNamedGridPlacementFromCurrentRustFixtureJson() {
+        JsonObject placement = new JsonObject();
+        placement.addProperty("kind", "named");
+        placement.addProperty("value", "content-end -2");
+
+        assertEquals(
+            "GridPlacement.parse(\"content-end -2\")",
+            TestGenerator.gridPlacementExpression(placement)
         );
     }
 }

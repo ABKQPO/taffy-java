@@ -48,8 +48,10 @@ public class AbsoluteSizing {
                 - valueOrZero(margin.top) - valueOrZero(margin.bottom))
         );
         FloatSize stretchedDimensions = resolveStretch(size, knownDimensions, areaSize, inset, margin);
-        AvailableSpace widthConstraint = measurementConstraint(size.width, stretchSize.width, areaSize.width);
-        AvailableSpace heightConstraint = measurementConstraint(size.height, stretchSize.height, areaSize.height);
+        AvailableSpace widthConstraint = measurementConstraint(
+            layoutComputer, size.width, stretchSize.width, areaSize.width);
+        AvailableSpace heightConstraint = measurementConstraint(
+            layoutComputer, size.height, stretchSize.height, areaSize.height);
         boolean measureWidth = Float.isNaN(stretchedDimensions.width) && widthConstraint != null;
         boolean measureHeight = Float.isNaN(stretchedDimensions.height) && heightConstraint != null;
         if (!measureWidth && !measureHeight) {
@@ -73,7 +75,8 @@ public class AbsoluteSizing {
         );
     }
 
-    private static AvailableSpace measurementConstraint(TaffyDimension dimension, float stretchSize, float basis) {
+    private static AvailableSpace measurementConstraint(
+        LayoutComputer layoutComputer, TaffyDimension dimension, float stretchSize, float basis) {
         if (dimension.isMinContent()) {
             return AvailableSpace.minContent();
         }
@@ -82,7 +85,7 @@ public class AbsoluteSizing {
         }
         if (dimension.isFitContent()) {
             LengthPercentage limit = dimension.getFitContentLimit();
-            float resolvedLimit = limit == null ? stretchSize : limit.maybeResolve(basis);
+            float resolvedLimit = limit == null ? stretchSize : limit.maybeResolve(basis, layoutComputer::resolveCalcValue);
             return Float.isNaN(resolvedLimit) ? null : AvailableSpace.definite(resolvedLimit);
         }
         return null;

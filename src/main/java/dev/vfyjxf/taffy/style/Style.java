@@ -118,7 +118,7 @@ public class Style<S> implements CoreStyle, FlexboxContainerStyle, FlexboxItemSt
     }
 
     public GenericGridTemplateAreas<S> gridTemplateAreas() {
-        return gridTemplateAreas;
+        return gridTemplateAreas == null ? null : gridTemplateAreas.copy();
     }
 
     public void setGridTemplateAreas(GenericGridTemplateAreas<S> areas) {
@@ -126,7 +126,7 @@ public class Style<S> implements CoreStyle, FlexboxContainerStyle, FlexboxItemSt
     }
 
     public List<GenericGridTemplateComponent<S>> gridTemplateRowsWithRepeat() {
-        return gridTemplateRowsWithRepeat == null ? List.of() : gridTemplateRowsWithRepeat;
+        return gridTemplateRowsWithRepeat == null ? List.of() : List.copyOf(gridTemplateRowsWithRepeat);
     }
 
     public void setGridTemplateRowsWithRepeat(List<GenericGridTemplateComponent<S>> components) {
@@ -141,7 +141,7 @@ public class Style<S> implements CoreStyle, FlexboxContainerStyle, FlexboxItemSt
     }
 
     public List<GenericGridTemplateComponent<S>> gridTemplateColumnsWithRepeat() {
-        return gridTemplateColumnsWithRepeat == null ? List.of() : gridTemplateColumnsWithRepeat;
+        return gridTemplateColumnsWithRepeat == null ? List.of() : List.copyOf(gridTemplateColumnsWithRepeat);
     }
 
     public void setGridTemplateColumnsWithRepeat(List<GenericGridTemplateComponent<S>> components) {

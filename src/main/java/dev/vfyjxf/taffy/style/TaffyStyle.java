@@ -450,6 +450,7 @@ public class TaffyStyle implements CoreStyle, FlexboxContainerStyle, FlexboxItem
     public TaffyStyle copy() {
         TaffyStyle copy = new TaffyStyle();
         copy.display = this.display;
+        copy.direction = this.direction;
         copy.itemIsTable = this.itemIsTable;
         copy.itemIsReplaced = this.itemIsReplaced;
         copy.boxSizing = this.boxSizing;
@@ -482,6 +483,7 @@ public class TaffyStyle implements CoreStyle, FlexboxContainerStyle, FlexboxItem
         copy.flexBasis = this.flexBasis;
         copy.flexGrow = this.flexGrow;
         copy.flexShrink = this.flexShrink;
+        copy.flex = this.flex;
         copy.gridTemplateRows = new ArrayList<>(this.gridTemplateRows);
         copy.gridTemplateColumns = new ArrayList<>(this.gridTemplateColumns);
         copy.gridTemplateRowsWithRepeat = this.gridTemplateRowsWithRepeat != null
@@ -674,13 +676,13 @@ public class TaffyStyle implements CoreStyle, FlexboxContainerStyle, FlexboxItem
      */
     public float getFlexShrink() {return getEffectiveFlexShrink();}
 
-    public List<TrackSizingFunction> getGridTemplateRows() {return gridTemplateRows;}
+    public List<TrackSizingFunction> getGridTemplateRows() {return List.copyOf(gridTemplateRows);}
 
-    public List<TrackSizingFunction> getGridTemplateColumns() {return gridTemplateColumns;}
+    public List<TrackSizingFunction> getGridTemplateColumns() {return List.copyOf(gridTemplateColumns);}
 
-    public List<TrackSizingFunction> getGridAutoRows() {return gridAutoRows;}
+    public List<TrackSizingFunction> getGridAutoRows() {return List.copyOf(gridAutoRows);}
 
-    public List<TrackSizingFunction> getGridAutoColumns() {return gridAutoColumns;}
+    public List<TrackSizingFunction> getGridAutoColumns() {return List.copyOf(gridAutoColumns);}
 
     public GridAutoFlow getGridAutoFlow() {return gridAutoFlow;}
 

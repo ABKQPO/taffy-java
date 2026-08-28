@@ -41,13 +41,21 @@ public class Contain {
             throw new ParseError("Contain value must not be empty");
         }
         String normalized = value.trim().toLowerCase(Locale.ROOT);
-        if (normalized.equals("none")) return NONE;
-        if (normalized.equals("content")) return CONTENT;
-
         Contain result = NONE;
         boolean sawKeyword = false;
+        boolean sawStyle = false;
         for (String token : normalized.split("\\s+")) {
             switch (token) {
+                case "none":
+                    if (sawKeyword || sawStyle || !normalized.equals("none")) {
+                        throw new ParseError("none must be the only contain keyword");
+                    }
+                    return NONE;
+                case "content":
+                    if (sawKeyword || sawStyle || !normalized.equals("content")) {
+                        throw new ParseError("content must be the only contain keyword");
+                    }
+                    return CONTENT;
                 case "layout":
                     if (result.contains(LAYOUT)) throw new ParseError("Duplicate contain keyword: layout");
                     result = result.union(LAYOUT);
@@ -59,6 +67,8 @@ public class Contain {
                     sawKeyword = true;
                     break;
                 case "style":
+                    if (sawStyle) throw new ParseError("Duplicate contain keyword: style");
+                    sawStyle = true;
                     sawKeyword = true;
                     break;
                 default:

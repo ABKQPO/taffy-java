@@ -46,6 +46,19 @@ public class LayoutOutputContractTest {
     }
 
     @Test
+    void rustStyleFactoryDoesNotInventContentSizeFromOuterSize() {
+        FloatSize size = new FloatSize(100f, 40f);
+        FloatRect overflow = FloatRect.ltrb(-3f, 0f, 140f, 60f);
+
+        LayoutOutput output = LayoutOutput.fromSizesAndBaselines(size, overflow, new Baselines(9f, 37f));
+
+        assertEquals(size, output.size());
+        assertEquals(FloatSize.zero(), output.contentSize());
+        assertEquals(overflow, output.scrollableOverflowRect());
+        assertEquals(new Baselines(9f, 37f), output.baselines());
+    }
+
+    @Test
     void fullConstructorPreservesBothBaselinesAndOverflow() {
         Baselines baselines = new Baselines(8f, 31f);
         FloatRect overflow = FloatRect.ltrb(-4f, -2f, 110f, 45f);

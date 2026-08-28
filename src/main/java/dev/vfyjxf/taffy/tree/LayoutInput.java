@@ -36,7 +36,7 @@ public record LayoutInput(
         SizingMode.INHERENT_SIZE,
         RequestedAxis.BOTH,
         FloatSize.none(),
-        new TaffySize<>(false, false),
+        new TaffySize<>(true, true),
         FloatSize.none(),
         new TaffySize<>(AvailableSpace.MAX_CONTENT, AvailableSpace.MAX_CONTENT),
         TaffyLine.FALSE

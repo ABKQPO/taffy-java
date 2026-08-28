@@ -142,7 +142,7 @@ public class GridRepetition {
     }
     
     public List<TrackSizingFunction> getTracks() {
-        return tracks;
+        return List.copyOf(tracks);
     }
 
     /**

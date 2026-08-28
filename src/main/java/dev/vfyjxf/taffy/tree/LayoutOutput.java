@@ -163,7 +163,7 @@ public record LayoutOutput(
         Baselines safeBaselines = baselines == null ? Baselines.NONE : baselines;
         return new LayoutOutput(
             size,
-            size,
+            FloatSize.zero(),
             new FloatPoint(Float.NaN, safeBaselines.first()),
             CollapsibleMarginSet.ZERO,
             CollapsibleMarginSet.ZERO,

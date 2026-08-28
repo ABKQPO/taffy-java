@@ -28,6 +28,11 @@ public class GenericGridTemplateAreas<S> {
         return columnCount;
     }
 
+    /** Returns an independent copy of this immutable value object. */
+    public GenericGridTemplateAreas<S> copy() {
+        return new GenericGridTemplateAreas<>(areas, rowCount, columnCount);
+    }
+
     public GridTemplateAreas toGridTemplateAreas(CustomIdentCodec<S> codec) {
         List<GridTemplateArea> runtimeAreas = new ArrayList<>(areas.size());
         for (GenericGridTemplateArea<S> area : areas) {

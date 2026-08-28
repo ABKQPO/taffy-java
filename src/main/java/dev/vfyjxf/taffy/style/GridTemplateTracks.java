@@ -18,7 +18,7 @@ public class GridTemplateTracks {
     }
 
     public List<GridTemplateComponent> getTracks() {
-        return tracks;
+        return List.copyOf(tracks);
     }
 
     public List<List<String>> getLineNames() {

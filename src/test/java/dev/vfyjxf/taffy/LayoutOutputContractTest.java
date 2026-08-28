@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LayoutOutputContractTest {
@@ -68,7 +69,7 @@ public class LayoutOutputContractTest {
         LayoutOutput output = LayoutOutput.fromOuterSize(new FloatSize(10f, 10f));
 
         assertTrue(output.oofCandidates().isEmpty());
-        assertTrue(output.oofPositioningArea() == null);
+        assertNull(output.oofPositioningArea());
     }
 
     @Test

@@ -86,10 +86,10 @@ public class IntrinsicSizingKeywordsTest {
         @Test
         @DisplayName("Intrinsic keywords are singletons")
         void testSingletons() {
-            assertSame(TaffyDimension.minContent(), TaffyDimension.MIN_CONTENT);
-            assertSame(TaffyDimension.maxContent(), TaffyDimension.MAX_CONTENT);
-            assertSame(TaffyDimension.fitContent(), TaffyDimension.FIT_CONTENT);
-            assertSame(TaffyDimension.stretch(), TaffyDimension.STRETCH);
+            assertSame(TaffyDimension.MIN_CONTENT, TaffyDimension.minContent());
+            assertSame(TaffyDimension.MAX_CONTENT, TaffyDimension.maxContent());
+            assertSame(TaffyDimension.FIT_CONTENT, TaffyDimension.fitContent());
+            assertSame(TaffyDimension.STRETCH, TaffyDimension.stretch());
         }
         
         @Test
@@ -219,10 +219,10 @@ public class IntrinsicSizingKeywordsTest {
         @Test
         @DisplayName("Intrinsic keywords are singletons")
         void testSingletons() {
-            assertSame(LengthPercentageAuto.minContent(), LengthPercentageAuto.MIN_CONTENT);
-            assertSame(LengthPercentageAuto.maxContent(), LengthPercentageAuto.MAX_CONTENT);
-            assertSame(LengthPercentageAuto.fitContent(), LengthPercentageAuto.FIT_CONTENT);
-            assertSame(LengthPercentageAuto.stretch(), LengthPercentageAuto.STRETCH);
+            assertSame(LengthPercentageAuto.MIN_CONTENT, LengthPercentageAuto.minContent());
+            assertSame(LengthPercentageAuto.MAX_CONTENT, LengthPercentageAuto.maxContent());
+            assertSame(LengthPercentageAuto.FIT_CONTENT, LengthPercentageAuto.fitContent());
+            assertSame(LengthPercentageAuto.STRETCH, LengthPercentageAuto.stretch());
         }
         
         @Test

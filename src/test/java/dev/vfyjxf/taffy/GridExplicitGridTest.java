@@ -99,8 +99,8 @@ public class GridExplicitGridTest {
             GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(20f)))
         );
 
-        Float preferredWidth = style.size.width.intoOption();
-        Float preferredHeight = style.size.height.intoOption();
+        float preferredWidth = style.size.width.intoOption();
+        float preferredHeight = style.size.height.intoOption();
 
         assertExplicit(
             style,
@@ -129,8 +129,8 @@ public class GridExplicitGridTest {
             GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(20f)))
         );
 
-        Float preferredWidth = style.size.width.intoOption();
-        Float preferredHeight = style.size.height.intoOption();
+        float preferredWidth = style.size.width.intoOption();
+        float preferredHeight = style.size.height.intoOption();
 
         assertExplicit(
             style,
@@ -160,8 +160,8 @@ public class GridExplicitGridTest {
         );
 
         // In Rust test this is the inner container size derived from min-size constraints
-        Float innerWidth = 120f;
-        Float innerHeight = 80f;
+        float innerWidth = 120f;
+        float innerHeight = 80f;
 
         assertExplicit(
             style,
@@ -190,8 +190,8 @@ public class GridExplicitGridTest {
             GridTemplateComponent.autoFill(TrackSizingFunction.fixed(LengthPercentage.length(20f)))
         );
 
-        Float innerWidth = 140f;
-        Float innerHeight = 90f;
+        float innerWidth = 140f;
+        float innerHeight = 90f;
 
         assertExplicit(
             style,
@@ -226,8 +226,8 @@ public class GridExplicitGridTest {
             )
         );
 
-        Float preferredWidth = style.size.width.intoOption();
-        Float preferredHeight = style.size.height.intoOption();
+        float preferredWidth = style.size.width.intoOption();
+        float preferredHeight = style.size.height.intoOption();
 
         assertExplicit(
             style,
@@ -257,8 +257,8 @@ public class GridExplicitGridTest {
         );
         style.gap = new TaffySize<>(LengthPercentage.length(20f), LengthPercentage.length(20f));
 
-        Float preferredWidth = style.size.width.intoOption();
-        Float preferredHeight = style.size.height.intoOption();
+        float preferredWidth = style.size.width.intoOption();
+        float preferredHeight = style.size.height.intoOption();
 
         assertExplicit(
             style,
@@ -322,8 +322,8 @@ public class GridExplicitGridTest {
         );
         style.gap = new TaffySize<>(LengthPercentage.length(20f), LengthPercentage.length(20f));
 
-        Float preferredWidth = style.size.width.intoOption();
-        Float preferredHeight = style.size.height.intoOption();
+        float preferredWidth = style.size.width.intoOption();
+        float preferredHeight = style.size.height.intoOption();
 
         assertExplicit(
             style,

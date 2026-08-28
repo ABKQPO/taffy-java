@@ -2,7 +2,7 @@ package dev.vfyjxf.taffy.tree;
 
 /**
  * First and last baselines produced by a layout algorithm.
- *
+ * <p>
  * A NaN value represents an unavailable baseline, matching the float-based
  * optional value convention used by the rest of the layout engine.
  *

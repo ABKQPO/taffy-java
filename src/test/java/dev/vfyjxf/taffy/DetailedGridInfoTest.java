@@ -27,6 +27,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -260,7 +261,7 @@ public class DetailedGridInfoTest {
         assertEquals(1, tree.childCount(parent));
         assertEquals(first, tree.getChildAtIndex(parent, 0));
         assertTrue(tree.containsNode(second));
-        assertEquals(null, tree.getParent(second));
+        assertNull(tree.getParent(second));
     }
 
     @Test

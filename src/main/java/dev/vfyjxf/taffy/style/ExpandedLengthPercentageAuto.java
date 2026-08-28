@@ -60,7 +60,6 @@ public class ExpandedLengthPercentageAuto {
             case FIT_CONTENT -> fitContentLimit == null ? LengthPercentageAuto.FIT_CONTENT
                     : LengthPercentageAuto.fitContent(fitContentLimit);
             case STRETCH -> LengthPercentageAuto.STRETCH;
-            default -> throw new IllegalStateException("Unexpected expanded length type: " + type);
         };
     }
 

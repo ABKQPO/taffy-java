@@ -162,6 +162,21 @@ public record Layout(
             - size.height + border.top + border.bottom);
     }
 
+    /** Returns the relative order used for painting this node. */
+    public int getOrder() {
+        return order;
+    }
+
+    /** Returns the node location relative to its parent. */
+    public FloatPoint getLocation() {
+        return location;
+    }
+
+    /** Returns the node outer size. */
+    public FloatSize getSize() {
+        return size;
+    }
+
     @Override
     public String toString() {
         return "Layout{order=" + order + ", location=" + location + ", size=" + size + "}";

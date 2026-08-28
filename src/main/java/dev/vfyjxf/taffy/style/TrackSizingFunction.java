@@ -182,7 +182,6 @@ public class TrackSizingFunction {
             case MINMAX -> ExpandedTrackSizingFunction.minmax(
                     minFunc == null ? null : minFunc.expand(),
                     maxFunc == null ? null : maxFunc.expand());
-            default -> throw new IllegalStateException("Unexpected track type: " + type);
         };
     }
 
@@ -384,7 +383,6 @@ public class TrackSizingFunction {
             case AUTO -> "auto";
             case FLEX -> flexValue + "fr";
             case MINMAX -> "minmax(" + minFunc + ", " + maxFunc + ")";
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 

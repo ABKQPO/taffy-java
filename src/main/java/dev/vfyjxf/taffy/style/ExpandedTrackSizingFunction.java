@@ -62,7 +62,6 @@ public class ExpandedTrackSizingFunction {
             case MINMAX -> TrackSizingFunction.minmax(
                     minFunction == null ? TrackSizingFunction.AUTO : minFunction.toTrackSizingFunction(),
                     maxFunction == null ? TrackSizingFunction.AUTO : maxFunction.toTrackSizingFunction());
-            default -> throw new IllegalStateException("Unexpected expanded track type: " + type);
         };
     }
 

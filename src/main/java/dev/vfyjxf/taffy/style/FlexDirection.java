@@ -4,7 +4,7 @@ import dev.vfyjxf.taffy.geometry.AbsoluteAxis;
 
 /**
  * The direction of the flexbox layout main axis.
- * 
+ * <p>
  * There are always two perpendicular layout axes: main (or primary) and cross (or secondary).
  * Adding items will cause them to be positioned adjacent to each other along the main axis.
  * 

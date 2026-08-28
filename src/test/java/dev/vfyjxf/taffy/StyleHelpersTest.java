@@ -63,7 +63,7 @@ public class StyleHelpersTest {
         MinMax<Integer, String> pair = new MinMax<>(1, "max");
         assertEquals(1, pair.min);
         assertEquals("max", pair.max);
-        assertEquals(pair, new MinMax<>(1, "max"));
+        assertEquals(new MinMax<>(1, "max"), pair);
 
         GridTemplateComponent repeat = StyleHelpers.repeat(3, TrackSizingFunction.fixed(10f));
         assertEquals(3, repeat.getRepeat().getCount());

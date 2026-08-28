@@ -22,7 +22,7 @@ public interface LayoutPartialTree extends TraversePartialTree {
 
     /** Returns the application-owned style view required by common layout operations. */
     default CoreStyle getCoreContainerStyle(NodeId node) {
-        return getStyle(node);
+        throw new UnsupportedOperationException("Tree must provide getStyle or getCoreContainerStyle");
     }
 
     void setUnroundedLayout(NodeId node, Layout layout);

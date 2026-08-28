@@ -42,6 +42,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -4058,7 +4059,7 @@ public class GridComputer {
             }
         }
         if (itemIndices.isEmpty()) return;
-        itemIndices.sort((left, right) -> Integer.compare(items.get(left).columnSpan, items.get(right).columnSpan));
+        itemIndices.sort(Comparator.comparingInt(left -> items.get(left).columnSpan));
 
         List<IntrinsicColumnTrack> tracks = new ArrayList<>(columnTracks.size());
         for (int track = 0; track < columnTracks.size(); track++) {
@@ -4570,7 +4571,7 @@ public class GridComputer {
                 itemIndices.add(itemIndex);
             }
         }
-        itemIndices.sort((left, right) -> Integer.compare(items.get(left).columnSpan, items.get(right).columnSpan));
+        itemIndices.sort(Comparator.comparingInt(left -> items.get(left).columnSpan));
         boolean[] distributedToContentBasedMaximum = new boolean[columnBaseSizes.size()];
 
         int batchStart = 0;
@@ -5788,7 +5789,7 @@ public class GridComputer {
                 itemIndices.add(itemIndex);
             }
         }
-        itemIndices.sort((left, right) -> Integer.compare(items.get(left).rowSpan, items.get(right).rowSpan));
+        itemIndices.sort(Comparator.comparingInt(left -> items.get(left).rowSpan));
 
         int batchStart = 0;
         while (batchStart < itemIndices.size()) {
@@ -5918,7 +5919,7 @@ public class GridComputer {
                 itemIndices.add(itemIndex);
             }
         }
-        itemIndices.sort((left, right) -> Integer.compare(items.get(left).rowSpan, items.get(right).rowSpan));
+        itemIndices.sort(Comparator.comparingInt(left -> items.get(left).rowSpan));
 
         int batchStart = 0;
         while (batchStart < itemIndices.size()) {

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Grid layout benchmarks - mirrors Rust taffy benches/grid.rs
- *
+ * <p>
  * Test groups (matching Rust):
  * - grid/wide: NxN grid (cells = N²) with random track sizes
  * - grid/deep: Nested NxN grids at various depths
@@ -136,7 +136,7 @@ public class GridBenchmark {
 
     /**
      * Generate random grid track (matching Rust's random_grid_track)
-     * 
+     * <p>
      * Distribution (from Rust):
      * - 0.0..0.1: auto()
      * - 0.1..0.2: min_content()
@@ -275,11 +275,11 @@ public class GridBenchmark {
             NodeId child = buildRandomLeaf(taffy, leafRng);
             for (int lvl = 2; lvl <= levels; lvl++) {
                 TaffyStyle gridStyle = randomNxNGridStyle(containerRng, 1);
-                child = taffy.newWithChildren(gridStyle, new NodeId[]{child});
+                child = taffy.newWithChildren(gridStyle, child);
             }
 
             TaffyStyle rootStyle = new TaffyStyle();
-            NodeId root = taffy.newWithChildren(rootStyle, new NodeId[]{child});
+            NodeId root = taffy.newWithChildren(rootStyle, child);
             return new Object[]{taffy, root};
         }
 

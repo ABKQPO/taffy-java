@@ -16,7 +16,7 @@ public class FloatSize {
 
     /**
      * Transitional constructor: allow legacy nullable Float inputs.
-     *
+     * <p>
      * In the float-specialized geometry model, NaN represents "None".
      */
     public FloatSize(Float width, Float height) {

@@ -8,7 +8,7 @@ import static java.lang.Float.NaN;
 
 /**
  * Represents the available space for layout in a single axis.
- * 
+ * <p>
  * This is used to communicate sizing constraints from parent to child during layout.
  */
 public class AvailableSpace {
@@ -249,7 +249,6 @@ public class AvailableSpace {
             case DEFINITE -> "Definite(" + value + ")";
             case MIN_CONTENT -> "MinContent";
             case MAX_CONTENT -> "MaxContent";
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 }

@@ -172,7 +172,6 @@ public class LengthPercentageAuto {
             case LENGTH -> length(lp.getValue());
             case PERCENT -> percent(lp.getValue());
             case CALC -> calc(lp.getCalcExpression());
-            default -> throw new IllegalStateException("Unexpected: " + lp.getType());
         };
     }
 
@@ -193,7 +192,6 @@ public class LengthPercentageAuto {
                     ? FIT_CONTENT : fitContent(dimension.getFitContentLimit());
             case STRETCH -> STRETCH;
             case CONTENT -> AUTO;
-            default -> throw new IllegalStateException("Unexpected: " + dimension.getType());
         };
     }
 
@@ -254,7 +252,6 @@ public class LengthPercentageAuto {
             case MAX_CONTENT -> ExpandedLengthPercentageAuto.maxContent();
             case FIT_CONTENT -> ExpandedLengthPercentageAuto.fitContent(fitContentLimit);
             case STRETCH -> ExpandedLengthPercentageAuto.stretch();
-            default -> throw new IllegalStateException("Unexpected length type: " + type);
         };
     }
     
@@ -311,7 +308,6 @@ public class LengthPercentageAuto {
             case PERCENT -> context * value;
             case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH -> Float.NaN;
             case CALC -> calcExpression != null ? calcExpression.resolve(context) : 0f;
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 
@@ -326,7 +322,6 @@ public class LengthPercentageAuto {
             case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH -> Float.NaN;
             case CALC ->
                     Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 
@@ -391,7 +386,6 @@ public class LengthPercentageAuto {
             case MAX_CONTENT -> "max-content";
             case FIT_CONTENT -> fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
             case STRETCH -> "stretch";
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 }

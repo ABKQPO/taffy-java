@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Repositions out-of-flow descendants whose containing block differs from their tree parent.
- *
+ * <p>
  * This transitional implementation preserves the existing tree-level positioning behavior while
  * layout algorithms are migrated to the candidate-driven out-of-flow dispatcher.
  */

@@ -19,6 +19,7 @@ import dev.vfyjxf.taffy.util.MeasureFunc;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class FlexIntrinsicSizingTest {
     @Test
@@ -107,7 +108,7 @@ public class FlexIntrinsicSizingTest {
 
         tree.computeLayout(root, TaffySize.maxContent());
 
-        assertEquals(false, tree.observedInherentSizeMeasurement);
+        assertFalse(tree.observedInherentSizeMeasurement);
     }
 
     private static TaffyStyle flexStyle() {

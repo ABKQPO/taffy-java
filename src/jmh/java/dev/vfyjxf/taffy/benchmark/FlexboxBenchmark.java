@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Flexbox layout benchmarks - mirrors Rust taffy benches/flexbox.rs
- *
+ * <p>
  * Test groups (matching Rust):
  * - yoga 'huge nested': Deep hierarchy with fixed style
  * - Wide tree: 2-level hierarchy with random styles

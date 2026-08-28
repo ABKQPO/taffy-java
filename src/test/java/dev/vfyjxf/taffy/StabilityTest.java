@@ -1252,7 +1252,7 @@ public class StabilityTest {
             
             // Height should be 0 since percentage of indefinite is auto
             assertTrue(tree.getLayout(child).size().height <= EPSILON ||
-                       Float.isNaN(tree.getLayout(child).size().height) == false);
+                    !Float.isNaN(tree.getLayout(child).size().height));
         }
         
         @Test

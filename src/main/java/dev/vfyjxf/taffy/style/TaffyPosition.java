@@ -2,7 +2,7 @@ package dev.vfyjxf.taffy.style;
 
 /**
  * The positioning strategy for this item.
- * 
+ * <p>
  * This controls both how the origin is determined for the position/inset properties,
  * and whether or not the item will be controlled by flexbox's layout algorithm.
  * 

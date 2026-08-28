@@ -3,16 +3,16 @@ package dev.vfyjxf.taffy.tree;
 /**
  * Stores the number of tracks in a given dimension.
  * Stores separately the number of tracks in the implicit and explicit grids.
- * 
+ * <p>
  * Taffy uses two coordinate systems to refer to grid lines (the gaps/gutters between rows/columns):
- * 
+ * <p>
  * "CSS Grid Line" coordinates are those used in grid-row/grid-column in the CSS grid spec:
  *   - 0 is not a valid index
  *   - The line at left hand (or top) edge of the explicit grid is line 1
  *     (and counts up from there)
  *   - The line at the right hand (or bottom) edge of the explicit grid in -1
  *     (and counts down from there)
- * 
+ * <p>
  * "OriginZero" coordinates are a normalized form:
  *   - The line at left hand (or top) edge of the explicit grid is line 0
  *   - The next line to the right (or down) is 1, and so on

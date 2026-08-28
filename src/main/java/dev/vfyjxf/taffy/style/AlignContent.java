@@ -82,7 +82,6 @@ public enum AlignContent {
             case SPACE_BETWEEN -> AlignContentKeyword.SPACE_BETWEEN;
             case SPACE_EVENLY -> AlignContentKeyword.SPACE_EVENLY;
             case SPACE_AROUND -> AlignContentKeyword.SPACE_AROUND;
-            default -> throw new IllegalStateException("Unexpected align-content value: " + this);
         };
     }
 

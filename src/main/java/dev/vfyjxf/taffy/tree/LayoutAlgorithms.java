@@ -133,6 +133,12 @@ public class LayoutAlgorithms {
         return new LayoutComputer(tree, null).computeHiddenLayout(node);
     }
 
+    /** Computes hidden layout while requiring the tree to provide cache storage. */
+    public static <T extends LayoutPartialTree & CacheTree> LayoutOutput computeHiddenLayoutWithCache(T tree, NodeId node) {
+        if (tree == null) throw new IllegalArgumentException("tree must not be null");
+        return new LayoutComputer(tree, null).computeHiddenLayout(node);
+    }
+
     public static LayoutOutput computeLeafLayout(LayoutPartialTree tree, NodeId node, LayoutInput inputs) {
         return new LayoutComputer(tree, null).computeLeafLayout(node, inputs, tree.getStyle(node));
     }

@@ -30,7 +30,6 @@ public enum RequestedAxis {
             case HORIZONTAL -> AbsoluteAxis.HORIZONTAL;
             case VERTICAL -> AbsoluteAxis.VERTICAL;
             case BOTH -> null;
-            default -> throw new IllegalStateException("Unexpected: " + this);
         };
     }
 }

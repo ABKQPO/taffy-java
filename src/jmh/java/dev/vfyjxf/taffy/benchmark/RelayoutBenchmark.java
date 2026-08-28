@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Measures cache-hit relayout cost (computeLayout on an already-laid-out, non-dirty tree).
- *
+ * <p>
  * Motivation: many real workloads call layout repeatedly without changing styles.
  */
 @BenchmarkMode(Mode.AverageTime)

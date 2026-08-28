@@ -2,7 +2,7 @@ package dev.vfyjxf.taffy.style;
 
 /**
  * Specifies whether size styles for this node are assigned to the node's "content box" or "border box".
- * 
+ * <p>
  * - The "content box" is the node's inner size excluding padding, border and margin
  * - The "border box" is the node's outer size including padding and border (but still excluding margin)
  * 

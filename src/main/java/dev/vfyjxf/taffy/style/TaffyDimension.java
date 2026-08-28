@@ -186,7 +186,6 @@ public class TaffyDimension {
             case LENGTH -> length(lp.getValue());
             case PERCENT -> percent(lp.getValue());
             case CALC -> calc(lp.getCalcExpression());
-            default -> throw new IllegalStateException("Unexpected: " + lp.getType());
         };
     }
 
@@ -203,7 +202,6 @@ public class TaffyDimension {
             case MAX_CONTENT -> MAX_CONTENT;
             case FIT_CONTENT -> lpa.getFitContentLimit() == null ? FIT_CONTENT : fitContent(lpa.getFitContentLimit());
             case STRETCH -> STRETCH;
-            default -> throw new IllegalStateException("Unexpected: " + lpa.getType());
         };
     }
 
@@ -270,7 +268,6 @@ public class TaffyDimension {
             case FIT_CONTENT -> ExpandedDimension.fitContent(fitContentLimit);
             case STRETCH -> ExpandedDimension.stretch();
             case CONTENT -> ExpandedDimension.content();
-            default -> throw new IllegalStateException("Unexpected dimension type: " + type);
         };
     }
     
@@ -345,7 +342,6 @@ public class TaffyDimension {
             case AUTO, MIN_CONTENT, MAX_CONTENT, FIT_CONTENT, STRETCH, CONTENT -> Float.NaN;
             case CALC ->
                     Float.isNaN(context) ? Float.NaN : (calcExpression != null ? calcExpression.resolve(context) : 0f);
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 
@@ -406,7 +402,6 @@ public class TaffyDimension {
             case FIT_CONTENT -> fitContentLimit == null ? "fit-content" : "fit-content(" + fitContentLimit + ")";
             case STRETCH -> "stretch";
             case CONTENT -> "content";
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 }

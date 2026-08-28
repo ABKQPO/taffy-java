@@ -82,7 +82,6 @@ public enum FlexWrap {
             case WRAP_REVERSE -> "wrap-reverse";
             case BALANCE -> "wrap balance";
             case BALANCE_REVERSE -> "wrap-reverse balance";
-            default -> throw new IllegalStateException("Unexpected flex-wrap mode: " + this);
         };
     }
 }

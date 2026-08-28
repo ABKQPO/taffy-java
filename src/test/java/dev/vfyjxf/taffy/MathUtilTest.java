@@ -24,9 +24,9 @@ public class MathUtilTest {
         void testMaybeMin() {
             assertEquals(3.0f, MaybeMath.maybeMin(3.0f, 5.0f), EPSILON);
             assertEquals(3.0f, MaybeMath.maybeMin(5.0f, 3.0f), EPSILON);
-            assertEquals(3.0f, MaybeMath.maybeMin(3.0f, (Float) null), EPSILON);
-            assertNull(MaybeMath.maybeMin((Float) null, 3.0f));
-            assertNull(MaybeMath.maybeMin((Float) null, (Float) null));
+            assertEquals(3.0f, MaybeMath.maybeMin(3.0f, null), EPSILON);
+            assertNull(MaybeMath.maybeMin(null, 3.0f));
+            assertNull(MaybeMath.maybeMin(null, null));
         }
 
         @Test
@@ -34,9 +34,9 @@ public class MathUtilTest {
         void testMaybeMax() {
             assertEquals(5.0f, MaybeMath.maybeMax(3.0f, 5.0f), EPSILON);
             assertEquals(5.0f, MaybeMath.maybeMax(5.0f, 3.0f), EPSILON);
-            assertEquals(3.0f, MaybeMath.maybeMax(3.0f, (Float) null), EPSILON);
-            assertNull(MaybeMath.maybeMax((Float) null, 3.0f));
-            assertNull(MaybeMath.maybeMax((Float) null, (Float) null));
+            assertEquals(3.0f, MaybeMath.maybeMax(3.0f, null), EPSILON);
+            assertNull(MaybeMath.maybeMax(null, 3.0f));
+            assertNull(MaybeMath.maybeMax(null, null));
         }
 
         @Test
@@ -44,9 +44,9 @@ public class MathUtilTest {
         void testMaybeAdd() {
             assertEquals(8.0f, MaybeMath.maybeAdd(3.0f, 5.0f), EPSILON);
             assertEquals(8.0f, MaybeMath.maybeAdd(5.0f, 3.0f), EPSILON);
-            assertEquals(3.0f, MaybeMath.maybeAdd(3.0f, (Float) null), EPSILON);
-            assertNull(MaybeMath.maybeAdd((Float) null, 3.0f));
-            assertNull(MaybeMath.maybeAdd((Float) null, (Float) null));
+            assertEquals(3.0f, MaybeMath.maybeAdd(3.0f, null), EPSILON);
+            assertNull(MaybeMath.maybeAdd(null, 3.0f));
+            assertNull(MaybeMath.maybeAdd(null, null));
         }
 
         @Test
@@ -54,9 +54,9 @@ public class MathUtilTest {
         void testMaybeSub() {
             assertEquals(-2.0f, MaybeMath.maybeSub(3.0f, 5.0f), EPSILON);
             assertEquals(2.0f, MaybeMath.maybeSub(5.0f, 3.0f), EPSILON);
-            assertEquals(3.0f, MaybeMath.maybeSub(3.0f, (Float) null), EPSILON);
-            assertNull(MaybeMath.maybeSub((Float) null, 3.0f));
-            assertNull(MaybeMath.maybeSub((Float) null, (Float) null));
+            assertEquals(3.0f, MaybeMath.maybeSub(3.0f, null), EPSILON);
+            assertNull(MaybeMath.maybeSub(null, 3.0f));
+            assertNull(MaybeMath.maybeSub(null, null));
         }
     }
 

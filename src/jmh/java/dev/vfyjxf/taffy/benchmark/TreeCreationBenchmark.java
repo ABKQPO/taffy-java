@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Tree creation benchmarks - mirrors Rust taffy benches/tree_creation.rs
- *
+ * <p>
  * Benchmark groups:
  * - Tree creation: TaffyTree::new vs TaffyTree::with_capacity
  */

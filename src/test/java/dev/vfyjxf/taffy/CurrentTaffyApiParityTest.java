@@ -63,7 +63,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CurrentTaffyApiParityTest {
     @Test
@@ -305,22 +308,22 @@ public class CurrentTaffyApiParityTest {
         CompactLength fitContent = CompactLength.fitContentPx(24f);
         CompactLength stretch = CompactLength.stretch();
 
-        assertEquals(CompactLength.length(0f), CompactLength.ZERO);
-        assertEquals(true, CompactLength.fr(1f).isFr());
-        assertEquals(true, minContent.isMinOrMaxContent());
-        assertEquals(true, maxContent.isMaxOrFitContent());
-        assertEquals(true, fitContent.isMaxOrFitContent());
-        assertEquals(true, auto.isMaxContentAlike());
-        assertEquals(true, fitContent.isMaxContentAlike());
-        assertEquals(true, minContent.isIntrinsic());
-        assertEquals(true, fitContent.isIntrinsic());
-        assertEquals(true, calc.usesPercentage());
-        assertEquals(true, CompactLength.percent(0.5f).usesPercentage());
-        assertEquals(true, stretch.isSizingKeyword());
-        assertEquals(false, CompactLength.content().isSizingKeyword());
+        assertEquals(CompactLength.ZERO, CompactLength.length(0f));
+        assertTrue(CompactLength.fr(1f).isFr());
+        assertTrue(minContent.isMinOrMaxContent());
+        assertTrue(maxContent.isMaxOrFitContent());
+        assertTrue(fitContent.isMaxOrFitContent());
+        assertTrue(auto.isMaxContentAlike());
+        assertTrue(fitContent.isMaxContentAlike());
+        assertTrue(minContent.isIntrinsic());
+        assertTrue(fitContent.isIntrinsic());
+        assertTrue(calc.usesPercentage());
+        assertTrue(CompactLength.percent(0.5f).usesPercentage());
+        assertTrue(stretch.isSizingKeyword());
+        assertFalse(CompactLength.content().isSizingKeyword());
         assertEquals(50f, CompactLength.percent(0.5f).resolvedPercentageSize(100f, null), 0.001f);
         assertEquals(17f, calc.resolvedPercentageSize(100f, (expression, basis) -> 17f), 0.001f);
-        assertEquals(null, CompactLength.length(10f).resolvedPercentageSize(100f, null));
+        assertNull(CompactLength.length(10f).resolvedPercentageSize(100f, null));
     }
 
     @Test

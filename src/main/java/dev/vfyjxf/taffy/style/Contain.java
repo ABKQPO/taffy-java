@@ -12,10 +12,14 @@ public class Contain {
     public static final Contain LAYOUT = new Contain(1);
     public static final Contain PAINT = new Contain(2);
     public static final Contain CONTENT = new Contain(3);
+    public static final Contain DEFAULT = NONE;
 
     private final int flags;
 
     public Contain(int flags) {
+        if (flags < 0 || flags > 3) {
+            throw new IllegalArgumentException("Contain flags must be a combination of layout and paint");
+        }
         this.flags = flags;
     }
 
@@ -89,7 +93,7 @@ public class Contain {
     }
 
     public boolean establishesIndependentFormattingContext() {
-        return (flags & CONTENT.flags) != 0;
+        return intersects(LAYOUT) || intersects(PAINT);
     }
 
     public boolean suppressesBaseline() {
@@ -97,6 +101,6 @@ public class Contain {
     }
 
     public boolean containsScrollableOverflow() {
-        return establishesIndependentFormattingContext();
+        return intersects(LAYOUT) || intersects(PAINT);
     }
 }

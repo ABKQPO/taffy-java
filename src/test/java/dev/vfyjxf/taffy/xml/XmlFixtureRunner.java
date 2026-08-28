@@ -9,7 +9,6 @@ import dev.vfyjxf.taffy.style.AvailableSpace;
 import dev.vfyjxf.taffy.style.CssParser;
 import dev.vfyjxf.taffy.style.LengthPercentage;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
-import dev.vfyjxf.taffy.style.GridPlacement;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.tree.Layout;
@@ -34,6 +33,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Runs an upstream Taffy XML fixture against the Java layout tree. */
 public class XmlFixtureRunner {
@@ -147,13 +147,11 @@ public class XmlFixtureRunner {
         DetailedLayoutInfo detailedLayout = tree.getDetailedLayoutInfo(node);
         if (expected.hasAttribute("resolved-rows")) {
             String actualRows = detailedLayout.grid().gridTemplateRows();
-            assertEquals(true, trackListsMatch(expected.getAttribute("resolved-rows"), actualRows),
-                fixtureName + " resolved rows: expected " + expected.getAttribute("resolved-rows") + ", actual " + actualRows);
+            assertTrue(trackListsMatch(expected.getAttribute("resolved-rows"), actualRows), fixtureName + " resolved rows: expected " + expected.getAttribute("resolved-rows") + ", actual " + actualRows);
         }
         if (expected.hasAttribute("resolved-columns")) {
             String actualColumns = detailedLayout.grid().gridTemplateColumns();
-            assertEquals(true, trackListsMatch(expected.getAttribute("resolved-columns"), actualColumns),
-                fixtureName + " resolved columns: expected " + expected.getAttribute("resolved-columns") + ", actual " + actualColumns);
+            assertTrue(trackListsMatch(expected.getAttribute("resolved-columns"), actualColumns), fixtureName + " resolved columns: expected " + expected.getAttribute("resolved-columns") + ", actual " + actualColumns);
         }
         List<Element> expectedChildren = children(expected);
         List<NodeId> childIds = tree.getChildren(node);

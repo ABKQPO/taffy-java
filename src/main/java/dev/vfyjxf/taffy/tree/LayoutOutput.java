@@ -154,6 +154,30 @@ public record LayoutOutput(
         );
     }
 
+    /** Rust-compatible constructor using size, overflow rectangle, and baselines. */
+    public static LayoutOutput fromSizesAndBaselines(
+        FloatSize size,
+        FloatRect scrollableOverflowRect,
+        Baselines baselines
+    ) {
+        Baselines safeBaselines = baselines == null ? Baselines.NONE : baselines;
+        return new LayoutOutput(
+            size,
+            size,
+            new FloatPoint(Float.NaN, safeBaselines.first()),
+            CollapsibleMarginSet.ZERO,
+            CollapsibleMarginSet.ZERO,
+            false,
+            scrollableOverflowRect == null ? FloatRect.zero() : scrollableOverflowRect,
+            safeBaselines
+        );
+    }
+
+    /** Rust-compatible constructor using size and scrollable overflow rectangle. */
+    public static LayoutOutput fromSizesWithOverflow(FloatSize size, FloatRect scrollableOverflowRect) {
+        return fromSizesAndBaselines(size, scrollableOverflowRect, Baselines.NONE);
+    }
+
     /**
      * Construct a LayoutOutput from container and content sizes.
      */

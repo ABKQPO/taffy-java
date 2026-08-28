@@ -541,7 +541,7 @@ public class TaffyStyle implements CoreStyle, FlexboxContainerStyle, FlexboxItem
      * Returns true if this is block layout
      */
     public boolean isBlock() {
-        return display == TaffyDisplay.BLOCK || display == TaffyDisplay.FLOW_ROOT;
+        return display == TaffyDisplay.BLOCK;
     }
 
 
@@ -562,6 +562,8 @@ public class TaffyStyle implements CoreStyle, FlexboxContainerStyle, FlexboxItem
     public TaffyFloat getFloatMode() {return floatMode;}
 
     public Clear getClear() {return clear;}
+
+    public Contain getContain() {return contain;}
 
     public TaffyPosition getPosition() {return position;}
 

@@ -66,7 +66,6 @@ public class ExpandedDimension {
                     : TaffyDimension.fitContent(fitContentLimit);
             case STRETCH -> TaffyDimension.STRETCH;
             case CONTENT -> TaffyDimension.CONTENT;
-            default -> throw new IllegalStateException("Unexpected expanded dimension type: " + type);
         };
     }
 

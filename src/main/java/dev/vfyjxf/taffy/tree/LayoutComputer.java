@@ -852,7 +852,6 @@ public class LayoutComputer {
         return new FloatSize(width, height);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private FloatSize measure(
         MeasureFunc measureFunc,
         FloatSize knownDimensions,
@@ -860,7 +859,7 @@ public class LayoutComputer {
         NodeId node,
         TaffyStyle style) {
         if (contextMeasureFunc != null) {
-            return ((NodeMeasureFunc) contextMeasureFunc).measure(
+            return contextMeasureFunc.measure(
                 knownDimensions,
                 availableSpace,
                 node,
@@ -871,9 +870,8 @@ public class LayoutComputer {
         return measureFunc.measure(knownDimensions, availableSpace);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private LayoutOutput measureLayout(LayoutInput input, NodeId node, TaffyStyle style) {
-        LayoutOutput output = ((NodeLayoutMeasureFunc) layoutMeasureFunc).measure(
+        LayoutOutput output = layoutMeasureFunc.measure(
             input,
             node,
             tree.getNodeContext(node),

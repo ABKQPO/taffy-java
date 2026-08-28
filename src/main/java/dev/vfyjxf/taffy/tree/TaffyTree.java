@@ -16,6 +16,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.*;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 /**
  * An entire tree of UI nodes. The entry point to Taffy's high-level API.
@@ -67,6 +68,12 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         this.nodeContexts = new Long2ObjectOpenHashMap<>(capacity);
         this.children = new Long2ObjectOpenHashMap<>(capacity);
         this.parents = new Long2ObjectOpenHashMap<>(capacity);
+    }
+
+    /** Creates a tree with the requested initial storage capacity. */
+    public static TaffyTree withCapacity(int capacity) {
+        if (capacity < 0) throw new IllegalArgumentException("capacity must not be negative");
+        return new TaffyTree(capacity);
     }
 
 
@@ -135,6 +142,7 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
      * Creates and adds a new unattached leaf node with a measure function.
      */
     public NodeId newLeafWithMeasure(TaffyStyle style, MeasureFunc measureFunc) {
+        if (measureFunc == null) return newLeaf(style);
         long id = nodeIdCounter.getAndIncrement();
         NodeId nodeId = new NodeId(id);
         
@@ -174,13 +182,29 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
      * Creates and adds a new node with children.
      */
     public NodeId newWithChildren(TaffyStyle style, NodeId... childNodes) {
+        if (childNodes == null) throw new IllegalArgumentException("childNodes must not be null");
+        Set<NodeId> uniqueChildren = new HashSet<>();
+        for (NodeId child : childNodes) {
+            if (child == null || !nodes.containsKey(child.getId())) {
+                throw TaffyException.invalidChildNode(child);
+            }
+            if (!uniqueChildren.add(child)) {
+                throw new IllegalArgumentException("A node cannot appear more than once in a child list");
+            }
+        }
         long id = nodeIdCounter.getAndIncrement();
         NodeId nodeId = new NodeId(id);
-        
+
         nodes.put(id, new NodeData(style));
-        
+
         List<NodeId> childList = new ArrayList<>(childNodes.length);
         for (NodeId child : childNodes) {
+            NodeId previousParent = parents.get(child.getId());
+            if (previousParent != null) {
+                List<NodeId> previousChildren = children.get(previousParent.getId());
+                if (previousChildren != null) previousChildren.remove(child);
+                markDirty(previousParent);
+            }
             parents.put(child.getId(), nodeId);
             childList.add(child);
         }
@@ -251,6 +275,13 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         nodeContexts.remove(key);
     }
 
+    /** Removes a node and returns its identifier. */
+    public NodeId removeNode(NodeId node) {
+        if (!nodes.containsKey(node.getId())) throw TaffyException.invalidInputNode(node);
+        remove(node);
+        return node;
+    }
+
 
     /**
      * Sets the measure function for a node.
@@ -293,12 +324,63 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         markDirty(node);
     }
 
+    /** Stores a typed context value for a node. */
+    public <C> void setNodeContext(NodeId node, C context, Class<C> type) {
+        if (type == null) throw new IllegalArgumentException("type must not be null");
+        if (context != null && !type.isInstance(context)) {
+            throw new IllegalArgumentException("Context does not match requested type");
+        }
+        setNodeContext(node, context);
+    }
+
     /** Returns the arbitrary user context stored for a node, or null when none is set. */
     @Override
     @SuppressWarnings("unchecked")
     public <C> C getNodeContext(NodeId node) {
         if (!nodes.containsKey(node.getId())) throw TaffyException.invalidInputNode(node);
         return (C) nodeContexts.get(node.getId());
+    }
+
+    /** Returns a typed context value, failing when the stored value has another type. */
+    public <C> C getNodeContext(NodeId node, Class<C> type) {
+        if (type == null) throw new IllegalArgumentException("type must not be null");
+        Object context = getNodeContext(node);
+        return context == null ? null : type.cast(context);
+    }
+
+    /** Returns a typed context value or throws when no value is stored. */
+    public <C> C getNodeContextOrThrow(NodeId node, Class<C> type) {
+        C context = getNodeContext(node, type);
+        if (context == null) throw new IllegalStateException("Node has no context: " + node);
+        return context;
+    }
+
+    /** Updates a typed node context and returns the updated value. */
+    public <C> C updateNodeContext(NodeId node, Class<C> type, UnaryOperator<C> update) {
+        if (type == null || update == null) throw new IllegalArgumentException("Arguments must not be null");
+        C current = getNodeContext(node, type);
+        C next = update.apply(current);
+        setNodeContext(node, next, type);
+        return next;
+    }
+
+    /** Returns multiple typed contexts for disjoint node access. */
+    public <C> Map<NodeId, C> getDisjointNodeContexts(List<NodeId> requested, Class<C> type) {
+        if (requested == null || type == null) throw new IllegalArgumentException("Arguments must not be null");
+        Map<NodeId, C> result = new LinkedHashMap<>();
+        for (NodeId node : requested) {
+            if (node == null || !nodes.containsKey(node.getId()) || result.containsKey(node)) return null;
+            C context = getNodeContext(node, type);
+            if (context == null) return null;
+            result.put(node, context);
+        }
+        return Collections.unmodifiableMap(result);
+    }
+
+    /** Rust-compatible naming for disjoint typed context access. */
+    public <C> Map<NodeId, C> getDisjointNodeContextMut(Class<C> type, NodeId... requested) {
+        if (requested == null) throw new IllegalArgumentException("requested must not be null");
+        return getDisjointNodeContexts(Arrays.asList(requested), type);
     }
 
 
@@ -331,6 +413,9 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         if (parentChildren == null) {
             throw TaffyException.invalidParentNode(parent);
         }
+        if (!nodes.containsKey(child.getId())) {
+            throw TaffyException.invalidChildNode(child);
+        }
         
         int childCount = parentChildren.size();
         if (childIndex > childCount) {
@@ -360,6 +445,9 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         
         // Set new children
         for (NodeId child : newChildren) {
+            if (!nodes.containsKey(child.getId())) {
+                throw TaffyException.invalidChildNode(child);
+            }
             // Remove from previous parent if any
             NodeId previousParent = parents.get(child.getId());
             if (previousParent != null) {
@@ -393,6 +481,15 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         if (index >= 0) {
             removeChildAtIndex(parent, index);
         }
+    }
+
+    /** Removes a child and returns the detached identifier. */
+    public NodeId removeChildChecked(NodeId parent, NodeId child) {
+        List<NodeId> parentChildren = children.get(parent.getId());
+        if (parentChildren == null) throw TaffyException.invalidParentNode(parent);
+        if (!parentChildren.contains(child)) throw TaffyException.invalidChildNode(child);
+        removeChild(parent, child);
+        return child;
     }
 
     /**
@@ -438,9 +535,34 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         markDirty(parent);
     }
 
+    /** Removes children in an inclusive-exclusive range and returns detached identifiers. */
+    public List<NodeId> removeChildrenRangeChecked(NodeId parent, int fromIndex, int toIndex) {
+        List<NodeId> parentChildren = children.get(parent.getId());
+        if (parentChildren == null) throw TaffyException.invalidParentNode(parent);
+        if (fromIndex < 0 || toIndex < fromIndex || toIndex > parentChildren.size()) {
+            throw TaffyException.childIndexOutOfBounds(parent, toIndex, parentChildren.size());
+        }
+        List<NodeId> removed = new ArrayList<>(parentChildren.subList(fromIndex, toIndex));
+        removeChildrenRange(parent, fromIndex, toIndex);
+        return removed;
+    }
+
     /** Removes all children from the supplied index through the end. */
     public void removeChildrenRange(NodeId parent, int fromIndex) {
         removeChildrenRange(parent, fromIndex, childCount(parent));
+    }
+
+    /** Removes children using a Rust-style open-ended range. */
+    public void removeChildrenRange(NodeId parent, ChildRange range) {
+        if (range == null) throw new IllegalArgumentException("range must not be null");
+        removeChildrenRange(parent, range.start(), Math.min(range.end(), childCount(parent)));
+    }
+
+    /** Removes children using a range and returns the detached identifiers. */
+    public List<NodeId> removeChildrenRangeChecked(NodeId parent, ChildRange range) {
+        if (range == null) throw new IllegalArgumentException("range must not be null");
+        int end = Math.min(range.end(), childCount(parent));
+        return removeChildrenRangeChecked(parent, range.start(), end);
     }
 
     /**
@@ -472,6 +594,9 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         if (parentChildren == null) {
             throw TaffyException.invalidParentNode(parent);
         }
+        if (!nodes.containsKey(newChild.getId())) {
+            throw TaffyException.invalidChildNode(newChild);
+        }
         
         int childCount = parentChildren.size();
         if (childIndex >= childCount) {
@@ -500,7 +625,15 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
      */
     public List<NodeId> getChildren(NodeId parent) {
         List<NodeId> parentChildren = children.get(parent.getId());
-        return parentChildren != null ? parentChildren : Collections.emptyList();
+        return parentChildren == null
+            ? Collections.emptyList()
+            : List.copyOf(parentChildren);
+    }
+
+    /** Rust-compatible alias for retrieving a node's children. */
+    public List<NodeId> children(NodeId parent) {
+        if (!nodes.containsKey(parent.getId())) throw TaffyException.invalidParentNode(parent);
+        return List.copyOf(getChildren(parent));
     }
 
     /**
@@ -523,6 +656,12 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
      */
     public NodeId getParent(NodeId child) {
         return parents.get(child.getId());
+    }
+
+    /** Rust-compatible alias for retrieving a node parent. */
+    public NodeId parent(NodeId child) {
+        if (!nodes.containsKey(child.getId())) throw TaffyException.invalidInputNode(child);
+        return getParent(child);
     }
 
 
@@ -549,6 +688,11 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         return data.getStyle();
     }
 
+    /** Rust-compatible alias for retrieving a node style. */
+    public TaffyStyle style(NodeId node) {
+        return getStyle(node);
+    }
+
     /** Restores a typed generic style view with the caller's custom identifier codec. */
     public <S> Style<S> getStyle(NodeId node, CustomIdentCodec<S> identifierCodec) {
         return Style.fromTaffyStyle(getStyle(node), identifierCodec);
@@ -571,12 +715,31 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
         return useRounding ? data.getFinalLayout() : data.getUnroundedLayout();
     }
 
+    /** Returns a layout or throws when the node is not present. */
+    public Layout getLayoutChecked(NodeId node) {
+        Layout layout = getLayout(node);
+        if (layout == null) throw TaffyException.invalidInputNode(node);
+        return layout;
+    }
+
+    /** Rust-compatible strict layout accessor. */
+    public Layout layout(NodeId node) {
+        return getLayoutChecked(node);
+    }
+
     /**
      * Returns the unrounded layout of a node.
      */
     public Layout getUnroundedLayout(NodeId node) {
         NodeData data = nodes.get(node.getId());
         return data != null ? data.getUnroundedLayout() : null;
+    }
+
+    /** Rust-compatible strict access to unrounded layout. */
+    public Layout unroundedLayout(NodeId node) {
+        Layout layout = getUnroundedLayout(node);
+        if (layout == null) throw TaffyException.invalidInputNode(node);
+        return layout;
     }
 
     /** Returns algorithm-specific detail data for a node. */
@@ -835,6 +998,12 @@ public class TaffyTree implements LayoutFlexboxContainer, LayoutGridContainer, L
     public boolean isDirty(NodeId node) {
         NodeData data = nodes.get(node.getId());
         return data == null || data.getCache().isEmpty();
+    }
+
+    /** Rust-compatible alias for querying whether a node is dirty. */
+    public boolean dirty(NodeId node) {
+        if (!nodes.containsKey(node.getId())) throw TaffyException.invalidInputNode(node);
+        return isDirty(node);
     }
 
 

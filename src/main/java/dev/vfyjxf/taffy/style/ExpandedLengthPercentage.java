@@ -37,7 +37,6 @@ public class ExpandedLengthPercentage {
             case LENGTH -> LengthPercentage.length(value);
             case PERCENT -> LengthPercentage.percent(value);
             case CALC -> LengthPercentage.calc(calcExpression);
-            default -> throw new IllegalStateException("Unexpected expanded length type: " + type);
         };
     }
 

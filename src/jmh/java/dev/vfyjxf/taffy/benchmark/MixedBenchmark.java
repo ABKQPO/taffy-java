@@ -23,7 +23,7 @@ import static java.lang.Float.NaN;
 
 /**
  * Mixed grid+flex benchmarks - mirrors Rust taffy benches/mixed.rs.
- *
+ * <p>
  * Rust uses cosmic_text to measure lorem ipsum text via a measure function.
  * Java port uses a deterministic, allocation-free word-wrapping measure function to approximate text measurement cost.
  */
@@ -70,7 +70,7 @@ public class MixedBenchmark {
     @Benchmark
     public void mixedFlexGrid(MixedState state, Blackhole bh) {
         // Rust uses Size::MAX_CONTENT
-        state.tree.computeLayoutWithMeasure(state.root, TaffySize.maxContent(), null);
+        state.tree.computeLayoutWithMeasure(state.root, TaffySize.maxContent(), (MeasureFunc) null);
         bh.consume(state.tree.getLayout(state.root));
     }
 
@@ -220,8 +220,7 @@ public class MixedBenchmark {
                 float line = 0f;
                 int lineCount = 1;
 
-                for (int i = 0; i < wordWidths.length; i++) {
-                    float w = wordWidths[i];
+                for (float w : wordWidths) {
                     float add = (line == 0f) ? w : (SPACE_WIDTH + w);
                     if (line != 0f && (line + add) > widthConstraint) {
                         // new line

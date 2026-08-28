@@ -42,4 +42,33 @@ public class StyleHelpers {
     public static TrackSizingFunction fr(float fraction) {
         return TrackSizingFunction.fr(fraction);
     }
+
+    public static TaffyDimension length(float value) {
+        return TaffyDimension.length(value);
+    }
+
+    public static TaffyDimension percent(float value) {
+        return TaffyDimension.percent(value);
+    }
+
+    public static TaffyDimension zero() {
+        return TaffyDimension.ZERO;
+    }
+
+    public static TaffyDimension auto() {
+        return TaffyDimension.AUTO;
+    }
+
+    public static TaffyDimension minContent() {
+        return TaffyDimension.MIN_CONTENT;
+    }
+
+    public static TaffyDimension maxContent() {
+        return TaffyDimension.MAX_CONTENT;
+    }
+
+    public static TaffyDimension fitContent(LengthPercentage argument) {
+        if (argument == null) throw new IllegalArgumentException("argument must not be null");
+        return TaffyDimension.fitContent(argument);
+    }
 }

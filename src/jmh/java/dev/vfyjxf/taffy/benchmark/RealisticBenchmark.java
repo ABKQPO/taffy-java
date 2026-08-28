@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Realistic UI scenario benchmarks - simulating real-world layouts
- * 
+ * <p> <p>
  * Scenarios:
  * 1. Web page layout: header + sidebar + main content + footer
  * 2. Virtual list: scrollable list with many items (like RecyclerView)
@@ -220,7 +220,7 @@ public class RealisticBenchmark {
         state.tree.computeLayoutWithMeasure(state.root, TaffySize.of(
             AvailableSpace.definite(375f),
             AvailableSpace.maxContent()
-        ), null);
+        ), (MeasureFunc) null);
         bh.consume(state.tree.getLayout(state.root));
     }
 
@@ -253,7 +253,7 @@ public class RealisticBenchmark {
         state.tree.computeLayoutWithMeasure(state.root, TaffySize.of(
             AvailableSpace.definite(1200f),
             AvailableSpace.maxContent()
-        ), null);
+        ), (MeasureFunc) null);
         bh.consume(state.tree.getLayout(state.root));
     }
 
@@ -356,7 +356,7 @@ public class RealisticBenchmark {
         state.tree.computeLayoutWithMeasure(state.root, TaffySize.of(
             AvailableSpace.definite(375f),
             AvailableSpace.definite(812f)
-        ), null);
+        ), (MeasureFunc) null);
         bh.consume(state.tree.getLayout(state.root));
     }
 
@@ -383,7 +383,7 @@ public class RealisticBenchmark {
             navItems[i] = tree.newLeaf(createBoxStyle(80f, 40f));
         }
         NodeId nav = tree.newWithChildren(createFlexRowStyle(), navItems);
-        NodeId header = tree.newWithChildren(headerStyle, new NodeId[]{logo, nav});
+        NodeId header = tree.newWithChildren(headerStyle, logo, nav);
 
         // Body: sidebar + main
         TaffyStyle bodyStyle = new TaffyStyle();
@@ -420,7 +420,7 @@ public class RealisticBenchmark {
         }
         NodeId main = tree.newWithChildren(mainStyle, sections);
 
-        NodeId body = tree.newWithChildren(bodyStyle, new NodeId[]{sidebar, main});
+        NodeId body = tree.newWithChildren(bodyStyle, sidebar, main);
 
         // Footer
         TaffyStyle footerStyle = new TaffyStyle();
@@ -436,7 +436,7 @@ public class RealisticBenchmark {
         }
         NodeId footer = tree.newWithChildren(footerStyle, footerCols);
 
-        return tree.newWithChildren(rootStyle, new NodeId[]{header, body, footer});
+        return tree.newWithChildren(rootStyle, header, body, footer);
     }
 
     private static NodeId buildContentSection(TaffyTree tree, Random rng) {
@@ -504,11 +504,11 @@ public class RealisticBenchmark {
 
         NodeId title = tree.newLeaf(createBoxStyle(Float.NaN, 20f));
         NodeId subtitle = tree.newLeaf(createBoxStyle(Float.NaN, 16f));
-        NodeId content = tree.newWithChildren(contentStyle, new NodeId[]{title, subtitle});
+        NodeId content = tree.newWithChildren(contentStyle, title, subtitle);
 
         NodeId action = tree.newLeaf(createBoxStyle(40f, 40f));
 
-        return tree.newWithChildren(itemStyle, new NodeId[]{avatar, content, action});
+        return tree.newWithChildren(itemStyle, avatar, content, action);
     }
 
     private static NodeId buildDashboard(TaffyTree tree, int cardCount) {
@@ -555,7 +555,7 @@ public class RealisticBenchmark {
         NodeId content = tree.newLeaf(createBoxStyle(Float.NaN, 80f + rng.nextFloat() * 120f));
         NodeId footer = tree.newLeaf(createBoxStyle(Float.NaN, 32f));
 
-        return tree.newWithChildren(cardStyle, new NodeId[]{header, content, footer});
+        return tree.newWithChildren(cardStyle, header, content, footer);
     }
 
     private static NodeId buildForm(TaffyTree tree, int fieldCount) {
@@ -586,10 +586,10 @@ public class RealisticBenchmark {
 
         if (rng.nextFloat() < 0.3f) {
             NodeId helpText = tree.newLeaf(createBoxStyle(Float.NaN, 16f));
-            return tree.newWithChildren(fieldStyle, new NodeId[]{label, input, helpText});
+            return tree.newWithChildren(fieldStyle, label, input, helpText);
         }
 
-        return tree.newWithChildren(fieldStyle, new NodeId[]{label, input});
+        return tree.newWithChildren(fieldStyle, label, input);
     }
 
     private static NodeId buildNestedCards(TaffyTree tree, int depth, int cardsPerLevel) {
@@ -617,7 +617,7 @@ public class RealisticBenchmark {
         }
         NodeId content = tree.newWithChildren(contentStyle, children);
 
-        return tree.newWithChildren(cardStyle, new NodeId[]{header, content});
+        return tree.newWithChildren(cardStyle, header, content);
     }
 
     private static NodeId buildChatUI(TaffyTree tree, int messageCount, MeasureFunc measureFunc) {
@@ -662,8 +662,8 @@ public class RealisticBenchmark {
         // Timestamp
         NodeId timestamp = tree.newLeaf(createBoxStyle(60f, 14f));
 
-        NodeId bubble = tree.newWithChildren(bubbleStyle, new NodeId[]{text, timestamp});
-        return tree.newWithChildren(messageStyle, new NodeId[]{bubble});
+        NodeId bubble = tree.newWithChildren(bubbleStyle, text, timestamp);
+        return tree.newWithChildren(messageStyle, bubble);
     }
 
     private static NodeId buildEcommerceGrid(TaffyTree tree, int productCount, MeasureFunc measureFunc) {
@@ -711,14 +711,14 @@ public class RealisticBenchmark {
         priceRowStyle.justifyContent = AlignContent.SPACE_BETWEEN;
         NodeId price = tree.newLeaf(createBoxStyle(80f, 24f));
         NodeId rating = tree.newLeaf(createBoxStyle(60f, 20f));
-        NodeId priceRow = tree.newWithChildren(priceRowStyle, new NodeId[]{price, rating});
+        NodeId priceRow = tree.newWithChildren(priceRowStyle, price, rating);
 
         // Add to cart button
         NodeId button = tree.newLeaf(createBoxStyle(Float.NaN, 40f));
 
-        NodeId content = tree.newWithChildren(contentStyle, new NodeId[]{title, priceRow, button});
+        NodeId content = tree.newWithChildren(contentStyle, title, priceRow, button);
 
-        return tree.newWithChildren(cardStyle, new NodeId[]{image, content});
+        return tree.newWithChildren(cardStyle, image, content);
     }
 
     private static NodeId buildResponsiveLayout(TaffyTree tree, int componentCount) {
@@ -810,7 +810,7 @@ public class RealisticBenchmark {
         NodeId backBtn = tree.newLeaf(createBoxStyle(24f, 24f));
         NodeId title = tree.newLeaf(createBoxStyle(Float.NaN, 24f));
         NodeId menuBtn = tree.newLeaf(createBoxStyle(24f, 24f));
-        NodeId navBar = tree.newWithChildren(navStyle, new NodeId[]{backBtn, title, menuBtn});
+        NodeId navBar = tree.newWithChildren(navStyle, backBtn, title, menuBtn);
 
         // Content area
         TaffyStyle contentStyle = new TaffyStyle();
@@ -847,7 +847,7 @@ public class RealisticBenchmark {
         }
         NodeId tabBar = tree.newWithChildren(tabBarStyle, tabs);
 
-        return tree.newWithChildren(appStyle, new NodeId[]{navBar, content, tabBar});
+        return tree.newWithChildren(appStyle, navBar, content, tabBar);
     }
 
     private static NodeId buildMobileContentItem(TaffyTree tree, Random rng, MeasureFunc measureFunc) {
@@ -864,9 +864,9 @@ public class RealisticBenchmark {
         footerStyle.justifyContent = AlignContent.SPACE_BETWEEN;
         NodeId likes = tree.newLeaf(createBoxStyle(60f, 20f));
         NodeId share = tree.newLeaf(createBoxStyle(60f, 20f));
-        NodeId footer = tree.newWithChildren(footerStyle, new NodeId[]{likes, share});
+        NodeId footer = tree.newWithChildren(footerStyle, likes, share);
 
-        return tree.newWithChildren(itemStyle, new NodeId[]{header, body, footer});
+        return tree.newWithChildren(itemStyle, header, body, footer);
     }
 
     // Helper methods

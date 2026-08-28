@@ -1,6 +1,5 @@
 package dev.vfyjxf.taffy.tree;
 
-import dev.vfyjxf.taffy.style.TaffyStyle;
 import dev.vfyjxf.taffy.style.GridContainerStyle;
 import dev.vfyjxf.taffy.style.GridItemStyle;
 

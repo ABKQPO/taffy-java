@@ -77,7 +77,6 @@ public enum AlignItems {
             case CENTER, SAFE_CENTER -> AlignItemsKeyword.CENTER;
             case BASELINE -> AlignItemsKeyword.BASELINE;
             case STRETCH, AUTO -> AlignItemsKeyword.STRETCH;
-            default -> throw new IllegalStateException("Unexpected align-items value: " + this);
         };
     }
 

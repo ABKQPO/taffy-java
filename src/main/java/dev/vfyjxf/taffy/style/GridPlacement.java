@@ -220,7 +220,6 @@ public class GridPlacement {
             case NAMED_LINE -> nthIndex == 1 ? lineName : lineName + " " + nthIndex;
             case SPAN -> "span " + value;
             case NAMED_SPAN -> "span " + lineName + " " + value;
-            default -> throw new IllegalStateException("Unexpected: " + type);
         };
     }
 }

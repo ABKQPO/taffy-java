@@ -2,15 +2,15 @@ package dev.vfyjxf.taffy.style;
 
 /**
  * The CSS direction property defines the text direction and inline base direction.
- * 
+ * <p>
  * Per CSS spec (https://www.w3.org/TR/css-writing-modes-3/#direction):
  * - Initial value: ltr
  * - Inherited: yes
- * 
+ * <p>
  * This means:
  * - Child elements inherit direction from their parent by default
  * - Root elements use the initial value (LTR) if not explicitly set
- * 
+ * <p>
  * In RTL (right-to-left) mode:
  * - For flexbox with row direction: items are laid out from right to left
  * - For grid: the inline axis starts from the right
